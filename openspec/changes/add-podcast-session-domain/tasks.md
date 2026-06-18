@@ -5,8 +5,8 @@
 
 ## 2. Domain Model Definition
 
-- [ ] 2.1 Add podcast session status, recording segment status, summary status, and domain entities in `app/src/main/java/com/example/blogrecording/data/Models.kt`; verify with model/state unit tests.
-- [ ] 2.2 Add pure state transition helpers for create/start/pause/resume/finalize/processing/ready/summarizing/summarized/error/recover in the data or domain layer; verify with state machine unit tests.
+- [x] 2.1 Add podcast session status, recording segment status, summary status, and domain entities in `app/src/main/java/com/example/blogrecording/data/Models.kt`; verify with model/state unit tests.
+- [x] 2.2 Add pure state transition helpers for create/start/pause/resume/finalize/processing/ready/summarizing/summarized/error/recover in the data or domain layer; verify with state machine unit tests.
 
 ## 3. Repository API Definition
 

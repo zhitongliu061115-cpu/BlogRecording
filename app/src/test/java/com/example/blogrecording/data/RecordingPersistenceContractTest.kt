@@ -8,10 +8,13 @@ class RecordingPersistenceContractTest {
     @Test
     fun contractKeepsDatastoreAndKeyFamilies() {
         assertEquals("podcast_recap_records", RecordingPersistenceContract.DATASTORE_NAME)
+        assertEquals("schema_version", RecordingPersistenceContract.SCHEMA_VERSION_KEY)
+        assertEquals(2, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
         assertEquals("session_order", RecordingPersistenceContract.SESSION_ORDER_KEY)
         assertEquals("session_abc", RecordingPersistenceContract.sessionKey("abc"))
         assertEquals("segments_abc", RecordingPersistenceContract.segmentsKey("abc"))
         assertEquals("speakers_abc", RecordingPersistenceContract.speakersKey("abc"))
+        assertEquals("recording_segments_abc", RecordingPersistenceContract.recordingSegmentsKey("abc"))
     }
 
     @Test
@@ -37,5 +40,22 @@ class RecordingPersistenceContractTest {
         assertEquals(9, RecordingPersistenceContract.SPEAKER_PROFILE_FIELDS.size)
         assertTrue("totalSpeechDurationMs" in RecordingPersistenceContract.SPEAKER_PROFILE_FIELDS)
         assertTrue("colorIndex" in RecordingPersistenceContract.SPEAKER_PROFILE_FIELDS)
+    }
+
+    @Test
+    fun contractDefinesPodcastSessionAndRecordingSegmentJsonFields() {
+        assertEquals(21, RecordingPersistenceContract.PODCAST_SESSION_FIELDS.size)
+        assertTrue("activeSegmentId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("legacyRecordingSessionId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("summary" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+
+        assertEquals(6, RecordingPersistenceContract.SESSION_SUMMARY_FIELDS.size)
+        assertTrue("generatedAt" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
+        assertTrue("errorMessage" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
+
+        assertEquals(16, RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS.size)
+        assertTrue("transcriptSegmentIds" in RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS)
+        assertTrue("pcmFilePath" in RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS)
+        assertTrue("audioFilePath" in RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS)
     }
 }

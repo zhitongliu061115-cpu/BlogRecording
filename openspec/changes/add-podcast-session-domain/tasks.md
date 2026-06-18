@@ -15,8 +15,8 @@
 
 ## 4. DataStore Schema, Version, And Migration
 
-- [ ] 4.1 Extend `RecordingPersistenceContract.kt` with new schema/version and recording-segment contract fields while preserving existing key families; verify with contract tests.
-- [ ] 4.2 Implement JSON encode/decode for new podcast session and recording segment metadata in the repository layer; verify with round-trip unit tests.
+- [x] 4.1 Extend `RecordingPersistenceContract.kt` with new schema/version and recording-segment contract fields while preserving existing key families; verify with contract tests.
+- [x] 4.2 Implement JSON encode/decode for new podcast session and recording segment metadata in the repository layer; verify with round-trip unit tests.
 - [ ] 4.3 Implement process-restart recovery for active podcast sessions and incomplete recording segments; verify with recovery unit tests.
 
 ## 5. Backward Compatibility

@@ -25,9 +25,11 @@
 
 ## 5. Verification
 
-- [ ] 5.1 Run `openspec.cmd validate add-session-summary-lifecycle`.
-- [ ] 5.2 Run targeted summary, transcription aggregation, repository, and Home mapper tests.
-- [ ] 5.3 Run `.\gradlew.bat testDebugUnitTest`.
-- [ ] 5.4 Run `.\gradlew.bat :app:assembleDebug`.
-- [ ] 5.5 Run `.\gradlew.bat :app:lintDebug`.
-- [ ] 5.6 Record manual QA for missing API key, successful summary, failed summary retry, previous summary preservation, no transcript, recording blocked, and partial transcript summary.
+- [x] 5.1 Run `openspec.cmd validate add-session-summary-lifecycle`.
+- [x] 5.2 Run targeted summary, transcription aggregation, repository, and Home mapper tests.
+- [x] 5.3 Run `.\gradlew.bat testDebugUnitTest`.
+- [x] 5.4 Run `.\gradlew.bat :app:assembleDebug`.
+- [x] 5.5 Run `.\gradlew.bat :app:lintDebug`.
+- [x] 5.6 Record manual QA for missing API key, successful summary, failed summary retry, previous summary preservation, no transcript, recording blocked, and partial transcript summary.
+
+Manual QA note: no Android device or DeepSeek network credential was available in this environment, so real-device/manual flows were not executed. Covered equivalent lifecycle cases with fake repository/API-key/summary-client unit tests: missing API key does not send a request, successful summary persists, failed retry preserves previous summary, no transcript is blocked, active recording is blocked, and partial transcript aggregation keeps completed transcript text.

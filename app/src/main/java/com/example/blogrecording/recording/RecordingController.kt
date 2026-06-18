@@ -48,6 +48,12 @@ data class RecordingRecoveryResult(
     val recoveredSessionCount: Int
 )
 
+sealed interface RecordingNotificationAction {
+    data class Pause(val sessionId: String? = null) : RecordingNotificationAction
+    data class Resume(val sessionId: String, val sourceType: AudioSourceType) : RecordingNotificationAction
+    data class Finish(val sessionId: String) : RecordingNotificationAction
+}
+
 interface SegmentRecorder {
     suspend fun start(request: SegmentStartRequest): AppResult<Unit>
 
@@ -193,6 +199,16 @@ class RecordingController(
                 is AppResult.Success -> AppResult.Success(RecordingControllerState.Idle)
                 is AppResult.Failure -> result
             }
+        }
+    }
+
+    suspend fun handleNotificationAction(
+        action: RecordingNotificationAction
+    ): AppResult<RecordingControllerState> {
+        return when (action) {
+            is RecordingNotificationAction.Pause -> pause(action.sessionId)
+            is RecordingNotificationAction.Resume -> resume(action.sessionId, action.sourceType)
+            is RecordingNotificationAction.Finish -> finalize(action.sessionId)
         }
     }
 

@@ -30,8 +30,8 @@
 
 ## 7. Foreground Service Notification
 
-- [ ] 7.1 Extend foreground notification state to include podcast title, source, and recording state; verify with platform/contract tests.
-- [ ] 7.2 Add Pause, Resume, and Finish notification action contracts without starting duplicate segments; verify with controller tests.
+- [x] 7.1 Extend foreground notification state to include podcast title, source, and recording state; verify with platform/contract tests.
+- [x] 7.2 Add Pause, Resume, and Finish notification action contracts without starting duplicate segments; verify with controller tests.
 
 ## 8. Verification
 

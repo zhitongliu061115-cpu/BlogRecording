@@ -167,6 +167,43 @@ class RecordingControllerTest {
     }
 
     @Test
+    fun notificationResumeActionDoesNotStartDuplicateSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+        val started = controller.startMicrophone(title = "Episode A") as AppResult.Success
+        val sessionId = started.value.activeSessionId!!
+
+        val resumed = controller.handleNotificationAction(
+            RecordingNotificationAction.Resume(sessionId, AudioSourceType.MICROPHONE)
+        ) as AppResult.Success
+        val detail = repository.observeSessionDetail(sessionId).first()!!
+
+        assertEquals(started.value, resumed.value)
+        assertEquals(1, recorder.starts.size)
+        assertEquals(1, detail.recordingSegments.size)
+    }
+
+    @Test
+    fun notificationFinishActionPausesThenFinalizesActiveSession() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+        val started = controller.startMicrophone(title = "Episode A") as AppResult.Success
+        val sessionId = started.value.activeSessionId!!
+
+        val finished = controller.handleNotificationAction(
+            RecordingNotificationAction.Finish(sessionId)
+        ) as AppResult.Success
+        val detail = repository.observeSessionDetail(sessionId).first()!!
+
+        assertFalse(finished.value.isRecording)
+        assertEquals(PodcastSessionStatus.READY_FOR_SUMMARY, detail.session.status)
+        assertEquals(1, recorder.stops.size)
+        assertEquals(RecordingSegmentStatus.COMPLETED, detail.recordingSegments.single().status)
+    }
+
+    @Test
     fun resumePausedSessionAppendsNewSegment() = runBlocking {
         val repository = FakeSessionRepository()
         val recorder = FakeSegmentRecorder()

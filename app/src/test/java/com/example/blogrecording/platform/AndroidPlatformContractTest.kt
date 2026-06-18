@@ -20,6 +20,13 @@ class AndroidPlatformContractTest {
         assertEquals("capture_foreground", AndroidPlatformContract.CAPTURE_CHANNEL_ID)
         assertEquals(1001, AndroidPlatformContract.CAPTURE_NOTIFICATION_ID)
         assertEquals("foreground_service_type", AndroidPlatformContract.EXTRA_FOREGROUND_SERVICE_TYPE)
+        assertEquals("podcast_title", AndroidPlatformContract.EXTRA_PODCAST_TITLE)
+        assertEquals("capture_source", AndroidPlatformContract.EXTRA_CAPTURE_SOURCE)
+        assertEquals("recording_state", AndroidPlatformContract.EXTRA_RECORDING_STATE)
+        assertEquals("active_session_id", AndroidPlatformContract.EXTRA_ACTIVE_SESSION_ID)
+        assertEquals("com.example.blogrecording.action.PAUSE_CAPTURE", AndroidPlatformContract.ACTION_PAUSE_CAPTURE)
+        assertEquals("com.example.blogrecording.action.RESUME_CAPTURE", AndroidPlatformContract.ACTION_RESUME_CAPTURE)
+        assertEquals("com.example.blogrecording.action.FINISH_CAPTURE", AndroidPlatformContract.ACTION_FINISH_CAPTURE)
     }
 
     @Test

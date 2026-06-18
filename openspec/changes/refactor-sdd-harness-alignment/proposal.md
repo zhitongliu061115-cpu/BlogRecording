@@ -21,7 +21,13 @@ The current Android app has working behavior, but its implementation was created
 - `speaker-diarization-labeling`: Local speaker labeling, fallback behavior, unstable labels, and speaker profile summaries.
 - `summary-generation`: DeepSeek API key use, transcript-only network boundary, prompt construction, chunked summary generation, and failure handling.
 - `local-model-provisioning`: Bundled model asset verification, first-run private copy, model status reporting, and non-editable model paths.
-- `local-data-and-secrets`: DataStore-backed settings and recording data, startup recovery, delete cleanup, and encrypted DeepSeek API key storage.
+- `settings-contract`: Settings DataStore preference keys, default values, persisted model paths, privacy acceptance, and clamped numeric ranges.
+- `recording-history-persistence`: Recording DataStore keys, JSON field names, enum names, session ordering, segment/speaker cleanup, and old-record readability.
+- `local-data-and-secrets`: Encrypted DeepSeek API key storage, SharedPreferences keys, Keystore alias, encryption algorithm, and key deletion behavior.
+- `android-platform-contracts`: Gradle namespace/applicationId, launcher Activity, manifest permissions, foreground service declaration, notification contract, and backup/data extraction rules.
+- `permission-and-platform-flow`: Microphone, notification, and MediaProjection permission flow, Android version differences, denied-permission errors, and failed-session persistence.
+- `api-and-logging-privacy-boundary`: DeepSeek endpoint behavior, HTTP/JSON failure mapping, transcript-only network requests, and logging rules that avoid sensitive payloads.
+- `build-assets-and-native-deps`: Bundled model assets, sherpa-onnx AAR dependency, `verifyBundledModels`, and assets-to-private-files copy contract.
 - `development-governance-harness`: OpenSpec change workflow, task tracking, commit discipline, and repeatable Harness validation commands.
 
 ### Modified Capabilities
@@ -31,7 +37,9 @@ The current Android app has working behavior, but its implementation was created
 ## Impact
 
 - Affected code: `app/src/main/java/com/example/blogrecording/**`, focused on internal boundaries and orchestration.
+- Affected platform/build files: `app/src/main/AndroidManifest.xml`, `app/src/main/res/xml/backup_rules.xml`, `app/src/main/res/xml/data_extraction_rules.xml`, `app/build.gradle.kts`, `gradle/libs.versions.toml`, `app/libs/*.aar`, and `app/src/main/assets/models/**`.
 - Affected tests: unit and instrumentation tests under `app/src/test` and `app/src/androidTest`, expanded to protect existing behavior before refactoring.
 - Affected build/governance: OpenSpec artifacts under `openspec/changes/refactor-sdd-harness-alignment/` and any local Harness scripts or Gradle verification needed for repeatable checks.
-- Compatibility constraints: keep `com.example.blogrecording`, `podcast_recap_settings`, `podcast_recap_records`, `deep_seek_key_store`, Keystore alias `podcast_recap_deep_seek_api_key`, current model asset paths, and existing app permissions unchanged.
+- Compatibility constraints: keep Kotlin package `com.example.blogrecording`, Gradle namespace `com.example.blogrecording`, `applicationId` `com.example.blogrecording`, `podcast_recap_settings`, `podcast_recap_records`, `deep_seek_key_store`, SharedPreferences keys `iv` and `cipher_text`, Keystore alias `podcast_recap_deep_seek_api_key`, encryption `AES/GCM/NoPadding`, current model asset paths, and existing app permissions unchanged.
+- Upgrade constraints: old installations must still read settings and history, decrypt saved API keys, preserve recording ordering, and delete records with their segments and speaker profiles.
 - Security and privacy constraints: do not commit API keys, tokens, certificates, signing files, local.properties, logs, real recordings, PCM/audio files, transcripts from real users, or raw speaker embeddings.

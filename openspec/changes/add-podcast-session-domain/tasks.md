@@ -17,11 +17,11 @@
 
 - [x] 4.1 Extend `RecordingPersistenceContract.kt` with new schema/version and recording-segment contract fields while preserving existing key families; verify with contract tests.
 - [x] 4.2 Implement JSON encode/decode for new podcast session and recording segment metadata in the repository layer; verify with round-trip unit tests.
-- [ ] 4.3 Implement process-restart recovery for active podcast sessions and incomplete recording segments; verify with recovery unit tests.
+- [x] 4.3 Implement process-restart recovery for active podcast sessions and incomplete recording segments; verify with recovery unit tests.
 
 ## 5. Backward Compatibility
 
-- [ ] 5.1 Map existing recording records into podcast sessions without losing title, transcript, summary, status, timestamps, source metadata, transcript segments, or speaker profiles; verify with migration compatibility tests.
+- [x] 5.1 Map existing recording records into podcast sessions without losing title, transcript, summary, status, timestamps, source metadata, transcript segments, or speaker profiles; verify with migration compatibility tests.
 - [ ] 5.2 Ensure old completed records map to ready-for-summary or summarized states based on transcript and summary presence; verify with status mapping tests.
 - [ ] 5.3 Ensure old interrupted recording statuses recover to a non-recording state with existing transcript data preserved; verify with interrupted-session tests.
 

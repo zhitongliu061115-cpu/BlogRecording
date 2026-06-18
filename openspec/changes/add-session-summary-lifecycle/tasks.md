@@ -1,8 +1,8 @@
 ## 1. Transcript Aggregation
 
-- [ ] 1.1 Add a pure session transcript aggregation helper that orders transcript text by recording segment index and transcript start time; verify with unit tests.
-- [ ] 1.2 Preserve legacy transcript segments without `recordingSegmentId` in the aggregate; verify with legacy compatibility tests.
-- [ ] 1.3 Preserve prior transcript data when a later segment is missing, blank, or failed; verify with partial/failure tests.
+- [x] 1.1 Add a pure session transcript aggregation helper that orders transcript text by recording segment index and transcript start time; verify with unit tests.
+- [x] 1.2 Preserve legacy transcript segments without `recordingSegmentId` in the aggregate; verify with legacy compatibility tests.
+- [x] 1.3 Preserve prior transcript data when a later segment is missing, blank, or failed; verify with partial/failure tests.
 
 ## 2. Summary Eligibility And State
 

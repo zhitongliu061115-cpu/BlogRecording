@@ -326,14 +326,26 @@ class Repository(private val context: Context) : SessionRepository {
         val session = getSession(sessionId) ?: return
         val segments = getSegments(sessionId)
         val transcript = segments.joinToString(separator = "\n\n") { it.toTranscriptText() }
-        saveSession(
-            session.copy(
-                transcript = transcript,
-                segmentCount = segments.size,
-                detectedSpeakerCount = segments.map { it.speakerId }.distinct().size,
-                updatedAt = System.currentTimeMillis()
+        val podcastSession = getPodcastSession(sessionId)
+        if (podcastSession != null) {
+            savePodcastSession(
+                podcastSession.copy(
+                    transcript = transcript,
+                    transcriptSegmentCount = segments.size,
+                    detectedSpeakerCount = segments.map { it.speakerId }.distinct().size,
+                    updatedAt = System.currentTimeMillis()
+                )
             )
-        )
+        } else {
+            saveSession(
+                session.copy(
+                    transcript = transcript,
+                    segmentCount = segments.size,
+                    detectedSpeakerCount = segments.map { it.speakerId }.distinct().size,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
     }
 
     private suspend fun markInterruptedPodcastAndLegacySessions() {

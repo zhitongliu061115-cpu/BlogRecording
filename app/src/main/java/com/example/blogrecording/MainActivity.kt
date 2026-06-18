@@ -15,7 +15,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.tooling.preview.Preview
@@ -73,8 +72,8 @@ class MainActivity : ComponentActivity() {
                         }
                         capturePermissionLauncher.launch(capturePermissions())
                     },
-                    onStartMic = {
-                        pendingStart.value = viewModel::startMicrophoneRecording
+                    onStartMic = { sessionId ->
+                        pendingStart.value = { viewModel.startMicrophoneRecording(sessionId) }
                         capturePermissionLauncher.launch(capturePermissions())
                     }
                 )
@@ -96,10 +95,17 @@ fun AppPreview() {
     BlogRecordingTheme {
         HomeScreen(
             state = AppUiState(),
+            onCreateSession = {},
             onStartInternal = {},
             onStartMic = {},
-            onStop = {},
-            onGenerateSummary = {},
+            onPauseRecording = {},
+            onResumeRecording = {},
+            onFinishSession = {},
+            onRequestRename = {},
+            onRenameSession = { _, _ -> },
+            onDismissRename = {},
+            onStartSummary = {},
+            onOpenDetail = {},
             onNavigate = {}
         )
     }

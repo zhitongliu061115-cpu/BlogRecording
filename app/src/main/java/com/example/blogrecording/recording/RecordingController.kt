@@ -54,9 +54,14 @@ interface SegmentRecorder {
     suspend fun stop(activeSegment: ActiveRecordingSegment): AppResult<SegmentStopResult>
 }
 
+fun interface SystemAudioPermissionGate {
+    fun hasValidPermission(): Boolean
+}
+
 class RecordingController(
     private val sessionRepository: SessionRepository,
     private val recorder: SegmentRecorder,
+    private val systemAudioPermissionGate: SystemAudioPermissionGate = SystemAudioPermissionGate { true },
     private val nowMillis: () -> Long = { System.currentTimeMillis() }
 ) {
     private val mutex = Mutex()
@@ -105,6 +110,16 @@ class RecordingController(
         return resume(sessionId = sessionId, sourceType = AudioSourceType.MICROPHONE)
     }
 
+    suspend fun startSystemAudio(
+        title: String? = null
+    ): AppResult<RecordingControllerState> {
+        return start(title = title, sourceType = AudioSourceType.INTERNAL_AUDIO)
+    }
+
+    suspend fun resumeSystemAudio(sessionId: String): AppResult<RecordingControllerState> {
+        return resume(sessionId = sessionId, sourceType = AudioSourceType.INTERNAL_AUDIO)
+    }
+
     suspend fun switchSession(
         sessionId: String,
         sourceType: AudioSourceType
@@ -130,6 +145,23 @@ class RecordingController(
             if (active.sourceType != AudioSourceType.MICROPHONE) {
                 return@withLock AppResult.Failure(
                     AppError.RecordingPipelineFailed("Active recording is not using microphone")
+                )
+            }
+            if (sessionId != null && active.sessionId != sessionId) {
+                return@withLock AppResult.Failure(
+                    AppError.RecordingPipelineFailed("Active recording belongs to another session")
+                )
+            }
+            pauseActiveLocked(active)
+        }
+    }
+
+    suspend fun pauseSystemAudio(sessionId: String? = null): AppResult<RecordingControllerState> {
+        return mutex.withLock {
+            val active = activeSegment ?: return@withLock AppResult.Success(RecordingControllerState.Idle)
+            if (active.sourceType != AudioSourceType.INTERNAL_AUDIO) {
+                return@withLock AppResult.Failure(
+                    AppError.RecordingPipelineFailed("Active recording is not using system audio")
                 )
             }
             if (sessionId != null && active.sessionId != sessionId) {
@@ -236,6 +268,15 @@ class RecordingController(
         sessionId: String,
         sourceType: AudioSourceType
     ): AppResult<RecordingControllerState> {
+        if (sourceType == AudioSourceType.INTERNAL_AUDIO && !systemAudioPermissionGate.hasValidPermission()) {
+            sessionRepository.updateStatus(
+                sessionId = sessionId,
+                status = PodcastSessionStatus.ERROR,
+                errorMessage = "System-audio permission is required"
+            )
+            return AppResult.Failure(AppError.MediaProjectionDenied)
+        }
+
         val startedAt = nowMillis()
         val segment = when (val result = sessionRepository.appendSegment(sessionId, sourceType, startedAt)) {
             is AppResult.Success -> result.value

@@ -102,6 +102,71 @@ class RecordingControllerTest {
     }
 
     @Test
+    fun startSystemAudioMapsPermissionedMediaProjectionToOneSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(
+            sessionRepository = repository,
+            recorder = recorder,
+            systemAudioPermissionGate = SystemAudioPermissionGate { true },
+            nowMillis = TickClock()
+        )
+
+        val started = controller.startSystemAudio(title = "System Episode") as AppResult.Success
+        val sessionId = started.value.activeSessionId!!
+        val detail = repository.observeSessionDetail(sessionId).first()!!
+
+        assertEquals(AudioSourceType.INTERNAL_AUDIO, started.value.sourceType)
+        assertEquals(PodcastSessionStatus.RECORDING, detail.session.status)
+        assertEquals(AudioSourceType.INTERNAL_AUDIO, detail.recordingSegments.single().sourceType)
+    }
+
+    @Test
+    fun pauseSystemAudioStopsOnlyTheActiveSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(
+            sessionRepository = repository,
+            recorder = recorder,
+            systemAudioPermissionGate = SystemAudioPermissionGate { true },
+            nowMillis = TickClock()
+        )
+        val started = controller.startSystemAudio(title = "System Episode") as AppResult.Success
+        val sessionId = started.value.activeSessionId!!
+
+        val paused = controller.pauseSystemAudio(sessionId) as AppResult.Success
+        val detail = repository.observeSessionDetail(sessionId).first()!!
+
+        assertFalse(paused.value.isRecording)
+        assertEquals(1, recorder.stops.size)
+        assertEquals(PodcastSessionStatus.PAUSED, detail.session.status)
+        assertEquals(RecordingSegmentStatus.COMPLETED, detail.recordingSegments.single().status)
+    }
+
+    @Test
+    fun invalidSystemAudioPermissionDoesNotCreateSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val session = repository.createSession(title = "System Episode", sourceType = AudioSourceType.INTERNAL_AUDIO)
+        val controller = RecordingController(
+            sessionRepository = repository,
+            recorder = recorder,
+            systemAudioPermissionGate = SystemAudioPermissionGate { false },
+            nowMillis = TickClock()
+        )
+
+        val result = controller.resumeSystemAudio(session.id)
+        val detail = repository.observeSessionDetail(session.id).first()!!
+
+        assertTrue(result is AppResult.Failure)
+        assertEquals(PodcastSessionStatus.ERROR, detail.session.status)
+        assertEquals("System-audio permission is required", detail.session.errorMessage)
+        assertTrue(detail.recordingSegments.isEmpty())
+        assertEquals(0, recorder.starts.size)
+        assertFalse(controller.currentState().isRecording)
+    }
+
+    @Test
     fun resumePausedSessionAppendsNewSegment() = runBlocking {
         val repository = FakeSessionRepository()
         val recorder = FakeSegmentRecorder()

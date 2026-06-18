@@ -20,8 +20,8 @@
 
 ## 5. System Audio Capture Integration
 
-- [ ] 5.1 Map existing MediaProjection start/stop flow to segmented sessions; verify permission-denied tests still pass.
-- [ ] 5.2 Handle MediaProjection cancellation or invalid permission on resume with an explainable recoverable error state; verify with targeted tests.
+- [x] 5.1 Map existing MediaProjection start/stop flow to segmented sessions; verify permission-denied tests still pass.
+- [x] 5.2 Handle MediaProjection cancellation or invalid permission on resume with an explainable recoverable error state; verify with targeted tests.
 
 ## 6. Transcription Association
 

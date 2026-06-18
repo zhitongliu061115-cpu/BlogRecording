@@ -30,9 +30,9 @@
 
 ## 5. Summary and Privacy Rebuild
 
-- [ ] 5.1 Rebuild summary generation boundary while preserving DeepSeek endpoint, model setting, prompt styles, chunked summary flow, and final merge.
-- [ ] 5.2 Preserve error mapping for missing key, blank transcript, HTTP 401, HTTP 429, non-2xx, empty response, malformed response, and network failures.
-- [ ] 5.3 Preserve transcript-only request behavior and logging rules that exclude API keys, full transcripts, raw responses, audio, PCM, and speaker embeddings.
+- [x] 5.1 Rebuild summary generation boundary while preserving DeepSeek endpoint, model setting, prompt styles, chunked summary flow, and final merge.
+- [x] 5.2 Preserve error mapping for missing key, blank transcript, HTTP 401, HTTP 429, non-2xx, empty response, malformed response, and network failures.
+- [x] 5.3 Preserve transcript-only request behavior and logging rules that exclude API keys, full transcripts, raw responses, audio, PCM, and speaker embeddings.
 
 ## 6. UI State and Platform Contracts
 

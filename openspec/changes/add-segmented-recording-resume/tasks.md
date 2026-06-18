@@ -10,8 +10,8 @@
 
 ## 3. Repository And Segment Metadata Integration
 
-- [ ] 3.1 Connect controller actions to `SessionRepository` active session and recording segment updates; verify with repository integration unit tests.
-- [ ] 3.2 Persist segment status transitions for recording, paused, completed, interrupted, and error states; verify with targeted persistence tests.
+- [x] 3.1 Connect controller actions to `SessionRepository` active session and recording segment updates; verify with repository integration unit tests.
+- [x] 3.2 Persist segment status transitions for recording, paused, completed, interrupted, and error states; verify with targeted persistence tests.
 
 ## 4. Microphone Capture Integration
 

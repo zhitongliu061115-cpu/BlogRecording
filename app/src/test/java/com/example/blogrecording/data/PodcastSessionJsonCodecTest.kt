@@ -46,6 +46,26 @@ class PodcastSessionJsonCodecTest {
     }
 
     @Test
+    fun recordingSegmentStatusesPersistThroughJson() {
+        RecordingSegmentStatus.entries.forEach { status ->
+            val segment = recordingSegment(
+                id = "segment-${status.name.lowercase()}",
+                index = status.ordinal + 1
+            ).copy(
+                status = status,
+                errorMessage = if (status == RecordingSegmentStatus.ERROR) "failed" else null
+            )
+
+            val decoded = PodcastSessionJsonCodec.decodeRecordingSegment(
+                PodcastSessionJsonCodec.encodeRecordingSegment(segment)
+            )
+
+            assertEquals(status, decoded.status)
+            assertEquals(segment.errorMessage, decoded.errorMessage)
+        }
+    }
+
+    @Test
     fun summaryRoundTripsThroughJson() {
         val summary = SessionSummary(
             text = "summary",

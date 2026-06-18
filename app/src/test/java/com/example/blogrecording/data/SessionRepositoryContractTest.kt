@@ -84,6 +84,50 @@ class SessionRepositoryContractTest {
     }
 
     @Test
+    fun repositoryPersistsActiveSegmentAndClearsItWhenPaused() = runBlocking {
+        val repository = FakeSessionRepository()
+        val created = repository.createSession(title = "Episode", sourceType = AudioSourceType.MICROPHONE)
+        val segment = (repository.appendSegment(created.id, AudioSourceType.MICROPHONE, startedAt = 100L) as AppResult.Success).value
+
+        val recording = repository.updateStatus(created.id, PodcastSessionStatus.RECORDING) as AppResult.Success
+        val completed = repository.updateSegment(
+            segment.copy(status = RecordingSegmentStatus.COMPLETED, endedAt = 200L, durationMs = 100L)
+        )
+        val paused = repository.updateStatus(created.id, PodcastSessionStatus.PAUSED) as AppResult.Success
+        val detail = repository.observeSessionDetail(created.id).first()
+
+        assertEquals(segment.id, recording.value.activeSegmentId)
+        assertTrue(completed is AppResult.Success)
+        assertNull(paused.value.activeSegmentId)
+        assertEquals(segment.id, paused.value.lastCompletedSegmentId)
+        assertEquals(RecordingSegmentStatus.COMPLETED, detail?.recordingSegments?.single()?.status)
+    }
+
+    @Test
+    fun repositoryPersistsInterruptedAndErrorSegmentStates() = runBlocking {
+        val repository = FakeSessionRepository()
+        val created = repository.createSession(title = "Episode", sourceType = AudioSourceType.MICROPHONE)
+        val first = (repository.appendSegment(created.id, AudioSourceType.MICROPHONE, startedAt = 100L) as AppResult.Success).value
+        val interrupted = first.copy(
+            status = RecordingSegmentStatus.INTERRUPTED,
+            endedAt = 150L,
+            durationMs = 50L,
+            errorMessage = "interrupted"
+        )
+        repository.updateSegment(interrupted)
+        val second = (repository.appendSegment(created.id, AudioSourceType.MICROPHONE, startedAt = 200L) as AppResult.Success).value
+        val failed = second.copy(status = RecordingSegmentStatus.ERROR, errorMessage = "failed")
+
+        repository.updateSegment(failed)
+        repository.updateStatus(created.id, PodcastSessionStatus.ERROR, errorMessage = "failed")
+        val detail = repository.observeSessionDetail(created.id).first()
+
+        assertEquals(listOf(RecordingSegmentStatus.INTERRUPTED, RecordingSegmentStatus.ERROR), detail?.recordingSegments?.map { it.status })
+        assertEquals(PodcastSessionStatus.ERROR, detail?.session?.status)
+        assertNull(detail?.session?.activeSegmentId)
+    }
+
+    @Test
     fun missingSessionMutationsReturnFailure() = runBlocking {
         val repository = FakeSessionRepository()
 
@@ -133,9 +177,14 @@ class SessionRepositoryContractTest {
                 id = "segment-${nextSegment++}",
                 sessionId = sessionId,
                 sourceType = sourceType,
-                startedAt = startedAt
+                startedAt = startedAt,
+                index = detail.recordingSegments.size + 1
             )
-            val updatedSession = detail.session.copy(recordingSegmentCount = detail.recordingSegments.size + 1)
+            val updatedSession = detail.session.copy(
+                sourceType = sourceType,
+                activeSegmentId = segment.id,
+                recordingSegmentCount = detail.recordingSegments.size + 1
+            )
             details.value = details.value + (sessionId to detail.copy(
                 session = updatedSession,
                 recordingSegments = detail.recordingSegments + segment
@@ -160,7 +209,28 @@ class SessionRepositoryContractTest {
             errorMessage: String?
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return missing()
-            val updated = detail.session.copy(status = status, errorMessage = errorMessage)
+            val activeSegmentId = when (status) {
+                PodcastSessionStatus.RECORDING -> detail.session.activeSegmentId
+                    ?: detail.recordingSegments.lastOrNull { it.status == RecordingSegmentStatus.RECORDING }?.id
+                PodcastSessionStatus.PAUSED,
+                PodcastSessionStatus.READY_FOR_SUMMARY,
+                PodcastSessionStatus.ERROR -> null
+                PodcastSessionStatus.DRAFT,
+                PodcastSessionStatus.PROCESSING,
+                PodcastSessionStatus.SUMMARIZING,
+                PodcastSessionStatus.SUMMARIZED -> detail.session.activeSegmentId
+            }
+            val lastCompletedSegmentId = if (status == PodcastSessionStatus.PAUSED) {
+                detail.recordingSegments.lastOrNull { it.status == RecordingSegmentStatus.COMPLETED }?.id
+            } else {
+                detail.session.lastCompletedSegmentId
+            }
+            val updated = detail.session.copy(
+                status = status,
+                activeSegmentId = activeSegmentId,
+                lastCompletedSegmentId = lastCompletedSegmentId,
+                errorMessage = errorMessage
+            )
             details.value = details.value + (sessionId to detail.copy(session = updated))
             return AppResult.Success(updated)
         }
@@ -213,12 +283,13 @@ class SessionRepositoryContractTest {
             id: String = "segment-1",
             sessionId: String,
             sourceType: AudioSourceType = AudioSourceType.MICROPHONE,
-            startedAt: Long = 100L
+            startedAt: Long = 100L,
+            index: Int = 1
         ): RecordingSegment {
             return RecordingSegment(
                 id = id,
                 sessionId = sessionId,
-                index = 1,
+                index = index,
                 sourceType = sourceType,
                 status = RecordingSegmentStatus.RECORDING,
                 startedAt = startedAt,

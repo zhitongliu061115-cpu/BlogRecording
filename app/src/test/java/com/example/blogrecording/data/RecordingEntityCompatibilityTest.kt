@@ -48,6 +48,7 @@ class RecordingEntityCompatibilityTest {
         val segment = TranscriptSegmentEntity(
             id = "transcript-1",
             sessionId = "session-1",
+            recordingSegmentId = "recording-segment-1",
             startMs = 1_000L,
             endMs = 2_500L,
             speakerId = "speaker_1",
@@ -62,6 +63,7 @@ class RecordingEntityCompatibilityTest {
 
         assertEquals("transcript-1", segment.id)
         assertEquals("session-1", segment.sessionId)
+        assertEquals("recording-segment-1", segment.recordingSegmentId)
         assertEquals(1_000L, segment.startMs)
         assertEquals(2_500L, segment.endMs)
         assertEquals("speaker_1", segment.speakerId)

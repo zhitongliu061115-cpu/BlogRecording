@@ -99,6 +99,7 @@ data class RecordingSessionEntity(
 data class TranscriptSegmentEntity(
     val id: String,
     val sessionId: String,
+    val recordingSegmentId: String?,
     val startMs: Long,
     val endMs: Long,
     val speakerId: String,

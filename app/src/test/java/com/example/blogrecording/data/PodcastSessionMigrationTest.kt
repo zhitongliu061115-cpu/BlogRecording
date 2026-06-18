@@ -159,6 +159,7 @@ class PodcastSessionMigrationTest {
         val transcriptSegment = TranscriptSegmentEntity(
             id = "transcript-1",
             sessionId = legacy.id,
+            recordingSegmentId = null,
             startMs = 0L,
             endMs = 1_000L,
             speakerId = "speaker_1",

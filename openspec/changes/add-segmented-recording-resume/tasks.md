@@ -25,8 +25,8 @@
 
 ## 6. Transcription Association
 
-- [ ] 6.1 Associate transcript segments with the active recording segment id while preserving session transcript aggregation; verify with transcript unit tests.
-- [ ] 6.2 Preserve previous transcript data when one segment fails transcription; verify with failure-isolation tests.
+- [x] 6.1 Associate transcript segments with the active recording segment id while preserving session transcript aggregation; verify with transcript unit tests.
+- [x] 6.2 Preserve previous transcript data when one segment fails transcription; verify with failure-isolation tests.
 
 ## 7. Foreground Service Notification
 

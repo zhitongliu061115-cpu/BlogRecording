@@ -33,7 +33,8 @@ class RecordingPersistenceContractTest {
 
     @Test
     fun contractKeepsSegmentAndSpeakerProfileJsonFields() {
-        assertEquals(12, RecordingPersistenceContract.SEGMENT_FIELDS.size)
+        assertEquals(13, RecordingPersistenceContract.SEGMENT_FIELDS.size)
+        assertTrue("recordingSegmentId" in RecordingPersistenceContract.SEGMENT_FIELDS)
         assertTrue("speakerDisplayName" in RecordingPersistenceContract.SEGMENT_FIELDS)
         assertTrue("vadConfidence" in RecordingPersistenceContract.SEGMENT_FIELDS)
 

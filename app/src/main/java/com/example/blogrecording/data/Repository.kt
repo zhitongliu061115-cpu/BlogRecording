@@ -113,6 +113,25 @@ class Repository(private val context: Context) : SessionRepository {
     suspend fun appendSegment(segment: TranscriptSegmentEntity) {
         val segments = getSegments(segment.sessionId) + segment
         saveSegments(segment.sessionId, segments)
+        if (segment.recordingSegmentId != null) {
+            attachTranscriptToRecordingSegment(segment)
+        }
+    }
+
+    suspend fun markSegmentTranscriptionFailed(
+        sessionId: String,
+        recordingSegmentId: String,
+        errorMessage: String
+    ): AppResult<RecordingSegment> {
+        val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
+        val segment = detail.recordingSegments.firstOrNull { it.id == recordingSegmentId }
+            ?: return missingSession()
+        val failed = segment.copy(
+            status = RecordingSegmentStatus.ERROR,
+            errorMessage = errorMessage.takeIf { it.isNotBlank() } ?: "Transcription failed",
+            updatedAt = System.currentTimeMillis()
+        )
+        return updateSegment(failed)
     }
 
     suspend fun getSegments(sessionId: String): List<TranscriptSegmentEntity> {
@@ -426,6 +445,27 @@ class Repository(private val context: Context) : SessionRepository {
         }
     }
 
+    private suspend fun attachTranscriptToRecordingSegment(segment: TranscriptSegmentEntity) {
+        val detail = getPodcastSessionDetail(segment.sessionId) ?: return
+        val recordingSegments = detail.recordingSegments.map { recordingSegment ->
+            if (recordingSegment.id == segment.recordingSegmentId) {
+                recordingSegment.copy(
+                    transcriptSegmentIds = (recordingSegment.transcriptSegmentIds + segment.id).distinct(),
+                    updatedAt = segment.createdAt
+                )
+            } else {
+                recordingSegment
+            }
+        }
+        saveRecordingSegments(segment.sessionId, recordingSegments)
+        savePodcastSession(
+            detail.session.copy(
+                transcriptSegmentCount = detail.transcriptSegments.size + 1,
+                updatedAt = segment.createdAt
+            )
+        )
+    }
+
     private fun <T> missingSession(): AppResult<T> {
         return AppResult.Failure(AppError.Unknown("session missing"))
     }
@@ -551,6 +591,7 @@ private fun encodeSegment(segment: TranscriptSegmentEntity): JSONObject {
     return JSONObject()
         .put("id", segment.id)
         .put("sessionId", segment.sessionId)
+        .put("recordingSegmentId", segment.recordingSegmentId)
         .put("startMs", segment.startMs)
         .put("endMs", segment.endMs)
         .put("speakerId", segment.speakerId)
@@ -567,6 +608,7 @@ private fun decodeSegment(json: JSONObject): TranscriptSegmentEntity {
     return TranscriptSegmentEntity(
         id = json.getString("id"),
         sessionId = json.getString("sessionId"),
+        recordingSegmentId = json.optString("recordingSegmentId").takeIf { it.isNotBlank() && it != "null" },
         startMs = json.getLong("startMs"),
         endMs = json.getLong("endMs"),
         speakerId = json.getString("speakerId"),

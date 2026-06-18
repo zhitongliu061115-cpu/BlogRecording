@@ -92,6 +92,7 @@ class UiNavigationPolicyTest {
         return TranscriptSegmentEntity(
             id = "segment-1",
             sessionId = sessionId,
+            recordingSegmentId = null,
             startMs = 0L,
             endMs = 1_000L,
             speakerId = "speaker-1",

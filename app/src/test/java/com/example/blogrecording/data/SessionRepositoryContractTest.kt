@@ -128,6 +128,49 @@ class SessionRepositoryContractTest {
     }
 
     @Test
+    fun recordingSegmentCanKeepTranscriptAssociationWithoutLosingSessionAggregate() = runBlocking {
+        val repository = FakeSessionRepository()
+        val created = repository.createSession(title = "Episode", sourceType = AudioSourceType.MICROPHONE)
+        val segment = (repository.appendSegment(created.id, AudioSourceType.MICROPHONE, startedAt = 100L) as AppResult.Success).value
+
+        repository.updateSegment(segment.copy(transcriptSegmentIds = listOf("transcript-1")))
+        repository.addTranscript(
+            transcriptSegment(sessionId = created.id).copy(
+                id = "transcript-1",
+                recordingSegmentId = segment.id,
+                text = "hello"
+            )
+        )
+        val detail = repository.observeSessionDetail(created.id).first()
+
+        assertEquals(listOf("transcript-1"), detail?.recordingSegments?.single()?.transcriptSegmentIds)
+        assertEquals("hello", detail?.transcriptSegments?.single()?.text)
+        assertEquals(created.id, detail?.transcriptSegments?.single()?.sessionId)
+    }
+
+    @Test
+    fun failedSegmentKeepsPreviousTranscriptDataAvailable() = runBlocking {
+        val repository = FakeSessionRepository()
+        val created = repository.createSession(title = "Episode", sourceType = AudioSourceType.MICROPHONE)
+        val first = (repository.appendSegment(created.id, AudioSourceType.MICROPHONE, startedAt = 100L) as AppResult.Success).value
+        repository.updateSegment(first.copy(status = RecordingSegmentStatus.COMPLETED, transcriptSegmentIds = listOf("transcript-1")))
+        repository.addTranscript(
+            transcriptSegment(sessionId = created.id).copy(
+                id = "transcript-1",
+                recordingSegmentId = first.id,
+                text = "previous transcript"
+            )
+        )
+        val second = (repository.appendSegment(created.id, AudioSourceType.MICROPHONE, startedAt = 200L) as AppResult.Success).value
+
+        repository.updateSegment(second.copy(status = RecordingSegmentStatus.ERROR, errorMessage = "ASR failed"))
+        val detail = repository.observeSessionDetail(created.id).first()
+
+        assertEquals("previous transcript", detail?.transcriptSegments?.single()?.text)
+        assertEquals(listOf(RecordingSegmentStatus.COMPLETED, RecordingSegmentStatus.ERROR), detail?.recordingSegments?.map { it.status })
+    }
+
+    @Test
     fun missingSessionMutationsReturnFailure() = runBlocking {
         val repository = FakeSessionRepository()
 
@@ -141,6 +184,14 @@ class SessionRepositoryContractTest {
         private val details = MutableStateFlow<Map<String, PodcastSessionDetail>>(emptyMap())
         private var nextSession = 1
         private var nextSegment = 1
+
+        fun addTranscript(segment: TranscriptSegmentEntity) {
+            val detail = details.value[segment.sessionId] ?: return
+            details.value = details.value + (segment.sessionId to detail.copy(
+                session = detail.session.copy(transcriptSegmentCount = detail.transcriptSegments.size + 1),
+                transcriptSegments = detail.transcriptSegments + segment
+            ))
+        }
 
         override suspend fun createSession(
             title: String?,
@@ -310,6 +361,7 @@ class SessionRepositoryContractTest {
             return TranscriptSegmentEntity(
                 id = "transcript-1",
                 sessionId = sessionId,
+                recordingSegmentId = null,
                 startMs = 0L,
                 endMs = 1_000L,
                 speakerId = "speaker_1",

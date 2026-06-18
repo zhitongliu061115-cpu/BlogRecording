@@ -37,6 +37,7 @@ internal object RecordingPersistenceContract {
     val SEGMENT_FIELDS = setOf(
         "id",
         "sessionId",
+        "recordingSegmentId",
         "startMs",
         "endMs",
         "speakerId",

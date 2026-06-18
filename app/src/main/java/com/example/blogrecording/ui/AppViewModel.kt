@@ -444,7 +444,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         recognizer: SenseVoiceRecognizer,
         diarization: SpeakerDiarizationEngine
     ) {
-        val recognizerSegments = chunk.toVadSegments(MAX_RECOGNIZER_SEGMENT_MS)
+        val recognizerSegments = chunk.toVadSegments(LocalProcessingPolicy.MAX_RECOGNIZER_SEGMENT_MS)
         updateRecordingState(
             recordingStatus = RecordingStatus.TRANSCRIBING,
             vadLabel = "正在转写第 ${chunk.sequence} 批（${chunk.startMs / 1000}-${chunk.endMs / 1000} 秒）"
@@ -507,15 +507,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         diarization: SpeakerDiarizationEngine,
         segment: VadSegment
     ): AppResult<SpeakerSegment> {
-        if (segment.endMs - segment.startMs > MAX_DIARIZATION_SEGMENT_MS) {
-            return AppResult.Success(
-                SpeakerSegment(
-                    speakerId = "speaker_1",
-                    displayName = "Speaker 1",
-                    unstable = true,
-                    vadConfidence = null
-                )
-            )
+        LocalProcessingPolicy.speakerFallbackForLongSegment(segment)?.let { fallback ->
+            return AppResult.Success(fallback)
         }
         return diarization.label(segment)
     }
@@ -585,8 +578,4 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
     }
 
-    private companion object {
-        const val MAX_RECOGNIZER_SEGMENT_MS = 30_000L
-        const val MAX_DIARIZATION_SEGMENT_MS = 60_000L
-    }
 }

@@ -24,9 +24,9 @@
 
 - [ ] 4.1 Introduce recording orchestration boundaries that keep existing microphone/internal-audio flows and foreground service behavior.
 - [ ] 4.2 Preserve permission and platform flow for `RECORD_AUDIO`, Android 13+ `POST_NOTIFICATIONS`, and MediaProjection.
-- [ ] 4.3 Rebuild PCM chunking and recognition coordination while preserving chunk duration clamps and 30-second recognition windows.
-- [ ] 4.4 Preserve current VAD configuration behavior without changing the fixed-chunk main pipeline.
-- [ ] 4.5 Rebuild speaker labeling and profile updates while preserving disabled/fallback behavior and 60-second unstable fallback.
+- [x] 4.3 Rebuild PCM chunking and recognition coordination while preserving chunk duration clamps and 30-second recognition windows.
+- [x] 4.4 Preserve current VAD configuration behavior without changing the fixed-chunk main pipeline.
+- [x] 4.5 Rebuild speaker labeling and profile updates while preserving disabled/fallback behavior and 60-second unstable fallback.
 
 ## 5. Summary and Privacy Rebuild
 

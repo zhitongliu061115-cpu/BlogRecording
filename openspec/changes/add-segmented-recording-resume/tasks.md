@@ -15,8 +15,8 @@
 
 ## 4. Microphone Capture Integration
 
-- [ ] 4.1 Map existing microphone start/stop flow to create or resume a podcast session with a single active segment; verify existing recording lifecycle tests still pass.
-- [ ] 4.2 Implement microphone pause/resume segment boundaries without completing the session; verify with fake recorder tests and compile checks.
+- [x] 4.1 Map existing microphone start/stop flow to create or resume a podcast session with a single active segment; verify existing recording lifecycle tests still pass.
+- [x] 4.2 Implement microphone pause/resume segment boundaries without completing the session; verify with fake recorder tests and compile checks.
 
 ## 5. System Audio Capture Integration
 

@@ -52,6 +52,56 @@ class RecordingControllerTest {
     }
 
     @Test
+    fun startMicrophoneMapsLegacySingleRecordingToOneSessionAndSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+
+        val started = controller.startMicrophone(title = "Mic Episode") as AppResult.Success
+        val sessionId = started.value.activeSessionId!!
+        val detail = repository.observeSessionDetail(sessionId).first()!!
+
+        assertEquals(AudioSourceType.MICROPHONE, started.value.sourceType)
+        assertEquals("Mic Episode", detail.session.title)
+        assertEquals(PodcastSessionStatus.RECORDING, detail.session.status)
+        assertEquals(1, detail.recordingSegments.size)
+        assertEquals(AudioSourceType.MICROPHONE, detail.recordingSegments.single().sourceType)
+    }
+
+    @Test
+    fun pauseAndResumeMicrophoneCreateSegmentBoundariesWithoutFinalizingSession() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+        val started = controller.startMicrophone(title = "Mic Episode") as AppResult.Success
+        val sessionId = started.value.activeSessionId!!
+
+        val paused = controller.pauseMicrophone(sessionId) as AppResult.Success
+        val resumed = controller.resumeMicrophone(sessionId) as AppResult.Success
+        val detail = repository.observeSessionDetail(sessionId).first()!!
+
+        assertFalse(paused.value.isRecording)
+        assertTrue(resumed.value.isRecording)
+        assertEquals(PodcastSessionStatus.RECORDING, detail.session.status)
+        assertEquals(listOf(RecordingSegmentStatus.COMPLETED, RecordingSegmentStatus.RECORDING), detail.recordingSegments.map { it.status })
+        assertEquals("segment-2", resumed.value.activeSegmentId)
+    }
+
+    @Test
+    fun pauseMicrophoneRejectsActiveNonMicrophoneSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+
+        controller.start(title = "System Episode", sourceType = AudioSourceType.INTERNAL_AUDIO)
+        val result = controller.pauseMicrophone()
+
+        assertTrue(result is AppResult.Failure)
+        assertTrue(controller.currentState().isRecording)
+        assertEquals(0, recorder.stops.size)
+    }
+
+    @Test
     fun resumePausedSessionAppendsNewSegment() = runBlocking {
         val repository = FakeSessionRepository()
         val recorder = FakeSegmentRecorder()

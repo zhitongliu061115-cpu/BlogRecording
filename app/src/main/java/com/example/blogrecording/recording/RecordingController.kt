@@ -73,6 +73,12 @@ class RecordingController(
         }
     }
 
+    suspend fun startMicrophone(
+        title: String? = null
+    ): AppResult<RecordingControllerState> {
+        return start(title = title, sourceType = AudioSourceType.MICROPHONE)
+    }
+
     suspend fun resume(
         sessionId: String,
         sourceType: AudioSourceType
@@ -95,6 +101,10 @@ class RecordingController(
         }
     }
 
+    suspend fun resumeMicrophone(sessionId: String): AppResult<RecordingControllerState> {
+        return resume(sessionId = sessionId, sourceType = AudioSourceType.MICROPHONE)
+    }
+
     suspend fun switchSession(
         sessionId: String,
         sourceType: AudioSourceType
@@ -105,6 +115,23 @@ class RecordingController(
     suspend fun pause(sessionId: String? = null): AppResult<RecordingControllerState> {
         return mutex.withLock {
             val active = activeSegment ?: return@withLock AppResult.Success(RecordingControllerState.Idle)
+            if (sessionId != null && active.sessionId != sessionId) {
+                return@withLock AppResult.Failure(
+                    AppError.RecordingPipelineFailed("Active recording belongs to another session")
+                )
+            }
+            pauseActiveLocked(active)
+        }
+    }
+
+    suspend fun pauseMicrophone(sessionId: String? = null): AppResult<RecordingControllerState> {
+        return mutex.withLock {
+            val active = activeSegment ?: return@withLock AppResult.Success(RecordingControllerState.Idle)
+            if (active.sourceType != AudioSourceType.MICROPHONE) {
+                return@withLock AppResult.Failure(
+                    AppError.RecordingPipelineFailed("Active recording is not using microphone")
+                )
+            }
             if (sessionId != null && active.sessionId != sessionId) {
                 return@withLock AppResult.Failure(
                     AppError.RecordingPipelineFailed("Active recording belongs to another session")

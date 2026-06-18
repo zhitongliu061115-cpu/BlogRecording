@@ -1,7 +1,7 @@
 ## 1. Existing Data Structure Review
 
-- [ ] 1.1 Document current recording persistence fields in `app/src/main/java/com/example/blogrecording/data/RecordingPersistenceContract.kt` and verify with `.\gradlew.bat testDebugUnitTest --tests com.example.blogrecording.data.RecordingPersistenceContractTest`.
-- [ ] 1.2 Add or update characterization tests in `app/src/test/java/com/example/blogrecording/data/` for existing `RecordingSessionEntity`, `TranscriptSegmentEntity`, and `SpeakerProfileEntity` compatibility; verify with targeted data tests.
+- [x] 1.1 Document current recording persistence fields in `app/src/main/java/com/example/blogrecording/data/RecordingPersistenceContract.kt` and verify with `.\gradlew.bat testDebugUnitTest --tests com.example.blogrecording.data.RecordingPersistenceContractTest`.
+- [x] 1.2 Add or update characterization tests in `app/src/test/java/com/example/blogrecording/data/` for existing `RecordingSessionEntity`, `TranscriptSegmentEntity`, and `SpeakerProfileEntity` compatibility; verify with targeted data tests.
 
 ## 2. Domain Model Definition
 

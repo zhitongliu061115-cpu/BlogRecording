@@ -18,7 +18,6 @@ import com.example.blogrecording.common.AppResult
 import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.AudioSourceType
 import com.example.blogrecording.data.BundledModelInstaller
-import com.example.blogrecording.data.ModelLoadStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
 import com.example.blogrecording.data.Repository
@@ -143,16 +142,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onRecordAudioPermissionDenied() {
+        val denied = RecordingLifecyclePolicy.deniedPermissionState(AppError.RecordAudioPermissionDenied)
         mutableState.value = mutableState.value.copy(
-            recordingStatus = RecordingStatus.ERROR,
-            error = AppError.RecordAudioPermissionDenied
+            recordingStatus = denied.recordingStatus,
+            error = denied.error
         )
     }
 
     fun onNotificationPermissionDenied() {
+        val denied = RecordingLifecyclePolicy.deniedPermissionState(AppError.NotificationPermissionDenied)
         mutableState.value = mutableState.value.copy(
-            recordingStatus = RecordingStatus.ERROR,
-            error = AppError.NotificationPermissionDenied
+            recordingStatus = denied.recordingStatus,
+            error = denied.error
         )
     }
 
@@ -520,11 +521,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun handleCaptureFailure(sessionId: String, error: AppError) {
-        if (error == AppError.InternalAudioSilent) {
+        val failureState = RecordingLifecyclePolicy.captureFailureState(error)
+        if (!failureState.persistFailure) {
             updateRecordingState(
-                recordingStatus = RecordingStatus.CAPTURING_AUDIO,
-                vadLabel = "等待可捕获的系统声音",
-                error = null
+                recordingStatus = failureState.recordingStatus,
+                vadLabel = failureState.vadLabel ?: mutableState.value.vadLabel,
+                error = failureState.error
             )
             return
         }
@@ -533,8 +535,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.saveSession(session.copy(status = RecordingStatus.ERROR, errorMessage = error.toString()))
         }
         updateRecordingState(
-            recordingStatus = RecordingStatus.ERROR,
-            error = error
+            recordingStatus = failureState.recordingStatus,
+            error = failureState.error
         )
     }
 
@@ -562,13 +564,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun modelGateError(settings: AppSettings = mutableState.value.settings): AppError? {
-        val status = mutableState.value.modelStatus
-        return when {
-            status.vad == ModelLoadStatus.MISSING && settings.enableVad -> AppError.VadModelMissing
-            status.senseVoice == ModelLoadStatus.MISSING -> AppError.SenseVoiceModelMissing
-            status.diarization == ModelLoadStatus.MISSING && settings.enableSpeakerDiarization -> AppError.DiarizationModelMissing
-            else -> null
-        }
+        return RecordingLifecyclePolicy.modelGateError(settings, mutableState.value.modelStatus)
     }
 
     private fun updateStopRequestedState() {

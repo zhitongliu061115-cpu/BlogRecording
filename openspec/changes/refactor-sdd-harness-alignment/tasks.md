@@ -11,14 +11,14 @@
 - [x] 2.3 Add tests for bundled model provisioning and build asset contracts.
 - [x] 2.4 Add tests for DeepSeek summary failure mapping, empty transcript handling, transcript chunking, and transcript-only prompt construction.
 - [x] 2.5 Add tests for API key blank/save/delete behavior without exposing key material.
-- [ ] 2.6 Add focused tests or seams for recording lifecycle state transitions: permission denial, MediaProjection denial, foreground service failure, model gates, stop/flush, and recoverable internal silence.
+- [x] 2.6 Add focused tests or seams for recording lifecycle state transitions: permission denial, MediaProjection denial, foreground service failure, model gates, stop/flush, and recoverable internal silence.
 
 ## 3. Data, Settings, Models, and Secrets Rebuild
 
-- [ ] 3.1 Rebuild settings access behind a stable contract while preserving DataStore name, preference keys, defaults, and clamp behavior.
-- [ ] 3.2 Rebuild recording history persistence behind a stable contract while preserving DataStore name, JSON fields, enum names, ordering, startup recovery, and delete cleanup.
-- [ ] 3.3 Rebuild bundled model provisioning behind a stable contract while preserving asset paths, private copy location, status rules, and non-editable model paths.
-- [ ] 3.4 Rebuild API key storage behind a stable contract while preserving SharedPreferences name, `iv`, `cipher_text`, Keystore alias, and `AES/GCM/NoPadding`.
+- [x] 3.1 Rebuild settings access behind a stable contract while preserving DataStore name, preference keys, defaults, and clamp behavior.
+- [x] 3.2 Rebuild recording history persistence behind a stable contract while preserving DataStore name, JSON fields, enum names, ordering, startup recovery, and delete cleanup.
+- [x] 3.3 Rebuild bundled model provisioning behind a stable contract while preserving asset paths, private copy location, status rules, and non-editable model paths.
+- [x] 3.4 Rebuild API key storage behind a stable contract while preserving SharedPreferences name, `iv`, `cipher_text`, Keystore alias, and `AES/GCM/NoPadding`.
 
 ## 4. Recording and Transcription Rebuild
 

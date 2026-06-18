@@ -89,20 +89,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun navigate(screen: AppScreen) {
-        mutableState.value = mutableState.value.copy(currentScreen = screen, error = null)
+        mutableState.value = UiNavigationPolicy.navigate(mutableState.value, screen)
     }
 
     fun openDetail(sessionId: String) {
         viewModelScope.launch {
             val session = repository.getSession(sessionId)
             val segments = repository.getSegments(sessionId)
-            mutableState.value = mutableState.value.copy(
-                currentScreen = AppScreen.DETAIL,
-                selectedSessionId = sessionId,
-                currentSession = session,
-                currentSegments = segments,
-                error = null
-            )
+            mutableState.value = UiNavigationPolicy.openDetail(mutableState.value, sessionId, session, segments)
         }
     }
 
@@ -298,12 +292,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val sessionId = mutableState.value.currentSession?.id ?: return
         viewModelScope.launch {
             repository.deleteSession(sessionId)
-            mutableState.value = mutableState.value.copy(
-                currentScreen = AppScreen.HISTORY,
-                currentSession = null,
-                currentSegments = emptyList(),
-                selectedSessionId = null
-            )
+            mutableState.value = UiNavigationPolicy.deleteCurrentSession(mutableState.value)
         }
     }
 

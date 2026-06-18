@@ -36,9 +36,9 @@
 
 ## 6. UI State and Platform Contracts
 
-- [ ] 6.1 Reconnect Home, Settings, History, Detail, and privacy notice to rebuilt boundaries without changing user-visible navigation or actions.
+- [x] 6.1 Reconnect Home, Settings, History, Detail, and privacy notice to rebuilt boundaries without changing user-visible navigation or actions.
 - [x] 6.2 Preserve Android platform contracts: namespace/applicationId/package, launcher activity, manifest permissions, foreground service declaration, backup rules, and data extraction rules.
-- [ ] 6.3 Update or add Compose/instrumentation coverage for first-run privacy notice, navigation, history detail opening, and delete behavior.
+- [x] 6.3 Update or add Compose/instrumentation coverage for first-run privacy notice, navigation, history detail opening, and delete behavior.
 
 ## 7. Harness and Finalization
 

@@ -6,11 +6,11 @@
 
 ## 2. Behavior Protection Tests
 
-- [ ] 2.1 Add tests for recording history DataStore compatibility: key families, JSON field names, enum names, ordering, delete cleanup, and interrupted-session recovery.
-- [ ] 2.2 Add tests for settings defaults and clamping: `max_speaker_count`, `vad_speech_threshold`, `transcription_chunk_duration_ms`, model path overwrite, and privacy acceptance.
-- [ ] 2.3 Add tests for bundled model provisioning and build asset contracts.
-- [ ] 2.4 Add tests for DeepSeek summary failure mapping, empty transcript handling, transcript chunking, and transcript-only prompt construction.
-- [ ] 2.5 Add tests for API key blank/save/delete behavior without exposing key material.
+- [x] 2.1 Add tests for recording history DataStore compatibility: key families, JSON field names, enum names, ordering, delete cleanup, and interrupted-session recovery.
+- [x] 2.2 Add tests for settings defaults and clamping: `max_speaker_count`, `vad_speech_threshold`, `transcription_chunk_duration_ms`, model path overwrite, and privacy acceptance.
+- [x] 2.3 Add tests for bundled model provisioning and build asset contracts.
+- [x] 2.4 Add tests for DeepSeek summary failure mapping, empty transcript handling, transcript chunking, and transcript-only prompt construction.
+- [x] 2.5 Add tests for API key blank/save/delete behavior without exposing key material.
 - [ ] 2.6 Add focused tests or seams for recording lifecycle state transitions: permission denial, MediaProjection denial, foreground service failure, model gates, stop/flush, and recoverable internal silence.
 
 ## 3. Data, Settings, Models, and Secrets Rebuild

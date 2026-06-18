@@ -15,11 +15,11 @@ import javax.crypto.spec.GCMParameterSpec
 
 class ApiKeyStore(context: Context) {
     private val appContext = context.applicationContext
-    private val prefs = appContext.getSharedPreferences("deep_seek_key_store", Context.MODE_PRIVATE)
+    private val prefs = appContext.getSharedPreferences(ApiKeyStoreContract.PREFERENCES_NAME, Context.MODE_PRIVATE)
 
     suspend fun saveApiKey(apiKey: String): AppResult<Unit> {
-        val trimmed = apiKey.trim()
-        if (trimmed.isBlank()) {
+        val trimmed = ApiKeyStoreContract.normalizeApiKey(apiKey)
+        if (trimmed == null) {
             return AppResult.Failure(AppError.DeepSeekApiKeyMissing)
         }
         return runCatching {
@@ -50,7 +50,10 @@ class ApiKeyStore(context: Context) {
     }
 
     fun hasApiKey(): Boolean {
-        return prefs.contains(KEY_IV) && prefs.contains(KEY_CIPHER_TEXT)
+        return ApiKeyStoreContract.hasStoredPayload(
+            prefs.getString(KEY_IV, null),
+            prefs.getString(KEY_CIPHER_TEXT, null)
+        )
     }
 
     fun deleteApiKey() {
@@ -77,11 +80,11 @@ class ApiKeyStore(context: Context) {
     }
 
     private companion object {
-        const val ANDROID_KEYSTORE = "AndroidKeyStore"
-        const val KEY_ALIAS = "podcast_recap_deep_seek_api_key"
-        const val TRANSFORMATION = "AES/GCM/NoPadding"
-        const val GCM_TAG_LENGTH_BITS = 128
-        const val KEY_IV = "iv"
-        const val KEY_CIPHER_TEXT = "cipher_text"
+        const val ANDROID_KEYSTORE = ApiKeyStoreContract.ANDROID_KEYSTORE
+        const val KEY_ALIAS = ApiKeyStoreContract.KEY_ALIAS
+        const val TRANSFORMATION = ApiKeyStoreContract.TRANSFORMATION
+        const val GCM_TAG_LENGTH_BITS = ApiKeyStoreContract.GCM_TAG_LENGTH_BITS
+        const val KEY_IV = ApiKeyStoreContract.KEY_IV
+        const val KEY_CIPHER_TEXT = ApiKeyStoreContract.KEY_CIPHER_TEXT
     }
 }

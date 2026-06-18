@@ -7,18 +7,19 @@ import java.io.File
 class BundledModelAssetsTest {
     @Test
     fun requiredBundledModelAssetsExist() {
-        val requiredFiles = listOf(
-            "src/main/assets/models/sensevoice/model.int8.onnx",
-            "src/main/assets/models/sensevoice/tokens.txt",
-            "src/main/assets/models/vad/silero_vad.onnx",
-            "src/main/assets/models/diarization/segmentation.onnx",
-            "src/main/assets/models/diarization/embedding.onnx"
-        )
-
-        requiredFiles.forEach { relativePath ->
+        BundledModelContract.REQUIRED_ASSET_PATHS.forEach { relativePath ->
             val file = File(relativePath)
             assertTrue("$relativePath must exist", file.exists())
             assertTrue("$relativePath must not be empty", file.length() > 0L)
         }
+    }
+
+    @Test
+    fun modelContractKeepsRequiredAssetNames() {
+        assertTrue("model.int8.onnx" in BundledModelContract.SENSEVOICE_REQUIRED_FILES)
+        assertTrue("tokens.txt" in BundledModelContract.SENSEVOICE_REQUIRED_FILES)
+        assertTrue("silero_vad.onnx" in BundledModelContract.VAD_REQUIRED_FILES)
+        assertTrue("segmentation.onnx" in BundledModelContract.DIARIZATION_REQUIRED_FILES)
+        assertTrue("embedding.onnx" in BundledModelContract.DIARIZATION_REQUIRED_FILES)
     }
 }

@@ -12,13 +12,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-private val Context.recordsDataStore by preferencesDataStore(name = "podcast_recap_records")
+private val Context.recordsDataStore by preferencesDataStore(name = RecordingPersistenceContract.DATASTORE_NAME)
 
 class Repository(private val context: Context) {
     val sessions: Flow<List<RecordingSessionEntity>> = context.recordsDataStore.data.map { prefs ->
         val order = prefs[Keys.SessionOrder].orEmpty().lines().filter { it.isNotBlank() }
         order.mapNotNull { id ->
-            prefs[stringPreferencesKey(sessionKey(id))]?.let(::decodeSession)
+            prefs[stringPreferencesKey(RecordingPersistenceContract.sessionKey(id))]?.let(::decodeSession)
         }.sortedByDescending { it.createdAt }
     }
 
@@ -54,7 +54,7 @@ class Repository(private val context: Context) {
                 .lines()
                 .filter { it.isNotBlank() }
                 .forEach { id ->
-                    val key = stringPreferencesKey(sessionKey(id))
+                    val key = stringPreferencesKey(RecordingPersistenceContract.sessionKey(id))
                     val session = prefs[key]?.let(::decodeSession) ?: return@forEach
                     if (session.status.isInterruptedOnStartup()) {
                         prefs[key] = encodeSession(
@@ -74,20 +74,20 @@ class Repository(private val context: Context) {
             val existing = prefs[Keys.SessionOrder].orEmpty().lines().filter { it.isNotBlank() }
             val order = if (session.id in existing) existing else listOf(session.id) + existing
             prefs[Keys.SessionOrder] = order.joinToString(separator = "\n")
-            prefs[stringPreferencesKey(sessionKey(session.id))] = encodeSession(session)
+            prefs[stringPreferencesKey(RecordingPersistenceContract.sessionKey(session.id))] = encodeSession(session)
         }
     }
 
     suspend fun getSession(sessionId: String): RecordingSessionEntity? {
         val prefs = context.recordsDataStore.data.first()
-        return prefs[stringPreferencesKey(sessionKey(sessionId))]?.let(::decodeSession)
+        return prefs[stringPreferencesKey(RecordingPersistenceContract.sessionKey(sessionId))]?.let(::decodeSession)
     }
 
     suspend fun deleteSession(sessionId: String) {
         context.recordsDataStore.edit { prefs ->
-            prefs.remove(stringPreferencesKey(sessionKey(sessionId)))
-            prefs.remove(stringPreferencesKey(segmentsKey(sessionId)))
-            prefs.remove(stringPreferencesKey(speakersKey(sessionId)))
+            prefs.remove(stringPreferencesKey(RecordingPersistenceContract.sessionKey(sessionId)))
+            prefs.remove(stringPreferencesKey(RecordingPersistenceContract.segmentsKey(sessionId)))
+            prefs.remove(stringPreferencesKey(RecordingPersistenceContract.speakersKey(sessionId)))
             prefs[Keys.SessionOrder] = prefs[Keys.SessionOrder]
                 .orEmpty()
                 .lines()
@@ -98,7 +98,7 @@ class Repository(private val context: Context) {
 
     suspend fun saveSegments(sessionId: String, segments: List<TranscriptSegmentEntity>) {
         context.recordsDataStore.edit { prefs ->
-            prefs[stringPreferencesKey(segmentsKey(sessionId))] = JSONArray(
+            prefs[stringPreferencesKey(RecordingPersistenceContract.segmentsKey(sessionId))] = JSONArray(
                 segments.map(::encodeSegment)
             ).toString()
         }
@@ -112,7 +112,7 @@ class Repository(private val context: Context) {
 
     suspend fun getSegments(sessionId: String): List<TranscriptSegmentEntity> {
         val prefs = context.recordsDataStore.data.first()
-        val raw = prefs[stringPreferencesKey(segmentsKey(sessionId))] ?: return emptyList()
+        val raw = prefs[stringPreferencesKey(RecordingPersistenceContract.segmentsKey(sessionId))] ?: return emptyList()
         val array = JSONArray(raw)
         return List(array.length()) { index ->
             decodeSegment(array.getJSONObject(index))
@@ -121,7 +121,7 @@ class Repository(private val context: Context) {
 
     suspend fun saveSpeakerProfiles(sessionId: String, speakers: List<SpeakerProfileEntity>) {
         context.recordsDataStore.edit { prefs ->
-            prefs[stringPreferencesKey(speakersKey(sessionId))] = JSONArray(
+            prefs[stringPreferencesKey(RecordingPersistenceContract.speakersKey(sessionId))] = JSONArray(
                 speakers.map(::encodeSpeaker)
             ).toString()
         }
@@ -129,7 +129,7 @@ class Repository(private val context: Context) {
 
     suspend fun getSpeakerProfiles(sessionId: String): List<SpeakerProfileEntity> {
         val prefs = context.recordsDataStore.data.first()
-        val raw = prefs[stringPreferencesKey(speakersKey(sessionId))] ?: return emptyList()
+        val raw = prefs[stringPreferencesKey(RecordingPersistenceContract.speakersKey(sessionId))] ?: return emptyList()
         val array = JSONArray(raw)
         return List(array.length()) { index ->
             decodeSpeaker(array.getJSONObject(index))
@@ -159,7 +159,7 @@ class Repository(private val context: Context) {
     }
 
     private object Keys {
-        val SessionOrder = stringPreferencesKey("session_order")
+        val SessionOrder = stringPreferencesKey(RecordingPersistenceContract.SESSION_ORDER_KEY)
     }
 }
 
@@ -174,10 +174,6 @@ fun Long.formatTimestamp(): String {
     val seconds = totalSeconds % 60
     return "%02d:%02d:%02d".format(hours, minutes, seconds)
 }
-
-private fun sessionKey(id: String) = "session_$id"
-private fun segmentsKey(sessionId: String) = "segments_$sessionId"
-private fun speakersKey(sessionId: String) = "speakers_$sessionId"
 
 private fun encodeSession(session: RecordingSessionEntity): String {
     return JSONObject()

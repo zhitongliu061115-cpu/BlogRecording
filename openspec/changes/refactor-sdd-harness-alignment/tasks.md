@@ -2,7 +2,7 @@
 
 - [x] 1.1 Run and record `git status --short`, `git diff --check`, and `openspec.cmd status --change "refactor-sdd-harness-alignment" --json`.
 - [x] 1.2 Run current `.\gradlew.bat testDebugUnitTest` and record failures or environment blockers before code changes.
-- [ ] 1.3 Run current `.\gradlew.bat assembleDebug` and record failures or environment blockers before code changes.
+- [x] 1.3 Run current `.\gradlew.bat assembleDebug` and record failures or environment blockers before code changes.
 
 ## 2. Behavior Protection Tests
 

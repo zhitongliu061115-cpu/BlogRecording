@@ -22,8 +22,8 @@
 
 ## 4. Recording and Transcription Rebuild
 
-- [ ] 4.1 Introduce recording orchestration boundaries that keep existing microphone/internal-audio flows and foreground service behavior.
-- [ ] 4.2 Preserve permission and platform flow for `RECORD_AUDIO`, Android 13+ `POST_NOTIFICATIONS`, and MediaProjection.
+- [x] 4.1 Introduce recording orchestration boundaries that keep existing microphone/internal-audio flows and foreground service behavior.
+- [x] 4.2 Preserve permission and platform flow for `RECORD_AUDIO`, Android 13+ `POST_NOTIFICATIONS`, and MediaProjection.
 - [x] 4.3 Rebuild PCM chunking and recognition coordination while preserving chunk duration clamps and 30-second recognition windows.
 - [x] 4.4 Preserve current VAD configuration behavior without changing the fixed-chunk main pipeline.
 - [x] 4.5 Rebuild speaker labeling and profile updates while preserving disabled/fallback behavior and 60-second unstable fallback.
@@ -37,7 +37,7 @@
 ## 6. UI State and Platform Contracts
 
 - [ ] 6.1 Reconnect Home, Settings, History, Detail, and privacy notice to rebuilt boundaries without changing user-visible navigation or actions.
-- [ ] 6.2 Preserve Android platform contracts: namespace/applicationId/package, launcher activity, manifest permissions, foreground service declaration, backup rules, and data extraction rules.
+- [x] 6.2 Preserve Android platform contracts: namespace/applicationId/package, launcher activity, manifest permissions, foreground service declaration, backup rules, and data extraction rules.
 - [ ] 6.3 Update or add Compose/instrumentation coverage for first-run privacy notice, navigation, history detail opening, and delete behavior.
 
 ## 7. Harness and Finalization

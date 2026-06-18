@@ -12,6 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.blogrecording.R
 import com.example.blogrecording.common.AppError
+import com.example.blogrecording.platform.AndroidPlatformContract
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
@@ -78,9 +79,9 @@ class CaptureForegroundService : Service() {
     }
 
     companion object {
-        const val CHANNEL_ID = "capture_foreground"
-        const val NOTIFICATION_ID = 1001
-        const val EXTRA_FOREGROUND_SERVICE_TYPE = "foreground_service_type"
+        const val CHANNEL_ID = AndroidPlatformContract.CAPTURE_CHANNEL_ID
+        const val NOTIFICATION_ID = AndroidPlatformContract.CAPTURE_NOTIFICATION_ID
+        const val EXTRA_FOREGROUND_SERVICE_TYPE = AndroidPlatformContract.EXTRA_FOREGROUND_SERVICE_TYPE
         private const val EXTRA_START_REQUEST_ID = "start_request_id"
         private const val START_TIMEOUT_MS = 10_000L
         private val pendingStarts = ConcurrentHashMap<String, CompletableDeferred<StartResult>>()

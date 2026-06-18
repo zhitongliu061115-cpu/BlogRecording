@@ -19,9 +19,9 @@
 
 ## 4. ViewModel And UI Wiring
 
-- [ ] 4.1 Wire Home card and detail summary actions to the session summary use case; verify with targeted ViewModel tests or fake boundary tests.
-- [ ] 4.2 Update summary labels/errors from persisted session summary status; verify with Home UI state mapper tests.
-- [ ] 4.3 Ensure no logs or user-visible errors include API keys, raw audio, PCM, full paths, or full transcript text; verify with code review and privacy tests where possible.
+- [x] 4.1 Wire Home card and detail summary actions to the session summary use case; verify with targeted ViewModel tests or fake boundary tests.
+- [x] 4.2 Update summary labels/errors from persisted session summary status; verify with Home UI state mapper tests.
+- [x] 4.3 Ensure no logs or user-visible errors include API keys, raw audio, PCM, full paths, or full transcript text; verify with code review and privacy tests where possible.
 
 ## 5. Verification
 

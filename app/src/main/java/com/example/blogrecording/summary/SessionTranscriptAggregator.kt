@@ -37,6 +37,7 @@ object SessionTranscriptAggregator {
                 }
             }
 
-        return ordered.joinToString(separator = "\n\n") { it.toTranscriptText() }
+        val segmentTranscript = ordered.joinToString(separator = "\n\n") { it.toTranscriptText() }
+        return segmentTranscript.ifBlank { detail.session.transcript.trim() }
     }
 }

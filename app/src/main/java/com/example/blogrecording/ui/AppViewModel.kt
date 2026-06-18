@@ -36,6 +36,7 @@ import com.example.blogrecording.recording.SegmentStopResult
 import com.example.blogrecording.security.ApiKeyStore
 import com.example.blogrecording.service.CaptureForegroundService
 import com.example.blogrecording.summary.DeepSeekSummaryClient
+import com.example.blogrecording.summary.SessionSummaryUseCase
 import com.example.blogrecording.summary.SummaryRepository
 import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
@@ -61,6 +62,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val apiKeyStore = ApiKeyStore(application)
     private val bundledModelInstaller = BundledModelInstaller(application)
     private val summaryRepository = SummaryRepository(DeepSeekSummaryClient())
+    private val sessionSummaryUseCase = SessionSummaryUseCase(
+        sessionRepository = repository,
+        readApiKey = { apiKeyStore.readApiKey() },
+        generateSummary = { apiKey, transcript, settings ->
+            summaryRepository.generateSummary(apiKey, transcript, settings)
+        }
+    )
     private val transcriptAssembler = TranscriptAssembler()
     private val speakerProfileManager = SpeakerProfileManager()
     private val recordingController: RecordingController by lazy {
@@ -341,61 +349,48 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun generateSummaryForCurrent() {
         val session = mutableState.value.currentSession ?: return
-        generateSummary(session)
+        startSummaryForPodcastSession(session.id)
     }
 
     fun startSummaryForPodcastSession(sessionId: String) {
-        viewModelScope.launch {
-            if (mutableState.value.home.activeRecordingSessionId != null) {
-                mutableState.value = mutableState.value.copy(error = AppError.Unknown("请先暂停当前录音"))
-                return@launch
+        summaryJob?.cancel()
+        summaryJob = viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(
+                isGeneratingSummary = true,
+                recordingStatus = RecordingStatus.SUMMARIZING,
+                error = null
+            )
+            when (val result = sessionSummaryUseCase.start(sessionId, mutableState.value.settings)) {
+                is AppResult.Success -> {
+                    val updated = repository.getSession(sessionId)
+                    val segments = repository.getSegments(sessionId)
+                    mutableState.value = mutableState.value.copy(
+                        isGeneratingSummary = false,
+                        recordingStatus = updated?.status ?: RecordingStatus.COMPLETED,
+                        currentSession = updated ?: mutableState.value.currentSession,
+                        currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
+                            segments
+                        } else {
+                            mutableState.value.currentSegments
+                        },
+                        error = null
+                    )
+                }
+                is AppResult.Failure -> {
+                    val updated = repository.getSession(sessionId)
+                    mutableState.value = mutableState.value.copy(
+                        isGeneratingSummary = false,
+                        recordingStatus = updated?.status ?: mutableState.value.recordingStatus,
+                        currentSession = updated ?: mutableState.value.currentSession,
+                        error = result.error
+                    )
+                }
             }
-            val session = repository.getSession(sessionId)
-            if (session == null) {
-                mutableState.value = mutableState.value.copy(error = AppError.Unknown("记录不存在"))
-                return@launch
-            }
-            if (session.transcript.isBlank()) {
-                mutableState.value = mutableState.value.copy(error = AppError.Unknown("转写为空"))
-                return@launch
-            }
-            generateSummary(session)
         }
     }
 
     fun generateSummary(session: RecordingSessionEntity) {
-        summaryJob?.cancel()
-        summaryJob = viewModelScope.launch {
-            mutableState.value = mutableState.value.copy(isGeneratingSummary = true, recordingStatus = RecordingStatus.SUMMARIZING, error = null)
-            val apiKey = when (val result = apiKeyStore.readApiKey()) {
-                is AppResult.Success -> result.value
-                is AppResult.Failure -> {
-                    mutableState.value = mutableState.value.copy(isGeneratingSummary = false, error = result.error)
-                    return@launch
-                }
-            }
-            if (session.transcript.isBlank()) {
-                mutableState.value = mutableState.value.copy(isGeneratingSummary = false, error = AppError.Unknown("转写为空"))
-                return@launch
-            }
-            when (val summary = summaryRepository.generateSummary(apiKey, session.transcript, mutableState.value.settings)) {
-                is AppResult.Success -> {
-                    repository.updateSummary(session.id, summary.value)
-                    val updated = repository.getSession(session.id)
-                    mutableState.value = mutableState.value.copy(
-                        isGeneratingSummary = false,
-                        recordingStatus = RecordingStatus.COMPLETED,
-                        currentSession = updated,
-                        error = null
-                    )
-                }
-                is AppResult.Failure -> mutableState.value = mutableState.value.copy(
-                    isGeneratingSummary = false,
-                    recordingStatus = RecordingStatus.ERROR,
-                    error = summary.error
-                )
-            }
-        }
+        startSummaryForPodcastSession(session.id)
     }
 
     fun deleteCurrentSession() {

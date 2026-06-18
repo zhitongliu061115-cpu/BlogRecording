@@ -7,6 +7,7 @@ import com.example.blogrecording.data.PodcastSessionDetail
 import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSegmentStatus
 import com.example.blogrecording.data.SummaryStatus
+import com.example.blogrecording.summary.SessionSummaryEligibilityPolicy
 import com.example.blogrecording.ui.state.HomeUiState
 import com.example.blogrecording.ui.state.PodcastCardUiState
 import com.example.blogrecording.ui.state.RecordingActionState
@@ -49,6 +50,7 @@ object HomeUiStateMapper {
         }
         val hasAnySegment = recordingSegments.isNotEmpty()
         val hasTranscript = session.transcript.isNotBlank() || transcriptSegments.any { it.text.isNotBlank() }
+        val summaryEligibility = SessionSummaryEligibilityPolicy.evaluate(this)
         val isAnotherSessionRecording = activeRecordingSessionId != null && !isRecording
         val canStart = !isRecording && session.status == PodcastSessionStatus.DRAFT
         val canResume = !isRecording && session.status in RESUMABLE_STATUSES
@@ -60,7 +62,7 @@ object HomeUiStateMapper {
             session.status == PodcastSessionStatus.ERROR && hasCompletedSegment -> true
             else -> false
         }
-        val canStartSummary = hasTranscript &&
+        val canStartSummary = summaryEligibility.canStart &&
             activeRecordingSessionId == null &&
             session.status in SUMMARY_STARTABLE_STATUSES
 
@@ -71,7 +73,7 @@ object HomeUiStateMapper {
             durationLabel = totalDurationMs.toDurationLabel(),
             segmentCountLabel = "${recordingSegments.size} 段",
             transcriptionLabel = transcriptionLabel(session),
-            summaryLabel = summaryLabel(session),
+            summaryLabel = summaryLabel(session, hasTranscript),
             isRecording = isRecording,
             actionState = RecordingActionState(
                 canStart = canStart,
@@ -86,7 +88,8 @@ object HomeUiStateMapper {
                 hasTranscript = hasTranscript,
                 activeRecordingSessionId = activeRecordingSessionId,
                 isRecording = isRecording,
-                session = session
+                session = session,
+                summaryEligibilityReason = summaryEligibility.disabledReason
             )
         )
     }
@@ -115,9 +118,9 @@ object HomeUiStateMapper {
         }
     }
 
-    private fun summaryLabel(session: PodcastSession): String {
+    private fun summaryLabel(session: PodcastSession, hasTranscript: Boolean): String {
         val status = session.summary?.status ?: if (session.transcript.isBlank()) {
-            SummaryStatus.NOT_READY
+            if (hasTranscript) SummaryStatus.READY else SummaryStatus.NOT_READY
         } else {
             SummaryStatus.READY
         }
@@ -134,12 +137,14 @@ object HomeUiStateMapper {
         hasTranscript: Boolean,
         activeRecordingSessionId: String?,
         isRecording: Boolean,
-        session: PodcastSession
+        session: PodcastSession,
+        summaryEligibilityReason: String?
     ): String? {
         return when {
             !hasTranscript -> "没有可总结的转写"
             activeRecordingSessionId != null || isRecording -> "请先暂停当前录音"
             session.status !in SUMMARY_STARTABLE_STATUSES -> "当前状态不可总结"
+            summaryEligibilityReason != null -> summaryEligibilityReason
             else -> null
         }
     }

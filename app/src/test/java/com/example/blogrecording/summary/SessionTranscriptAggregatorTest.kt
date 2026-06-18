@@ -83,6 +83,17 @@ class SessionTranscriptAggregatorTest {
         assertFalse(aggregate.contains("other transcript"))
     }
 
+    @Test
+    fun fallsBackToSessionTranscriptForLegacySessionsWithoutTranscriptSegments() {
+        val detail = detail(
+            session = session(id = "session-1", transcript = "legacy transcript")
+        )
+
+        val aggregate = SessionTranscriptAggregator.aggregate(detail)
+
+        assertTrue(aggregate.contains("legacy transcript"))
+    }
+
     private fun assertOrdered(text: String, vararg parts: String) {
         var previous = -1
         parts.forEach { part ->
@@ -95,18 +106,19 @@ class SessionTranscriptAggregatorTest {
 
     private fun detail(
         sessionId: String = "session-1",
+        session: PodcastSession = session(id = sessionId),
         recordingSegments: List<RecordingSegment> = emptyList(),
         transcriptSegments: List<TranscriptSegmentEntity> = emptyList()
     ): PodcastSessionDetail {
         return PodcastSessionDetail(
-            session = session(id = sessionId),
+            session = session,
             recordingSegments = recordingSegments,
             transcriptSegments = transcriptSegments,
             speakerProfiles = emptyList()
         )
     }
 
-    private fun session(id: String): PodcastSession {
+    private fun session(id: String, transcript: String = ""): PodcastSession {
         return PodcastSession(
             id = id,
             title = "Episode",
@@ -116,7 +128,7 @@ class SessionTranscriptAggregatorTest {
             status = PodcastSessionStatus.PAUSED,
             activeSegmentId = null,
             lastCompletedSegmentId = null,
-            transcript = "",
+            transcript = transcript,
             summary = null,
             summaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
             summaryLanguage = SummaryLanguage.CHINESE,

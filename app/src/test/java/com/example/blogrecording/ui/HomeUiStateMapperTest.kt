@@ -124,6 +124,59 @@ class HomeUiStateMapperTest {
     }
 
     @Test
+    fun failedSummaryCanRetryWhenTranscriptExists() {
+        val card = HomeUiStateMapper.map(
+            listOf(
+                detail(
+                    session = session(
+                        status = PodcastSessionStatus.READY_FOR_SUMMARY,
+                        transcript = "hello",
+                        summary = summary(SummaryStatus.FAILED)
+                    )
+                )
+            )
+        ).cards.single()
+
+        assertEquals("总结失败", card.summaryLabel)
+        assertTrue(card.canStartSummary)
+        assertNull(card.startSummaryDisabledReason)
+    }
+
+    @Test
+    fun transcriptSegmentsMakeSummaryReadyEvenWhenSessionTranscriptIsBlank() {
+        val card = HomeUiStateMapper.map(
+            listOf(
+                detail(
+                    session = session(status = PodcastSessionStatus.PAUSED),
+                    transcriptSegments = listOf(transcriptSegment(text = "segment transcript"))
+                )
+            )
+        ).cards.single()
+
+        assertEquals("可总结", card.summaryLabel)
+        assertTrue(card.canStartSummary)
+    }
+
+    @Test
+    fun summarizingSummaryCannotStartAgain() {
+        val card = HomeUiStateMapper.map(
+            listOf(
+                detail(
+                    session = session(
+                        status = PodcastSessionStatus.SUMMARIZING,
+                        transcript = "hello",
+                        summary = summary(SummaryStatus.SUMMARIZING)
+                    )
+                )
+            )
+        ).cards.single()
+
+        assertEquals("总结中", card.summaryLabel)
+        assertFalse(card.canStartSummary)
+        assertEquals("当前状态不可总结", card.startSummaryDisabledReason)
+    }
+
+    @Test
     fun anotherRecordingSessionMarksStartOrResumeAsSwitching() {
         val recording = detail(
             session = session(
@@ -255,6 +308,27 @@ class HomeUiStateMapperTest {
             errorMessage = null,
             createdAt = 1L,
             updatedAt = 2L
+        )
+    }
+
+    private fun transcriptSegment(
+        sessionId: String = "session-1",
+        text: String
+    ): TranscriptSegmentEntity {
+        return TranscriptSegmentEntity(
+            id = "transcript-1",
+            sessionId = sessionId,
+            recordingSegmentId = null,
+            startMs = 1L,
+            endMs = 2L,
+            speakerId = "speaker-1",
+            speakerDisplayName = "Speaker 1",
+            text = text,
+            language = "zh",
+            confidence = null,
+            vadConfidence = null,
+            isFinal = true,
+            createdAt = 1L
         )
     }
 

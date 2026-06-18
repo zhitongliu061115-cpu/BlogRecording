@@ -42,6 +42,6 @@
 
 ## 7. Harness and Finalization
 
-- [ ] 7.1 Add or document a repeatable local Harness entrypoint for Git checks, OpenSpec status, unit tests, and debug build.
+- [x] 7.1 Add or document a repeatable local Harness entrypoint for Git checks, OpenSpec status, unit tests, and debug build.
 - [ ] 7.2 Run `git status --short`, `git diff --check`, `openspec.cmd status --change "refactor-sdd-harness-alignment" --json`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 7.3 Update this task list to mark completed tasks and record any environment-blocked checks in the final delivery notes.

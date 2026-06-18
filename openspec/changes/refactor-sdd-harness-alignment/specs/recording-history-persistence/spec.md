@@ -14,6 +14,13 @@ The app SHALL preserve current session JSON field names and enum string names fo
 - **WHEN** a stored session contains current field names and enum names
 - **THEN** the app decodes the session successfully
 
+### Requirement: Segment and speaker JSON fields remain stable
+The app SHALL preserve segment fields `id`, `sessionId`, `startMs`, `endMs`, `speakerId`, `speakerDisplayName`, `text`, `language`, `confidence`, `vadConfidence`, `isFinal`, and `createdAt`, and speaker profile fields `id`, `sessionId`, `speakerId`, `displayName`, `colorIndex`, `segmentCount`, `totalSpeechDurationMs`, `createdAt`, and `updatedAt`.
+
+#### Scenario: Existing segment and speaker JSON are decoded
+- **WHEN** stored segment and speaker profile arrays contain current field names
+- **THEN** the app decodes them successfully
+
 ### Requirement: Session order remains newest first
 The app SHALL keep recording history sorted by creation time descending and maintain `session_order` when saving new sessions.
 

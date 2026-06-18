@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Recording sessions persist lifecycle states
-The app SHALL persist recording sessions as they move through not started, capturing, transcribing, summarizing, completed, and error states.
+The app SHALL preserve all current recording status enum names and persist sessions as they move through `NOT_STARTED`, `CAPTURING_AUDIO`, `VAD_DETECTING`, `DIARIZING`, `TRANSCRIBING`, `SUMMARIZING`, `COMPLETED`, and `ERROR`.
 
 #### Scenario: Recording starts successfully
 - **WHEN** capture starts after required gates pass

@@ -14,9 +14,9 @@ The app SHALL keep the existing sherpa-onnx AAR dependency available to the Andr
 - **WHEN** the app module is configured
 - **THEN** the local sherpa-onnx AAR dependency is included
 
-### Requirement: Model assets are not replaced by placeholders
-The app SHALL require real non-empty model assets at the configured paths for debug assembly.
+### Requirement: Model assets are non-empty at configured paths
+The app SHALL require non-empty model assets at the configured paths for debug assembly.
 
-#### Scenario: Placeholder model remains
+#### Scenario: Empty model file remains
 - **WHEN** a required model file is empty
 - **THEN** the build fails with model details

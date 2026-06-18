@@ -15,8 +15,8 @@ The app SHALL report model status for SenseVoice, VAD, and diarization based on 
 - **THEN** the corresponding model status is `MISSING`
 
 ### Requirement: Settings do not allow manual model path entry
-The app SHALL keep model paths managed by the bundled installer and SHALL NOT expose user-editable model path inputs.
+The app SHALL keep model paths managed only by the bundled installer and SHALL NOT expose or accept user-editable model path inputs.
 
 #### Scenario: User saves settings
 - **WHEN** Settings are saved
-- **THEN** model paths are overwritten with installer-managed paths
+- **THEN** user-provided model paths are ignored and persisted paths remain installer-managed

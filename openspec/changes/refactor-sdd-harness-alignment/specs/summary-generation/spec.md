@@ -12,7 +12,7 @@ The app SHALL read the DeepSeek API key from encrypted local storage and require
 - **THEN** the app stops summary generation and shows an error
 
 ### Requirement: Summary requests send transcript text only
-The app SHALL send transcript-derived prompt content to DeepSeek and SHALL NOT send raw audio, PCM chunks, local files, API key logs, or speaker embeddings.
+The app SHALL send only prompt content derived from transcript text, timestamps, speaker labels, and summary settings to DeepSeek and SHALL NOT send raw audio, PCM chunks, local files, API keys, or speaker embeddings.
 
 #### Scenario: Summary request is built
 - **WHEN** the app prepares a DeepSeek request

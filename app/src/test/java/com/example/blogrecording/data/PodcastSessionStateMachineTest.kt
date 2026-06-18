@@ -49,6 +49,15 @@ class PodcastSessionStateMachineTest {
     }
 
     @Test
+    fun startRejectsBlankSegmentId() {
+        val draft = session(status = PodcastSessionStatus.DRAFT)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            PodcastSessionStateMachine.start(draft, segmentId = " ")
+        }
+    }
+
+    @Test
     fun finalizeMarksPausedSessionReadyForSummary() {
         val paused = session(status = PodcastSessionStatus.PAUSED)
 
@@ -121,6 +130,16 @@ class PodcastSessionStateMachineTest {
     }
 
     @Test
+    fun failWithBlankMessageDoesNotPersistEmptyError() {
+        val paused = session(status = PodcastSessionStatus.PAUSED)
+
+        val failed = PodcastSessionStateMachine.fail(paused, " ")
+
+        assertEquals(PodcastSessionStatus.ERROR, failed.status)
+        assertNull(failed.errorMessage)
+    }
+
+    @Test
     fun recoverClearsActiveRecordingAndIsIdempotent() {
         val recording = session(
             status = PodcastSessionStatus.RECORDING,
@@ -134,6 +153,21 @@ class PodcastSessionStateMachineTest {
         assertEquals(PodcastSessionStatus.PAUSED, recovered.status)
         assertNull(recovered.activeSegmentId)
         assertEquals(recovered, recoveredAgain)
+    }
+
+    @Test
+    fun recoverActiveSessionWithoutCompletedDataBecomesError() {
+        val recording = session(
+            status = PodcastSessionStatus.RECORDING,
+            activeSegmentId = "segment-1",
+            recordingSegmentCount = 0,
+            transcript = ""
+        )
+
+        val recovered = PodcastSessionStateMachine.recover(recording)
+
+        assertEquals(PodcastSessionStatus.ERROR, recovered.status)
+        assertNull(recovered.activeSegmentId)
     }
 
     private fun session(

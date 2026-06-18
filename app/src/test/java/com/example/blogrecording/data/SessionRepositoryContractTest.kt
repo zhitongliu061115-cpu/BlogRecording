@@ -56,6 +56,43 @@ class SessionRepositoryContractTest {
         assertNull(detail)
     }
 
+    @Test
+    fun observeSessionsIncludesMultipleCreatedSessions() = runBlocking {
+        val repository = FakeSessionRepository()
+
+        val first = repository.createSession(title = "Episode A", sourceType = AudioSourceType.MICROPHONE)
+        val second = repository.createSession(title = "Episode B", sourceType = AudioSourceType.INTERNAL_AUDIO)
+        val sessions = repository.observeSessions().first()
+
+        assertEquals(listOf(first.id, second.id), sessions.map { it.id })
+        assertEquals(listOf("Episode A", "Episode B"), sessions.map { it.title })
+    }
+
+    @Test
+    fun updateSegmentReplacesMatchingRecordingSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val created = repository.createSession(title = "Episode", sourceType = AudioSourceType.MICROPHONE)
+        val segment = (repository.appendSegment(created.id, AudioSourceType.MICROPHONE, startedAt = 100L) as AppResult.Success).value
+        val completed = segment.copy(status = RecordingSegmentStatus.COMPLETED, endedAt = 200L, durationMs = 100L)
+
+        val result = repository.updateSegment(completed)
+        val detail = repository.observeSessionDetail(created.id).first()
+
+        assertEquals(completed, (result as AppResult.Success).value)
+        assertEquals(RecordingSegmentStatus.COMPLETED, detail?.recordingSegments?.single()?.status)
+        assertEquals(100L, detail?.recordingSegments?.single()?.durationMs)
+    }
+
+    @Test
+    fun missingSessionMutationsReturnFailure() = runBlocking {
+        val repository = FakeSessionRepository()
+
+        assertTrue(repository.renameSession("missing", "title") is AppResult.Failure)
+        assertTrue(repository.appendSegment("missing", AudioSourceType.MICROPHONE, startedAt = 100L) is AppResult.Failure)
+        assertTrue(repository.updateStatus("missing", PodcastSessionStatus.ERROR) is AppResult.Failure)
+        assertTrue(repository.updateSegment(recordingSegment(sessionId = "missing")) is AppResult.Failure)
+    }
+
     private class FakeSessionRepository : SessionRepository {
         private val details = MutableStateFlow<Map<String, PodcastSessionDetail>>(emptyMap())
         private var nextSession = 1
@@ -108,6 +145,7 @@ class SessionRepositoryContractTest {
 
         override suspend fun updateSegment(segment: RecordingSegment): AppResult<RecordingSegment> {
             val detail = details.value[segment.sessionId] ?: return missing()
+            if (detail.recordingSegments.none { it.id == segment.id }) return missing()
             details.value = details.value + (segment.sessionId to detail.copy(
                 recordingSegments = detail.recordingSegments.map {
                     if (it.id == segment.id) segment else it

@@ -147,6 +147,55 @@ class PodcastSessionMigrationTest {
         assertTrue(recovered.recordingSegments.first().errorMessage?.contains("Interrupted") == true)
     }
 
+    @Test
+    fun migratedDetailPreservesTranscriptAndSpeakerAssociations() {
+        val legacy = legacySession(
+            status = RecordingStatus.COMPLETED,
+            transcript = "Speaker 1: hello",
+            summary = null,
+            segmentCount = 1
+        )
+        val migrated = PodcastSessionMigration.fromLegacyRecordingSession(legacy)
+        val transcriptSegment = TranscriptSegmentEntity(
+            id = "transcript-1",
+            sessionId = legacy.id,
+            startMs = 0L,
+            endMs = 1_000L,
+            speakerId = "speaker_1",
+            speakerDisplayName = "Speaker 1",
+            text = "hello",
+            language = "zh",
+            confidence = null,
+            vadConfidence = null,
+            isFinal = true,
+            createdAt = 300L
+        )
+        val speaker = SpeakerProfileEntity(
+            id = "profile-1",
+            sessionId = legacy.id,
+            speakerId = "speaker_1",
+            displayName = "Speaker 1",
+            colorIndex = 0,
+            segmentCount = 1,
+            totalSpeechDurationMs = 1_000L,
+            createdAt = 300L,
+            updatedAt = 300L
+        )
+
+        val detail = PodcastSessionDetail(
+            session = migrated,
+            recordingSegments = emptyList(),
+            transcriptSegments = listOf(transcriptSegment),
+            speakerProfiles = listOf(speaker)
+        )
+
+        assertEquals(legacy.id, detail.session.id)
+        assertEquals(legacy.id, detail.transcriptSegments.single().sessionId)
+        assertEquals(legacy.id, detail.speakerProfiles.single().sessionId)
+        assertEquals("hello", detail.transcriptSegments.single().text)
+        assertEquals("Speaker 1", detail.speakerProfiles.single().displayName)
+    }
+
     private fun legacySession(
         status: RecordingStatus,
         transcript: String,

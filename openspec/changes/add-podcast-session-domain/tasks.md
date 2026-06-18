@@ -29,10 +29,10 @@
 
 - [x] 6.1 Add state machine tests covering allowed transitions, rejected transitions, idempotent recovery, and error preservation; verify with targeted state machine tests.
 - [x] 6.2 Add repository persistence tests covering multiple sessions, multiple recording segments per session, rename, status update, detail observation, and restart reload; verify with targeted repository tests.
-- [ ] 6.3 Add migration tests covering existing DataStore JSON and transcript/speaker association compatibility; verify with targeted migration tests.
+- [x] 6.3 Add migration tests covering existing DataStore JSON and transcript/speaker association compatibility; verify with targeted migration tests.
 
 ## 7. Build Verification
 
-- [ ] 7.1 Run `openspec.cmd validate add-podcast-session-domain` and fix any spec/design/tasks drift.
+- [x] 7.1 Run `openspec.cmd validate add-podcast-session-domain` and fix any spec/design/tasks drift.
 - [ ] 7.2 Run `.\gradlew.bat testDebugUnitTest` and record any environment limitations if it cannot run.
 - [ ] 7.3 Run `.\gradlew.bat :app:assembleDebug` to confirm `verifyBundledModels` and debug build still pass, or document the exact blocker.

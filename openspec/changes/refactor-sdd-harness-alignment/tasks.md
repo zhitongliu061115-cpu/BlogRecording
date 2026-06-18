@@ -43,5 +43,16 @@
 ## 7. Harness and Finalization
 
 - [x] 7.1 Add or document a repeatable local Harness entrypoint for Git checks, OpenSpec status, unit tests, and debug build.
-- [ ] 7.2 Run `git status --short`, `git diff --check`, `openspec.cmd status --change "refactor-sdd-harness-alignment" --json`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
-- [ ] 7.3 Update this task list to mark completed tasks and record any environment-blocked checks in the final delivery notes.
+- [x] 7.2 Run `git status --short`, `git diff --check`, `openspec.cmd status --change "refactor-sdd-harness-alignment" --json`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 7.3 Update this task list to mark completed tasks and record any environment-blocked checks in the final delivery notes.
+
+## Final Harness Notes
+
+- `git status --short`: clean before final task-list update.
+- `git diff --check`: passed.
+- `git diff --stat`: clean before final task-list update.
+- `openspec.cmd status --change "refactor-sdd-harness-alignment" --json`: passed.
+- `.\gradlew.bat testDebugUnitTest`: passed.
+- `.\gradlew.bat assembleDebug`: passed.
+- `.\scripts\harness.ps1`: passed; includes `assembleDebugAndroidTest`.
+- `.\gradlew.bat connectedDebugAndroidTest`: environment-blocked with `No connected devices!`; run `.\scripts\harness.ps1 -ConnectedAndroidTest` when a device or emulator is connected.

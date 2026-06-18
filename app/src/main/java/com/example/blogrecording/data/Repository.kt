@@ -161,6 +161,19 @@ class Repository(private val context: Context) : SessionRepository {
     }
 
     suspend fun updateSummary(sessionId: String, summary: String): AppResult<Unit> {
+        val podcastSession = getPodcastSession(sessionId)
+        if (podcastSession != null) {
+            return when (val result = updateSummaryLifecycle(
+                sessionId = sessionId,
+                status = SummaryStatus.SUMMARIZED,
+                modelName = podcastSession.summaryModelName,
+                summaryText = summary,
+                generatedAt = System.currentTimeMillis()
+            )) {
+                is AppResult.Success -> AppResult.Success(Unit)
+                is AppResult.Failure -> AppResult.Failure(result.error)
+            }
+        }
         val session = getSession(sessionId) ?: return AppResult.Failure(
             com.example.blogrecording.common.AppError.Unknown("记录不存在")
         )
@@ -301,6 +314,65 @@ class Repository(private val context: Context) : SessionRepository {
             lastCompletedSegmentId = lastCompletedSegmentId,
             updatedAt = System.currentTimeMillis(),
             errorMessage = errorMessage
+        )
+        savePodcastSession(updated)
+        return AppResult.Success(updated)
+    }
+
+    override suspend fun updateSummaryLifecycle(
+        sessionId: String,
+        status: SummaryStatus,
+        modelName: String,
+        summaryText: String?,
+        generatedAt: Long?,
+        errorMessage: String?
+    ): AppResult<PodcastSession> {
+        val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
+        val now = System.currentTimeMillis()
+        val existing = detail.session.summary
+        val boundedError = errorMessage
+            ?.take(MAX_SUMMARY_ERROR_MESSAGE_CHARS)
+            ?.takeIf { it.isNotBlank() }
+        val summary = SessionSummary(
+            text = when (status) {
+                SummaryStatus.SUMMARIZED -> summaryText.orEmpty()
+                SummaryStatus.NOT_READY,
+                SummaryStatus.READY,
+                SummaryStatus.SUMMARIZING,
+                SummaryStatus.FAILED -> existing?.text.orEmpty()
+            },
+            status = status,
+            modelName = modelName.takeIf { it.isNotBlank() }
+                ?: existing?.modelName
+                ?: detail.session.summaryModelName,
+            generatedAt = when (status) {
+                SummaryStatus.SUMMARIZED -> generatedAt ?: now
+                SummaryStatus.NOT_READY,
+                SummaryStatus.READY,
+                SummaryStatus.SUMMARIZING,
+                SummaryStatus.FAILED -> existing?.generatedAt
+            },
+            updatedAt = now,
+            errorMessage = if (status == SummaryStatus.FAILED) boundedError else null
+        )
+        val sessionStatus = when (status) {
+            SummaryStatus.NOT_READY -> detail.session.status
+            SummaryStatus.READY -> PodcastSessionStatus.READY_FOR_SUMMARY
+            SummaryStatus.SUMMARIZING -> PodcastSessionStatus.SUMMARIZING
+            SummaryStatus.SUMMARIZED -> PodcastSessionStatus.SUMMARIZED
+            SummaryStatus.FAILED -> PodcastSessionStatus.READY_FOR_SUMMARY
+        }
+        val updated = detail.session.copy(
+            status = sessionStatus,
+            activeSegmentId = if (sessionStatus == PodcastSessionStatus.RECORDING) {
+                detail.session.activeSegmentId
+            } else {
+                null
+            },
+            summary = summary,
+            summaryModelName = summary.modelName,
+            updatedAt = now,
+            errorMessage = if (status == SummaryStatus.FAILED) boundedError else null
         )
         savePodcastSession(updated)
         return AppResult.Success(updated)
@@ -484,6 +556,10 @@ class Repository(private val context: Context) : SessionRepository {
 
     private object Keys {
         val SessionOrder = stringPreferencesKey(RecordingPersistenceContract.SESSION_ORDER_KEY)
+    }
+
+    private companion object {
+        const val MAX_SUMMARY_ERROR_MESSAGE_CHARS = 160
     }
 }
 

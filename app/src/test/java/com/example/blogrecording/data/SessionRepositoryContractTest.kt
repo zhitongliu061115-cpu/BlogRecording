@@ -178,6 +178,49 @@ class SessionRepositoryContractTest {
         assertTrue(repository.appendSegment("missing", AudioSourceType.MICROPHONE, startedAt = 100L) is AppResult.Failure)
         assertTrue(repository.updateStatus("missing", PodcastSessionStatus.ERROR) is AppResult.Failure)
         assertTrue(repository.updateSegment(recordingSegment(sessionId = "missing")) is AppResult.Failure)
+        assertTrue(repository.updateSummaryLifecycle(
+            sessionId = "missing",
+            status = SummaryStatus.FAILED,
+            modelName = "deepseek-chat",
+            errorMessage = "failed"
+        ) is AppResult.Failure)
+    }
+
+    @Test
+    fun repositoryPersistsSummaryLifecycleAndPreservesPreviousSummaryOnFailure() = runBlocking {
+        val repository = FakeSessionRepository()
+        val created = repository.createSession(title = "Episode", sourceType = AudioSourceType.MICROPHONE)
+
+        val summarizing = repository.updateSummaryLifecycle(
+            sessionId = created.id,
+            status = SummaryStatus.SUMMARIZING,
+            modelName = "deepseek-chat"
+        ) as AppResult.Success
+        val summarized = repository.updateSummaryLifecycle(
+            sessionId = created.id,
+            status = SummaryStatus.SUMMARIZED,
+            modelName = "deepseek-chat",
+            summaryText = "previous summary",
+            generatedAt = 1_000L
+        ) as AppResult.Success
+        val failed = repository.updateSummaryLifecycle(
+            sessionId = created.id,
+            status = SummaryStatus.FAILED,
+            modelName = "deepseek-chat",
+            errorMessage = "x".repeat(200)
+        ) as AppResult.Success
+        val detail = repository.observeSessionDetail(created.id).first()
+
+        assertEquals(PodcastSessionStatus.SUMMARIZING, summarizing.value.status)
+        assertEquals(SummaryStatus.SUMMARIZING, summarizing.value.summary?.status)
+        assertEquals(PodcastSessionStatus.SUMMARIZED, summarized.value.status)
+        assertEquals("previous summary", summarized.value.summary?.text)
+        assertEquals(1_000L, summarized.value.summary?.generatedAt)
+        assertEquals(PodcastSessionStatus.READY_FOR_SUMMARY, failed.value.status)
+        assertEquals(SummaryStatus.FAILED, failed.value.summary?.status)
+        assertEquals("previous summary", failed.value.summary?.text)
+        assertEquals(160, failed.value.summary?.errorMessage?.length)
+        assertEquals("previous summary", detail?.session?.summary?.text)
     }
 
     private class FakeSessionRepository : SessionRepository {
@@ -281,6 +324,55 @@ class SessionRepositoryContractTest {
                 activeSegmentId = activeSegmentId,
                 lastCompletedSegmentId = lastCompletedSegmentId,
                 errorMessage = errorMessage
+            )
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateSummaryLifecycle(
+            sessionId: String,
+            status: SummaryStatus,
+            modelName: String,
+            summaryText: String?,
+            generatedAt: Long?,
+            errorMessage: String?
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return missing()
+            val existing = detail.session.summary
+            val boundedError = errorMessage?.take(160)?.takeIf { it.isNotBlank() }
+            val summary = SessionSummary(
+                text = when (status) {
+                    SummaryStatus.SUMMARIZED -> summaryText.orEmpty()
+                    SummaryStatus.NOT_READY,
+                    SummaryStatus.READY,
+                    SummaryStatus.SUMMARIZING,
+                    SummaryStatus.FAILED -> existing?.text.orEmpty()
+                },
+                status = status,
+                modelName = modelName,
+                generatedAt = when (status) {
+                    SummaryStatus.SUMMARIZED -> generatedAt ?: 999L
+                    SummaryStatus.NOT_READY,
+                    SummaryStatus.READY,
+                    SummaryStatus.SUMMARIZING,
+                    SummaryStatus.FAILED -> existing?.generatedAt
+                },
+                updatedAt = 999L,
+                errorMessage = if (status == SummaryStatus.FAILED) boundedError else null
+            )
+            val sessionStatus = when (status) {
+                SummaryStatus.NOT_READY -> detail.session.status
+                SummaryStatus.READY -> PodcastSessionStatus.READY_FOR_SUMMARY
+                SummaryStatus.SUMMARIZING -> PodcastSessionStatus.SUMMARIZING
+                SummaryStatus.SUMMARIZED -> PodcastSessionStatus.SUMMARIZED
+                SummaryStatus.FAILED -> PodcastSessionStatus.READY_FOR_SUMMARY
+            }
+            val updated = detail.session.copy(
+                status = sessionStatus,
+                summary = summary,
+                summaryModelName = modelName,
+                activeSegmentId = null,
+                errorMessage = if (status == SummaryStatus.FAILED) boundedError else null
             )
             details.value = details.value + (sessionId to detail.copy(session = updated))
             return AppResult.Success(updated)

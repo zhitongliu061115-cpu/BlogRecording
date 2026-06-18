@@ -6,9 +6,9 @@
 
 ## 2. Summary Eligibility And State
 
-- [ ] 2.1 Add a summary eligibility policy for NotReady, Ready, Summarizing, Summarized, and Failed states; verify with unit tests.
-- [ ] 2.2 Add repository helpers to persist summary status, bounded error messages, generated timestamp, and previous successful summary text; verify with repository tests.
-- [ ] 2.3 Ensure missing transcript and active recording block final summary; verify with policy tests.
+- [x] 2.1 Add a summary eligibility policy for NotReady, Ready, Summarizing, Summarized, and Failed states; verify with unit tests.
+- [x] 2.2 Add repository helpers to persist summary status, bounded error messages, generated timestamp, and previous successful summary text; verify with repository tests.
+- [x] 2.3 Ensure missing transcript and active recording block final summary; verify with policy tests.
 
 ## 3. Summary Lifecycle Use Case
 

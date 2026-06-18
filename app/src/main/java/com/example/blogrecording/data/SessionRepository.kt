@@ -25,6 +25,17 @@ interface SessionRepository {
         errorMessage: String? = null
     ): AppResult<PodcastSession>
 
+    suspend fun updateSummaryLifecycle(
+        sessionId: String,
+        status: SummaryStatus,
+        modelName: String,
+        summaryText: String? = null,
+        generatedAt: Long? = null,
+        errorMessage: String? = null
+    ): AppResult<PodcastSession> {
+        return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("summary lifecycle unsupported"))
+    }
+
     fun observeSessions(): Flow<List<PodcastSession>>
 
     fun observeSessionDetail(sessionId: String): Flow<PodcastSessionDetail?>

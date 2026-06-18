@@ -12,10 +12,10 @@
 
 ## 3. Summary Lifecycle Use Case
 
-- [ ] 3.1 Add a session summary use case that reads aggregate transcript and starts DeepSeek summary only when eligible; verify with fake repository/client tests.
-- [ ] 3.2 Handle missing API key without sending a DeepSeek request; verify with fake API key store/client tests.
-- [ ] 3.3 Handle DeepSeek network/API errors by marking Failed and preserving prior summary text; verify with failure and retry tests.
-- [ ] 3.4 Preserve current chunk/map-reduce behavior for long transcripts and surface transcript-too-long failures when needed; verify with summary repository tests.
+- [x] 3.1 Add a session summary use case that reads aggregate transcript and starts DeepSeek summary only when eligible; verify with fake repository/client tests.
+- [x] 3.2 Handle missing API key without sending a DeepSeek request; verify with fake API key store/client tests.
+- [x] 3.3 Handle DeepSeek network/API errors by marking Failed and preserving prior summary text; verify with failure and retry tests.
+- [x] 3.4 Preserve current chunk/map-reduce behavior for long transcripts and surface transcript-too-long failures when needed; verify with summary repository tests.
 
 ## 4. ViewModel And UI Wiring
 

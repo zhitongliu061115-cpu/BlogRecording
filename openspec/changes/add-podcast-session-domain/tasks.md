@@ -22,8 +22,8 @@
 ## 5. Backward Compatibility
 
 - [x] 5.1 Map existing recording records into podcast sessions without losing title, transcript, summary, status, timestamps, source metadata, transcript segments, or speaker profiles; verify with migration compatibility tests.
-- [ ] 5.2 Ensure old completed records map to ready-for-summary or summarized states based on transcript and summary presence; verify with status mapping tests.
-- [ ] 5.3 Ensure old interrupted recording statuses recover to a non-recording state with existing transcript data preserved; verify with interrupted-session tests.
+- [x] 5.2 Ensure old completed records map to ready-for-summary or summarized states based on transcript and summary presence; verify with status mapping tests.
+- [x] 5.3 Ensure old interrupted recording statuses recover to a non-recording state with existing transcript data preserved; verify with interrupted-session tests.
 
 ## 6. Unit Tests
 

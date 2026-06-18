@@ -52,6 +52,80 @@ class PodcastSessionMigrationTest {
     }
 
     @Test
+    fun completedLegacyRecordWithSummaryMapsToSummarized() {
+        val legacy = legacySession(
+            status = RecordingStatus.COMPLETED,
+            transcript = "transcript",
+            summary = "summary",
+            segmentCount = 2
+        )
+
+        val migrated = PodcastSessionMigration.fromLegacyRecordingSession(legacy)
+
+        assertEquals(PodcastSessionStatus.SUMMARIZED, migrated.status)
+        assertEquals(SummaryStatus.SUMMARIZED, migrated.summary?.status)
+        assertEquals("summary", migrated.summary?.text)
+    }
+
+    @Test
+    fun completedLegacyRecordWithTranscriptButNoSummaryMapsToReadyForSummary() {
+        val legacy = legacySession(
+            status = RecordingStatus.COMPLETED,
+            transcript = "transcript",
+            summary = null,
+            segmentCount = 2
+        )
+
+        val migrated = PodcastSessionMigration.fromLegacyRecordingSession(legacy)
+
+        assertEquals(PodcastSessionStatus.READY_FOR_SUMMARY, migrated.status)
+        assertNull(migrated.summary)
+        assertEquals("transcript", migrated.transcript)
+    }
+
+    @Test
+    fun completedLegacyRecordWithoutTranscriptMapsToPaused() {
+        val legacy = legacySession(
+            status = RecordingStatus.COMPLETED,
+            transcript = "",
+            summary = null,
+            segmentCount = 0
+        )
+
+        val migrated = PodcastSessionMigration.fromLegacyRecordingSession(legacy)
+
+        assertEquals(PodcastSessionStatus.PAUSED, migrated.status)
+        assertEquals("", migrated.transcript)
+    }
+
+    @Test
+    fun interruptedLegacyStatusesMapToNonRecordingErrorAndPreserveTranscript() {
+        val interruptedStatuses = listOf(
+            RecordingStatus.CAPTURING_AUDIO,
+            RecordingStatus.VAD_DETECTING,
+            RecordingStatus.DIARIZING,
+            RecordingStatus.TRANSCRIBING,
+            RecordingStatus.SUMMARIZING
+        )
+
+        interruptedStatuses.forEach { status ->
+            val legacy = legacySession(
+                status = status,
+                transcript = "saved transcript for $status",
+                summary = null,
+                segmentCount = 1
+            )
+
+            val migrated = PodcastSessionMigration.fromLegacyRecordingSession(legacy)
+
+            assertEquals(PodcastSessionStatus.ERROR, migrated.status)
+            assertNull(migrated.activeSegmentId)
+            assertEquals("saved transcript for $status", migrated.transcript)
+            assertEquals(1, migrated.recordingSegmentCount)
+        }
+    }
+
+    @Test
     fun recoveryClearsActiveRecordingAndMarksActiveSegmentInterrupted() {
         val session = podcastSession(
             status = PodcastSessionStatus.RECORDING,

@@ -5,8 +5,8 @@
 
 ## 2. Single Active Segment And Recovery
 
-- [ ] 2.1 Enforce the single active segment invariant and duplicate-action idempotency in controller logic; verify with concurrency/race unit tests.
-- [ ] 2.2 Implement process-restart recovery for active session and active segment metadata; verify with recovery unit tests.
+- [x] 2.1 Enforce the single active segment invariant and duplicate-action idempotency in controller logic; verify with concurrency/race unit tests.
+- [x] 2.2 Implement process-restart recovery for active session and active segment metadata; verify with recovery unit tests.
 
 ## 3. Repository And Segment Metadata Integration
 

@@ -11,10 +11,13 @@ import com.example.blogrecording.data.RecordingSegmentStatus
 import com.example.blogrecording.data.SessionRepository
 import com.example.blogrecording.data.SummaryLanguage
 import com.example.blogrecording.data.SummaryStyle
+import java.util.Collections
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -128,6 +131,48 @@ class RecordingControllerTest {
     }
 
     @Test
+    fun duplicateStartReturnsExistingActiveSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+
+        val first = controller.start(title = "Episode A", sourceType = AudioSourceType.MICROPHONE)
+            as AppResult.Success
+        val duplicate = controller.start(title = "Episode B", sourceType = AudioSourceType.INTERNAL_AUDIO)
+            as AppResult.Success
+        val sessions = repository.observeSessions().first()
+
+        assertEquals(first.value, duplicate.value)
+        assertEquals(1, sessions.size)
+        assertEquals(1, recorder.starts.size)
+        assertEquals(AudioSourceType.MICROPHONE, duplicate.value.sourceType)
+    }
+
+    @Test
+    fun concurrentStartCreatesAtMostOneActiveSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+
+        val results = (1..8).map { index ->
+            async {
+                controller.start(
+                    title = "Episode $index",
+                    sourceType = AudioSourceType.MICROPHONE
+                )
+            }
+        }.awaitAll()
+        val states = results.map { (it as AppResult.Success).value }
+        val sessions = repository.observeSessions().first()
+        val details = sessions.map { repository.observeSessionDetail(it.id).first()!! }
+
+        assertEquals(1, states.map { it.activeSegmentId }.distinct().size)
+        assertEquals(1, sessions.size)
+        assertEquals(1, details.single().recordingSegments.size)
+        assertEquals(1, recorder.starts.size)
+    }
+
+    @Test
     fun recorderStartFailureDoesNotLeaveControllerActive() = runBlocking {
         val repository = FakeSessionRepository()
         val recorder = FakeSegmentRecorder(startFailure = AppError.AudioRecordInitFailed("init failed"))
@@ -145,13 +190,50 @@ class RecordingControllerTest {
         assertEquals("Audio recorder failed to start", detail.recordingSegments.single().errorMessage)
     }
 
+    @Test
+    fun recoverInterruptedRecordingClearsActiveSessionAndMarksSegmentInterrupted() = runBlocking {
+        val repository = FakeSessionRepository()
+        repository.seed(
+            session = session(
+                id = "session-recovered",
+                title = "Recovered",
+                sourceType = AudioSourceType.MICROPHONE
+            ).copy(
+                status = PodcastSessionStatus.RECORDING,
+                activeSegmentId = "segment-recovered",
+                recordingSegmentCount = 1
+            ),
+            segments = listOf(
+                recordingSegment(
+                    id = "segment-recovered",
+                    sessionId = "session-recovered",
+                    sourceType = AudioSourceType.MICROPHONE,
+                    index = 1,
+                    startedAt = 100L
+                )
+            )
+        )
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(repository, recorder, nowMillis = TickClock())
+
+        val result = controller.recoverInterruptedRecordings() as AppResult.Success
+        val detail = repository.observeSessionDetail("session-recovered").first()!!
+
+        assertEquals(1, result.value.recoveredSessionCount)
+        assertEquals(PodcastSessionStatus.PAUSED, detail.session.status)
+        assertNull(detail.session.activeSegmentId)
+        assertEquals(RecordingSegmentStatus.INTERRUPTED, detail.recordingSegments.single().status)
+        assertEquals(0, recorder.stops.size)
+        assertFalse(controller.currentState().isRecording)
+    }
+
     private class FakeSegmentRecorder(
         private val startFailure: AppError? = null,
         private val stopFailure: AppError? = null
     ) : SegmentRecorder {
-        val starts = mutableListOf<SegmentStartRequest>()
-        val stops = mutableListOf<ActiveRecordingSegment>()
-        val events = mutableListOf<String>()
+        val starts = Collections.synchronizedList(mutableListOf<SegmentStartRequest>())
+        val stops = Collections.synchronizedList(mutableListOf<ActiveRecordingSegment>())
+        val events = Collections.synchronizedList(mutableListOf<String>())
 
         override suspend fun start(request: SegmentStartRequest): AppResult<Unit> {
             starts += request
@@ -176,6 +258,18 @@ class RecordingControllerTest {
         private val details = MutableStateFlow<Map<String, PodcastSessionDetail>>(emptyMap())
         private var nextSession = 1
         private var nextSegment = 1
+
+        fun seed(
+            session: PodcastSession,
+            segments: List<RecordingSegment> = emptyList()
+        ) {
+            details.value = details.value + (session.id to PodcastSessionDetail(
+                session = session,
+                recordingSegments = segments,
+                transcriptSegments = emptyList(),
+                speakerProfiles = emptyList()
+            ))
+        }
 
         override suspend fun createSession(
             title: String?,

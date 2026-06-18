@@ -44,6 +44,10 @@ data class RecordingControllerState(
     }
 }
 
+data class RecordingRecoveryResult(
+    val recoveredSessionCount: Int
+)
+
 interface SegmentRecorder {
     suspend fun start(request: SegmentStartRequest): AppResult<Unit>
 
@@ -63,8 +67,7 @@ class RecordingController(
         sourceType: AudioSourceType
     ): AppResult<RecordingControllerState> {
         return mutex.withLock {
-            val pauseResult = pauseActiveBeforeSwitchLocked()
-            if (pauseResult is AppResult.Failure) return@withLock pauseResult
+            activeSegment?.let { return@withLock AppResult.Success(toState(it)) }
             val session = sessionRepository.createSession(title = title, sourceType = sourceType)
             startSegmentLocked(session.id, sourceType)
         }
@@ -136,6 +139,65 @@ class RecordingController(
 
     fun currentState(): RecordingControllerState {
         return activeSegment?.let(::toState) ?: RecordingControllerState.Idle
+    }
+
+    suspend fun recoverInterruptedRecordings(): AppResult<RecordingRecoveryResult> {
+        return mutex.withLock {
+            activeSegment = null
+            var recoveredCount = 0
+            val sessions = sessionRepository.observeSessions().first()
+            for (session in sessions) {
+                if (session.status != PodcastSessionStatus.RECORDING && session.activeSegmentId == null) {
+                    continue
+                }
+
+                val detail = sessionRepository.observeSessionDetail(session.id).first()
+                val interruptedSegment = detail?.recordingSegments
+                    ?.firstOrNull { it.id == session.activeSegmentId }
+                    ?: detail?.recordingSegments?.lastOrNull { it.status == RecordingSegmentStatus.RECORDING }
+
+                if (interruptedSegment != null) {
+                    val recoveredAt = nowMillis()
+                    val endedAt = interruptedSegment.endedAt ?: recoveredAt
+                    val updatedSegment = interruptedSegment.copy(
+                        status = RecordingSegmentStatus.INTERRUPTED,
+                        endedAt = endedAt,
+                        durationMs = (endedAt - interruptedSegment.startedAt).coerceAtLeast(0L),
+                        errorMessage = "Recording interrupted before pause completed",
+                        updatedAt = recoveredAt
+                    )
+                    when (val segmentResult = sessionRepository.updateSegment(updatedSegment)) {
+                        is AppResult.Success -> Unit
+                        is AppResult.Failure -> return@withLock segmentResult
+                    }
+                }
+
+                val recoveredStatus = if (
+                    interruptedSegment != null ||
+                    detail?.recordingSegments?.isNotEmpty() == true ||
+                    session.transcript.isNotBlank()
+                ) {
+                    PodcastSessionStatus.PAUSED
+                } else {
+                    PodcastSessionStatus.ERROR
+                }
+                val recoveredError = if (recoveredStatus == PodcastSessionStatus.ERROR) {
+                    "Recording metadata incomplete after recovery"
+                } else {
+                    session.errorMessage
+                }
+                when (val statusResult = sessionRepository.updateStatus(
+                    sessionId = session.id,
+                    status = recoveredStatus,
+                    errorMessage = recoveredError
+                )) {
+                    is AppResult.Success -> recoveredCount += 1
+                    is AppResult.Failure -> return@withLock statusResult
+                }
+            }
+
+            AppResult.Success(RecordingRecoveryResult(recoveredSessionCount = recoveredCount))
+        }
     }
 
     private suspend fun pauseActiveBeforeSwitchLocked(): AppResult<RecordingControllerState> {

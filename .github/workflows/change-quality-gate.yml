@@ -34,7 +34,7 @@ jobs:
           node-version: '22'
 
       - name: Install OpenSpec
-        run: npm install --global @openspec/cli
+        run: npm install --global @fission-ai/openspec
 
       - name: OpenSpec validate
         run: openspec validate $env:CHANGE_NAME

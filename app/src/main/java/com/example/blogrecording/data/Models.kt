@@ -175,6 +175,13 @@ data class PodcastSession(
     val legacyRecordingSessionId: String?
 )
 
+data class PodcastSessionDetail(
+    val session: PodcastSession,
+    val recordingSegments: List<RecordingSegment>,
+    val transcriptSegments: List<TranscriptSegmentEntity>,
+    val speakerProfiles: List<SpeakerProfileEntity>
+)
+
 object PodcastSessionStateMachine {
     fun create(session: PodcastSession): PodcastSession {
         return session.copy(

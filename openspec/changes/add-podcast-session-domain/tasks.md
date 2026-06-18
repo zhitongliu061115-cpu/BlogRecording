@@ -10,8 +10,8 @@
 
 ## 3. Repository API Definition
 
-- [ ] 3.1 Define the session repository surface for `createSession`, `renameSession`, `appendSegment`, `updateSegment`, `updateStatus`, `observeSessions`, and `observeSessionDetail`; verify by compiling data tests.
-- [ ] 3.2 Add `PodcastSessionDetail` aggregation for session, recording segments, transcript segments, and speaker profiles; verify with repository detail tests.
+- [x] 3.1 Define the session repository surface for `createSession`, `renameSession`, `appendSegment`, `updateSegment`, `updateStatus`, `observeSessions`, and `observeSessionDetail`; verify by compiling data tests.
+- [x] 3.2 Add `PodcastSessionDetail` aggregation for session, recording segments, transcript segments, and speaker profiles; verify with repository detail tests.
 
 ## 4. DataStore Schema, Version, And Migration
 

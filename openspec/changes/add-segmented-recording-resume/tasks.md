@@ -1,7 +1,7 @@
 ## 1. Controller State Machine And Fakes
 
-- [ ] 1.1 Add fake recorder and fake session repository test fixtures for segmented recording controller tests; verify with targeted unit tests.
-- [ ] 1.2 Implement recording controller state transitions for start, pause, resume, switchSession, and finalize using fakes; verify with state machine unit tests.
+- [x] 1.1 Add fake recorder and fake session repository test fixtures for segmented recording controller tests; verify with targeted unit tests.
+- [x] 1.2 Implement recording controller state transitions for start, pause, resume, switchSession, and finalize using fakes; verify with state machine unit tests.
 
 ## 2. Single Active Segment And Recovery
 

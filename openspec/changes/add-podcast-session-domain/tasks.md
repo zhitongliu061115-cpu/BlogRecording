@@ -34,5 +34,5 @@
 ## 7. Build Verification
 
 - [x] 7.1 Run `openspec.cmd validate add-podcast-session-domain` and fix any spec/design/tasks drift.
-- [ ] 7.2 Run `.\gradlew.bat testDebugUnitTest` and record any environment limitations if it cannot run.
-- [ ] 7.3 Run `.\gradlew.bat :app:assembleDebug` to confirm `verifyBundledModels` and debug build still pass, or document the exact blocker.
+- [x] 7.2 Run `.\gradlew.bat testDebugUnitTest` and record any environment limitations if it cannot run.
+- [x] 7.3 Run `.\gradlew.bat :app:assembleDebug` to confirm `verifyBundledModels` and debug build still pass, or document the exact blocker.

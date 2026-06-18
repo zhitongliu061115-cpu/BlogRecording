@@ -37,4 +37,4 @@
 
 - [x] 8.1 Run `openspec.cmd validate add-segmented-recording-resume`.
 - [x] 8.2 Run `.\gradlew.bat testDebugUnitTest`.
-- [ ] 8.3 Run `.\gradlew.bat :app:assembleDebug`.
+- [x] 8.3 Run `.\gradlew.bat :app:assembleDebug`.

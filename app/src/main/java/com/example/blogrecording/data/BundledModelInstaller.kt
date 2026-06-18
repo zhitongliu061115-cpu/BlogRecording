@@ -4,28 +4,43 @@ import android.content.Context
 import java.io.File
 
 class BundledModelInstaller(private val context: Context) {
-    private val modelRoot: File = File(context.filesDir, MODEL_ROOT_DIR)
+    private val modelRoot: File = File(context.filesDir, BundledModelContract.MODEL_ROOT_DIR)
     val paths: BundledModelPaths
         get() = BundledModelPaths(
             sherpaModelRootPath = modelRoot.absolutePath,
-            senseVoiceModelPath = File(modelRoot, SENSEVOICE_DIR).absolutePath,
-            vadModelPath = File(modelRoot, VAD_DIR).absolutePath,
-            diarizationModelPath = File(modelRoot, DIARIZATION_DIR).absolutePath
+            senseVoiceModelPath = File(modelRoot, BundledModelContract.SENSEVOICE_DIR).absolutePath,
+            vadModelPath = File(modelRoot, BundledModelContract.VAD_DIR).absolutePath,
+            diarizationModelPath = File(modelRoot, BundledModelContract.DIARIZATION_DIR).absolutePath
         )
 
     fun installIfBundled(): BundledModelPaths {
-        copyRequiredAssets(SENSEVOICE_ASSET_DIR, File(modelRoot, SENSEVOICE_DIR), SENSEVOICE_REQUIRED_FILES)
-        copyRequiredAssets(VAD_ASSET_DIR, File(modelRoot, VAD_DIR), VAD_REQUIRED_FILES)
-        copyRequiredAssets(DIARIZATION_ASSET_DIR, File(modelRoot, DIARIZATION_DIR), DIARIZATION_REQUIRED_FILES)
+        copyRequiredAssets(
+            BundledModelContract.SENSEVOICE_ASSET_DIR,
+            File(modelRoot, BundledModelContract.SENSEVOICE_DIR),
+            BundledModelContract.SENSEVOICE_REQUIRED_FILES
+        )
+        copyRequiredAssets(
+            BundledModelContract.VAD_ASSET_DIR,
+            File(modelRoot, BundledModelContract.VAD_DIR),
+            BundledModelContract.VAD_REQUIRED_FILES
+        )
+        copyRequiredAssets(
+            BundledModelContract.DIARIZATION_ASSET_DIR,
+            File(modelRoot, BundledModelContract.DIARIZATION_DIR),
+            BundledModelContract.DIARIZATION_REQUIRED_FILES
+        )
         return paths
     }
 
     fun status(): ModelStatus {
         val installed = paths
         return ModelStatus(
-            senseVoice = statusForFiles(installed.senseVoiceModelPath, SENSEVOICE_REQUIRED_FILES),
-            vad = statusForFiles(installed.vadModelPath, VAD_REQUIRED_FILES),
-            diarization = statusForFiles(installed.diarizationModelPath, DIARIZATION_REQUIRED_FILES)
+            senseVoice = statusForFiles(installed.senseVoiceModelPath, BundledModelContract.SENSEVOICE_REQUIRED_FILES),
+            vad = statusForFiles(installed.vadModelPath, BundledModelContract.VAD_REQUIRED_FILES),
+            diarization = statusForFiles(
+                installed.diarizationModelPath,
+                BundledModelContract.DIARIZATION_REQUIRED_FILES
+            )
         )
     }
 
@@ -47,19 +62,6 @@ class BundledModelInstaller(private val context: Context) {
         } else {
             ModelLoadStatus.MISSING
         }
-    }
-
-    companion object {
-        const val MODEL_ROOT_DIR = "bundled_models"
-        private const val SENSEVOICE_DIR = "sensevoice"
-        private const val VAD_DIR = "vad"
-        private const val DIARIZATION_DIR = "diarization"
-        private const val SENSEVOICE_ASSET_DIR = "models/sensevoice"
-        private const val VAD_ASSET_DIR = "models/vad"
-        private const val DIARIZATION_ASSET_DIR = "models/diarization"
-        private val SENSEVOICE_REQUIRED_FILES = listOf("model.int8.onnx", "tokens.txt")
-        private val VAD_REQUIRED_FILES = listOf("silero_vad.onnx")
-        private val DIARIZATION_REQUIRED_FILES = listOf("segmentation.onnx", "embedding.onnx")
     }
 }
 

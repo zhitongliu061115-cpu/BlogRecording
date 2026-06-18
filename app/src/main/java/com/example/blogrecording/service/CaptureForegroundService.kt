@@ -12,6 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.blogrecording.R
 import com.example.blogrecording.common.AppError
+import com.example.blogrecording.platform.AndroidPlatformContract
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
@@ -19,6 +20,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class CaptureForegroundService : Service() {
     private var foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+    private var notificationState = CaptureNotificationState()
 
     override fun onCreate() {
         super.onCreate()
@@ -29,15 +31,16 @@ class CaptureForegroundService : Service() {
         val requestId = intent?.getStringExtra(EXTRA_START_REQUEST_ID)
         foregroundServiceType = intent?.getIntExtra(EXTRA_FOREGROUND_SERVICE_TYPE, foregroundServiceType)
             ?: foregroundServiceType
+        notificationState = CaptureNotificationState.from(intent)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(
                     NOTIFICATION_ID,
-                    buildNotification(),
+                    buildNotification(notificationState),
                     foregroundServiceType
                 )
             } else {
-                startForeground(NOTIFICATION_ID, buildNotification())
+                startForeground(NOTIFICATION_ID, buildNotification(notificationState))
             }
             completeStart(requestId, null)
         } catch (error: SecurityException) {
@@ -77,10 +80,27 @@ class CaptureForegroundService : Service() {
             .build()
     }
 
+    private fun buildNotification(state: CaptureNotificationState): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(state.titleText())
+            .setContentText(state.bodyText())
+            .setOngoing(state.recordingState != CaptureNotificationState.STATE_PAUSED)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
+    }
+
     companion object {
-        const val CHANNEL_ID = "capture_foreground"
-        const val NOTIFICATION_ID = 1001
-        const val EXTRA_FOREGROUND_SERVICE_TYPE = "foreground_service_type"
+        const val CHANNEL_ID = AndroidPlatformContract.CAPTURE_CHANNEL_ID
+        const val NOTIFICATION_ID = AndroidPlatformContract.CAPTURE_NOTIFICATION_ID
+        const val EXTRA_FOREGROUND_SERVICE_TYPE = AndroidPlatformContract.EXTRA_FOREGROUND_SERVICE_TYPE
+        const val EXTRA_PODCAST_TITLE = AndroidPlatformContract.EXTRA_PODCAST_TITLE
+        const val EXTRA_CAPTURE_SOURCE = AndroidPlatformContract.EXTRA_CAPTURE_SOURCE
+        const val EXTRA_RECORDING_STATE = AndroidPlatformContract.EXTRA_RECORDING_STATE
+        const val EXTRA_ACTIVE_SESSION_ID = AndroidPlatformContract.EXTRA_ACTIVE_SESSION_ID
+        const val ACTION_PAUSE_CAPTURE = AndroidPlatformContract.ACTION_PAUSE_CAPTURE
+        const val ACTION_RESUME_CAPTURE = AndroidPlatformContract.ACTION_RESUME_CAPTURE
+        const val ACTION_FINISH_CAPTURE = AndroidPlatformContract.ACTION_FINISH_CAPTURE
         private const val EXTRA_START_REQUEST_ID = "start_request_id"
         private const val START_TIMEOUT_MS = 10_000L
         private val pendingStarts = ConcurrentHashMap<String, CompletableDeferred<StartResult>>()
@@ -89,8 +109,7 @@ class CaptureForegroundService : Service() {
             val requestId = UUID.randomUUID().toString()
             val deferred = CompletableDeferred<StartResult>()
             pendingStarts[requestId] = deferred
-            val intent = Intent(context, CaptureForegroundService::class.java)
-                .putExtra(EXTRA_FOREGROUND_SERVICE_TYPE, foregroundServiceType)
+            val intent = buildStartIntent(context, foregroundServiceType)
                 .putExtra(EXTRA_START_REQUEST_ID, requestId)
             return try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -112,6 +131,19 @@ class CaptureForegroundService : Service() {
             }
         }
 
+        fun buildStartIntent(
+            context: Context,
+            foregroundServiceType: Int,
+            notificationState: CaptureNotificationState = CaptureNotificationState()
+        ): Intent {
+            return Intent(context, CaptureForegroundService::class.java)
+                .putExtra(EXTRA_FOREGROUND_SERVICE_TYPE, foregroundServiceType)
+                .putExtra(EXTRA_PODCAST_TITLE, notificationState.podcastTitle)
+                .putExtra(EXTRA_CAPTURE_SOURCE, notificationState.captureSource)
+                .putExtra(EXTRA_RECORDING_STATE, notificationState.recordingState)
+                .putExtra(EXTRA_ACTIVE_SESSION_ID, notificationState.activeSessionId)
+        }
+
         private fun completeStart(requestId: String?, error: AppError?) {
             if (requestId == null) return
             val result = if (error == null) StartResult.Success else StartResult.Failure(error)
@@ -121,6 +153,41 @@ class CaptureForegroundService : Service() {
         private sealed class StartResult {
             data object Success : StartResult()
             data class Failure(val error: AppError) : StartResult()
+        }
+    }
+}
+
+data class CaptureNotificationState(
+    val podcastTitle: String? = null,
+    val captureSource: String? = null,
+    val recordingState: String? = null,
+    val activeSessionId: String? = null
+) {
+    fun titleText(): String {
+        return podcastTitle?.takeIf { it.isNotBlank() } ?: "Podcast recording"
+    }
+
+    fun bodyText(): String {
+        val source = captureSource?.takeIf { it.isNotBlank() } ?: SOURCE_AUDIO
+        val state = recordingState?.takeIf { it.isNotBlank() } ?: STATE_RECORDING
+        return "$source $state locally"
+    }
+
+    companion object {
+        const val SOURCE_MICROPHONE = "microphone"
+        const val SOURCE_SYSTEM_AUDIO = "system-audio"
+        const val SOURCE_AUDIO = "audio"
+        const val STATE_RECORDING = "recording"
+        const val STATE_PAUSED = "paused"
+        const val STATE_PROCESSING = "processing"
+
+        fun from(intent: Intent?): CaptureNotificationState {
+            return CaptureNotificationState(
+                podcastTitle = intent?.getStringExtra(CaptureForegroundService.EXTRA_PODCAST_TITLE),
+                captureSource = intent?.getStringExtra(CaptureForegroundService.EXTRA_CAPTURE_SOURCE),
+                recordingState = intent?.getStringExtra(CaptureForegroundService.EXTRA_RECORDING_STATE),
+                activeSessionId = intent?.getStringExtra(CaptureForegroundService.EXTRA_ACTIVE_SESSION_ID)
+            )
         }
     }
 }

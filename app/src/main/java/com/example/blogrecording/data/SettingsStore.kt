@@ -11,50 +11,53 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.settingsDataStore by preferencesDataStore(name = "podcast_recap_settings")
+private val Context.settingsDataStore by preferencesDataStore(name = SettingsContract.DATASTORE_NAME)
 
 class SettingsStore(private val context: Context) {
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
+        val defaults = SettingsContract.DEFAULT_SETTINGS
         AppSettings(
-            deepSeekModel = prefs[Keys.DeepSeekModel] ?: "deepseek-chat",
+            deepSeekModel = prefs[Keys.DeepSeekModel] ?: defaults.deepSeekModel,
             summaryLanguage = prefs[Keys.SummaryLanguage]?.toEnumOrDefault(SummaryLanguage.CHINESE)
-                ?: SummaryLanguage.CHINESE,
+                ?: defaults.summaryLanguage,
             summaryStyle = prefs[Keys.SummaryStyle]?.toEnumOrDefault(SummaryStyle.POINTS_QUOTES_ACTIONS)
-                ?: SummaryStyle.POINTS_QUOTES_ACTIONS,
-            sherpaModelRootPath = prefs[Keys.SherpaModelRootPath] ?: "",
-            senseVoiceModelPath = prefs[Keys.SenseVoiceModelPath] ?: "",
-            vadModelPath = prefs[Keys.VadModelPath] ?: "",
-            diarizationModelPath = prefs[Keys.DiarizationModelPath] ?: "",
-            enableVad = prefs[Keys.EnableVad] ?: true,
-            enableSpeakerDiarization = prefs[Keys.EnableSpeakerDiarization] ?: true,
-            maxSpeakerCount = prefs[Keys.MaxSpeakerCount] ?: 4,
-            vadSpeechThreshold = prefs[Keys.VadSpeechThreshold] ?: 0.5f,
-            minSpeechDurationMs = prefs[Keys.MinSpeechDurationMs] ?: 300L,
-            minSilenceDurationMs = prefs[Keys.MinSilenceDurationMs] ?: 500L,
-            maxSpeechDurationMs = prefs[Keys.MaxSpeechDurationMs] ?: 30_000L,
-            transcriptionChunkDurationMs = prefs[Keys.TranscriptionChunkDurationMs] ?: 180_000L,
-            firstRunPrivacyAccepted = prefs[Keys.FirstRunPrivacyAccepted] ?: false
+                ?: defaults.summaryStyle,
+            sherpaModelRootPath = prefs[Keys.SherpaModelRootPath] ?: defaults.sherpaModelRootPath,
+            senseVoiceModelPath = prefs[Keys.SenseVoiceModelPath] ?: defaults.senseVoiceModelPath,
+            vadModelPath = prefs[Keys.VadModelPath] ?: defaults.vadModelPath,
+            diarizationModelPath = prefs[Keys.DiarizationModelPath] ?: defaults.diarizationModelPath,
+            enableVad = prefs[Keys.EnableVad] ?: defaults.enableVad,
+            enableSpeakerDiarization = prefs[Keys.EnableSpeakerDiarization] ?: defaults.enableSpeakerDiarization,
+            maxSpeakerCount = prefs[Keys.MaxSpeakerCount] ?: defaults.maxSpeakerCount,
+            vadSpeechThreshold = prefs[Keys.VadSpeechThreshold] ?: defaults.vadSpeechThreshold,
+            minSpeechDurationMs = prefs[Keys.MinSpeechDurationMs] ?: defaults.minSpeechDurationMs,
+            minSilenceDurationMs = prefs[Keys.MinSilenceDurationMs] ?: defaults.minSilenceDurationMs,
+            maxSpeechDurationMs = prefs[Keys.MaxSpeechDurationMs] ?: defaults.maxSpeechDurationMs,
+            transcriptionChunkDurationMs = prefs[Keys.TranscriptionChunkDurationMs]
+                ?: defaults.transcriptionChunkDurationMs,
+            firstRunPrivacyAccepted = prefs[Keys.FirstRunPrivacyAccepted] ?: defaults.firstRunPrivacyAccepted
         )
     }
 
     suspend fun updateSettings(settings: AppSettings) {
+        val clamped = SettingsContract.clampForSave(settings)
         context.settingsDataStore.edit { prefs ->
-            prefs[Keys.DeepSeekModel] = settings.deepSeekModel
-            prefs[Keys.SummaryLanguage] = settings.summaryLanguage.name
-            prefs[Keys.SummaryStyle] = settings.summaryStyle.name
-            prefs[Keys.SherpaModelRootPath] = settings.sherpaModelRootPath
-            prefs[Keys.SenseVoiceModelPath] = settings.senseVoiceModelPath
-            prefs[Keys.VadModelPath] = settings.vadModelPath
-            prefs[Keys.DiarizationModelPath] = settings.diarizationModelPath
-            prefs[Keys.EnableVad] = settings.enableVad
-            prefs[Keys.EnableSpeakerDiarization] = settings.enableSpeakerDiarization
-            prefs[Keys.MaxSpeakerCount] = settings.maxSpeakerCount.coerceIn(2, 8)
-            prefs[Keys.VadSpeechThreshold] = settings.vadSpeechThreshold.coerceIn(0f, 1f)
-            prefs[Keys.MinSpeechDurationMs] = settings.minSpeechDurationMs
-            prefs[Keys.MinSilenceDurationMs] = settings.minSilenceDurationMs
-            prefs[Keys.MaxSpeechDurationMs] = settings.maxSpeechDurationMs
-            prefs[Keys.TranscriptionChunkDurationMs] = settings.transcriptionChunkDurationMs.coerceIn(10_000L, 600_000L)
-            prefs[Keys.FirstRunPrivacyAccepted] = settings.firstRunPrivacyAccepted
+            prefs[Keys.DeepSeekModel] = clamped.deepSeekModel
+            prefs[Keys.SummaryLanguage] = clamped.summaryLanguage.name
+            prefs[Keys.SummaryStyle] = clamped.summaryStyle.name
+            prefs[Keys.SherpaModelRootPath] = clamped.sherpaModelRootPath
+            prefs[Keys.SenseVoiceModelPath] = clamped.senseVoiceModelPath
+            prefs[Keys.VadModelPath] = clamped.vadModelPath
+            prefs[Keys.DiarizationModelPath] = clamped.diarizationModelPath
+            prefs[Keys.EnableVad] = clamped.enableVad
+            prefs[Keys.EnableSpeakerDiarization] = clamped.enableSpeakerDiarization
+            prefs[Keys.MaxSpeakerCount] = clamped.maxSpeakerCount
+            prefs[Keys.VadSpeechThreshold] = clamped.vadSpeechThreshold
+            prefs[Keys.MinSpeechDurationMs] = clamped.minSpeechDurationMs
+            prefs[Keys.MinSilenceDurationMs] = clamped.minSilenceDurationMs
+            prefs[Keys.MaxSpeechDurationMs] = clamped.maxSpeechDurationMs
+            prefs[Keys.TranscriptionChunkDurationMs] = clamped.transcriptionChunkDurationMs
+            prefs[Keys.FirstRunPrivacyAccepted] = clamped.firstRunPrivacyAccepted
         }
     }
 
@@ -74,22 +77,22 @@ class SettingsStore(private val context: Context) {
     }
 
     private object Keys {
-        val DeepSeekModel = stringPreferencesKey("deep_seek_model")
-        val SummaryLanguage = stringPreferencesKey("summary_language")
-        val SummaryStyle = stringPreferencesKey("summary_style")
-        val SherpaModelRootPath = stringPreferencesKey("sherpa_model_root_path")
-        val SenseVoiceModelPath = stringPreferencesKey("sense_voice_model_path")
-        val VadModelPath = stringPreferencesKey("vad_model_path")
-        val DiarizationModelPath = stringPreferencesKey("diarization_model_path")
-        val EnableVad = booleanPreferencesKey("enable_vad")
-        val EnableSpeakerDiarization = booleanPreferencesKey("enable_speaker_diarization")
-        val MaxSpeakerCount = intPreferencesKey("max_speaker_count")
-        val VadSpeechThreshold = floatPreferencesKey("vad_speech_threshold")
-        val MinSpeechDurationMs = longPreferencesKey("min_speech_duration_ms")
-        val MinSilenceDurationMs = longPreferencesKey("min_silence_duration_ms")
-        val MaxSpeechDurationMs = longPreferencesKey("max_speech_duration_ms")
-        val TranscriptionChunkDurationMs = longPreferencesKey("transcription_chunk_duration_ms")
-        val FirstRunPrivacyAccepted = booleanPreferencesKey("first_run_privacy_accepted")
+        val DeepSeekModel = stringPreferencesKey(SettingsContract.Keys.DEEP_SEEK_MODEL)
+        val SummaryLanguage = stringPreferencesKey(SettingsContract.Keys.SUMMARY_LANGUAGE)
+        val SummaryStyle = stringPreferencesKey(SettingsContract.Keys.SUMMARY_STYLE)
+        val SherpaModelRootPath = stringPreferencesKey(SettingsContract.Keys.SHERPA_MODEL_ROOT_PATH)
+        val SenseVoiceModelPath = stringPreferencesKey(SettingsContract.Keys.SENSE_VOICE_MODEL_PATH)
+        val VadModelPath = stringPreferencesKey(SettingsContract.Keys.VAD_MODEL_PATH)
+        val DiarizationModelPath = stringPreferencesKey(SettingsContract.Keys.DIARIZATION_MODEL_PATH)
+        val EnableVad = booleanPreferencesKey(SettingsContract.Keys.ENABLE_VAD)
+        val EnableSpeakerDiarization = booleanPreferencesKey(SettingsContract.Keys.ENABLE_SPEAKER_DIARIZATION)
+        val MaxSpeakerCount = intPreferencesKey(SettingsContract.Keys.MAX_SPEAKER_COUNT)
+        val VadSpeechThreshold = floatPreferencesKey(SettingsContract.Keys.VAD_SPEECH_THRESHOLD)
+        val MinSpeechDurationMs = longPreferencesKey(SettingsContract.Keys.MIN_SPEECH_DURATION_MS)
+        val MinSilenceDurationMs = longPreferencesKey(SettingsContract.Keys.MIN_SILENCE_DURATION_MS)
+        val MaxSpeechDurationMs = longPreferencesKey(SettingsContract.Keys.MAX_SPEECH_DURATION_MS)
+        val TranscriptionChunkDurationMs = longPreferencesKey(SettingsContract.Keys.TRANSCRIPTION_CHUNK_DURATION_MS)
+        val FirstRunPrivacyAccepted = booleanPreferencesKey(SettingsContract.Keys.FIRST_RUN_PRIVACY_ACCEPTED)
     }
 }
 

@@ -18,7 +18,7 @@ import com.example.blogrecording.common.AppResult
 import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.AudioSourceType
 import com.example.blogrecording.data.BundledModelInstaller
-import com.example.blogrecording.data.ModelLoadStatus
+import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
 import com.example.blogrecording.data.Repository
@@ -28,12 +28,19 @@ import com.example.blogrecording.data.isInterruptedOnStartup
 import com.example.blogrecording.diarization.SpeakerDiarizationEngine
 import com.example.blogrecording.diarization.SpeakerSegment
 import com.example.blogrecording.diarization.SpeakerProfileManager
+import com.example.blogrecording.recording.ActiveRecordingSegment
+import com.example.blogrecording.recording.RecordingController
+import com.example.blogrecording.recording.SegmentRecorder
+import com.example.blogrecording.recording.SegmentStartRequest
+import com.example.blogrecording.recording.SegmentStopResult
 import com.example.blogrecording.security.ApiKeyStore
 import com.example.blogrecording.service.CaptureForegroundService
 import com.example.blogrecording.summary.DeepSeekSummaryClient
+import com.example.blogrecording.summary.SessionSummaryUseCase
 import com.example.blogrecording.summary.SummaryRepository
 import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
+import com.example.blogrecording.ui.state.RenameDialogUiState
 import com.example.blogrecording.vad.VadSegment
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +52,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -54,8 +62,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val apiKeyStore = ApiKeyStore(application)
     private val bundledModelInstaller = BundledModelInstaller(application)
     private val summaryRepository = SummaryRepository(DeepSeekSummaryClient())
+    private val sessionSummaryUseCase = SessionSummaryUseCase(
+        sessionRepository = repository,
+        readApiKey = { apiKeyStore.readApiKey() },
+        generateSummary = { apiKey, transcript, settings ->
+            summaryRepository.generateSummary(apiKey, transcript, settings)
+        }
+    )
     private val transcriptAssembler = TranscriptAssembler()
     private val speakerProfileManager = SpeakerProfileManager()
+    private val recordingController: RecordingController by lazy {
+        RecordingController(
+            sessionRepository = repository,
+            recorder = ViewModelSegmentRecorder()
+        )
+    }
 
     private val mutableState = MutableStateFlow(AppUiState(hasApiKey = apiKeyStore.hasApiKey()))
     val state: StateFlow<AppUiState> = mutableState.asStateFlow()
@@ -71,12 +92,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.markInterruptedSessions()
             val modelPaths = bundledModelInstaller.installIfBundled()
             settingsStore.updateModelPaths(modelPaths)
-            combine(settingsStore.settings, repository.sessions) { settings, sessions ->
-                settings to sessions
-            }.collect { (settings, sessions) ->
+            combine(
+                settingsStore.settings,
+                repository.sessions,
+                repository.observeSessions()
+            ) { settings, sessions, podcastSessions ->
+                Triple(settings, sessions, podcastSessions)
+            }.collect { (settings, sessions, podcastSessions) ->
                 val selectedId = mutableState.value.selectedSessionId
                 val selected = selectedId?.let { id -> sessions.firstOrNull { it.id == id } }
+                val podcastDetails = podcastSessions.mapNotNull { session ->
+                    repository.observeSessionDetail(session.id).first()
+                }
                 mutableState.value = mutableState.value.copy(
+                    home = HomeUiStateMapper.map(
+                        details = podcastDetails,
+                        renameDialog = mutableState.value.home.renameDialog,
+                        error = mutableState.value.error
+                    ),
                     settings = settings,
                     sessions = sessions,
                     currentSession = selected ?: mutableState.value.currentSession?.takeUnless {
@@ -90,20 +123,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun navigate(screen: AppScreen) {
-        mutableState.value = mutableState.value.copy(currentScreen = screen, error = null)
+        mutableState.value = UiNavigationPolicy.navigate(mutableState.value, screen)
     }
 
     fun openDetail(sessionId: String) {
         viewModelScope.launch {
             val session = repository.getSession(sessionId)
             val segments = repository.getSegments(sessionId)
-            mutableState.value = mutableState.value.copy(
-                currentScreen = AppScreen.DETAIL,
-                selectedSessionId = sessionId,
-                currentSession = session,
-                currentSegments = segments,
-                error = null
-            )
+            mutableState.value = UiNavigationPolicy.openDetail(mutableState.value, sessionId, session, segments)
         }
     }
 
@@ -143,16 +170,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onRecordAudioPermissionDenied() {
+        val denied = RecordingLifecyclePolicy.deniedPermissionState(AppError.RecordAudioPermissionDenied)
         mutableState.value = mutableState.value.copy(
-            recordingStatus = RecordingStatus.ERROR,
-            error = AppError.RecordAudioPermissionDenied
+            recordingStatus = denied.recordingStatus,
+            error = denied.error
         )
     }
 
     fun onNotificationPermissionDenied() {
+        val denied = RecordingLifecyclePolicy.deniedPermissionState(AppError.NotificationPermissionDenied)
         mutableState.value = mutableState.value.copy(
-            recordingStatus = RecordingStatus.ERROR,
-            error = AppError.NotificationPermissionDenied
+            recordingStatus = denied.recordingStatus,
+            error = denied.error
         )
     }
 
@@ -175,10 +204,70 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startMicrophoneRecording() {
+    fun createPodcastSession() {
         viewModelScope.launch {
-            val manager = MicAudioCaptureManager(getApplication())
-            startRecording(AudioSourceType.MICROPHONE, manager, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            repository.createSession(title = null, sourceType = AudioSourceType.MICROPHONE)
+        }
+    }
+
+    fun requestRenamePodcastSession(sessionId: String) {
+        val card = mutableState.value.home.cards.firstOrNull { it.sessionId == sessionId } ?: return
+        mutableState.value = mutableState.value.copy(
+            home = mutableState.value.home.copy(
+                renameDialog = RenameDialogUiState(
+                    sessionId = sessionId,
+                    initialTitle = card.title
+                )
+            )
+        )
+    }
+
+    fun dismissRenamePodcastSession() {
+        mutableState.value = mutableState.value.copy(
+            home = mutableState.value.home.copy(renameDialog = null)
+        )
+    }
+
+    fun renamePodcastSession(sessionId: String, title: String) {
+        viewModelScope.launch {
+            if (title.isBlank()) {
+                mutableState.value = mutableState.value.copy(error = AppError.Unknown("标题不能为空"))
+                return@launch
+            }
+            when (val result = repository.renameSession(sessionId, title.trim())) {
+                is AppResult.Success -> mutableState.value = mutableState.value.copy(
+                    home = mutableState.value.home.copy(renameDialog = null),
+                    error = null
+                )
+                is AppResult.Failure -> mutableState.value = mutableState.value.copy(error = result.error)
+            }
+        }
+    }
+
+    fun startMicrophoneRecording(sessionId: String? = null) {
+        viewModelScope.launch {
+            val result = if (sessionId == null) {
+                recordingController.startMicrophone(title = null)
+            } else {
+                recordingController.resumeMicrophone(sessionId)
+            }
+            handleRecordingControllerResult(result)
+        }
+    }
+
+    fun pausePodcastRecording(sessionId: String) {
+        viewModelScope.launch {
+            handleRecordingControllerResult(recordingController.pause(sessionId))
+        }
+    }
+
+    fun resumePodcastRecording(sessionId: String) {
+        startMicrophoneRecording(sessionId)
+    }
+
+    fun finishPodcastSession(sessionId: String) {
+        viewModelScope.launch {
+            handleRecordingControllerResult(recordingController.finalize(sessionId))
         }
     }
 
@@ -225,6 +314,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun stopRecording() {
+        val activePodcastSessionId = recordingController.currentState().activeSessionId
+        if (activePodcastSessionId != null) {
+            pausePodcastRecording(activePodcastSessionId)
+            return
+        }
         val job = captureJob
         val manager = activeCaptureManager
         if (job == null && manager == null) return
@@ -255,54 +349,55 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun generateSummaryForCurrent() {
         val session = mutableState.value.currentSession ?: return
-        generateSummary(session)
+        startSummaryForPodcastSession(session.id)
     }
 
-    fun generateSummary(session: RecordingSessionEntity) {
+    fun startSummaryForPodcastSession(sessionId: String) {
         summaryJob?.cancel()
         summaryJob = viewModelScope.launch {
-            mutableState.value = mutableState.value.copy(isGeneratingSummary = true, recordingStatus = RecordingStatus.SUMMARIZING, error = null)
-            val apiKey = when (val result = apiKeyStore.readApiKey()) {
-                is AppResult.Success -> result.value
-                is AppResult.Failure -> {
-                    mutableState.value = mutableState.value.copy(isGeneratingSummary = false, error = result.error)
-                    return@launch
-                }
-            }
-            if (session.transcript.isBlank()) {
-                mutableState.value = mutableState.value.copy(isGeneratingSummary = false, error = AppError.Unknown("转写为空"))
-                return@launch
-            }
-            when (val summary = summaryRepository.generateSummary(apiKey, session.transcript, mutableState.value.settings)) {
+            mutableState.value = mutableState.value.copy(
+                isGeneratingSummary = true,
+                recordingStatus = RecordingStatus.SUMMARIZING,
+                error = null
+            )
+            when (val result = sessionSummaryUseCase.start(sessionId, mutableState.value.settings)) {
                 is AppResult.Success -> {
-                    repository.updateSummary(session.id, summary.value)
-                    val updated = repository.getSession(session.id)
+                    val updated = repository.getSession(sessionId)
+                    val segments = repository.getSegments(sessionId)
                     mutableState.value = mutableState.value.copy(
                         isGeneratingSummary = false,
-                        recordingStatus = RecordingStatus.COMPLETED,
-                        currentSession = updated,
+                        recordingStatus = updated?.status ?: RecordingStatus.COMPLETED,
+                        currentSession = updated ?: mutableState.value.currentSession,
+                        currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
+                            segments
+                        } else {
+                            mutableState.value.currentSegments
+                        },
                         error = null
                     )
                 }
-                is AppResult.Failure -> mutableState.value = mutableState.value.copy(
-                    isGeneratingSummary = false,
-                    recordingStatus = RecordingStatus.ERROR,
-                    error = summary.error
-                )
+                is AppResult.Failure -> {
+                    val updated = repository.getSession(sessionId)
+                    mutableState.value = mutableState.value.copy(
+                        isGeneratingSummary = false,
+                        recordingStatus = updated?.status ?: mutableState.value.recordingStatus,
+                        currentSession = updated ?: mutableState.value.currentSession,
+                        error = result.error
+                    )
+                }
             }
         }
+    }
+
+    fun generateSummary(session: RecordingSessionEntity) {
+        startSummaryForPodcastSession(session.id)
     }
 
     fun deleteCurrentSession() {
         val sessionId = mutableState.value.currentSession?.id ?: return
         viewModelScope.launch {
             repository.deleteSession(sessionId)
-            mutableState.value = mutableState.value.copy(
-                currentScreen = AppScreen.HISTORY,
-                currentSession = null,
-                currentSegments = emptyList(),
-                selectedSessionId = null
-            )
+            mutableState.value = UiNavigationPolicy.deleteCurrentSession(mutableState.value)
         }
     }
 
@@ -310,8 +405,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         sourceType: AudioSourceType,
         captureManager: AudioCaptureManager,
         foregroundServiceType: Int,
-        foregroundServiceAlreadyStarted: Boolean = false
-    ) {
+        foregroundServiceAlreadyStarted: Boolean = false,
+        existingSession: RecordingSessionEntity? = null,
+        recordingSegmentId: String? = null
+    ): AppResult<Unit> {
         captureJob?.cancel()
         activeCaptureManager?.stop()
         captureJob = null
@@ -319,37 +416,55 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val settings = mutableState.value.settings
         val gateError = modelGateError(settings)
-        val session = repository.createSession(sourceType, settings)
+        val session = existingSession ?: repository.createSession(sourceType, settings)
         if (gateError != null) {
-            val failed = session.copy(status = RecordingStatus.ERROR, errorMessage = gateError.toString())
-            repository.saveSession(failed)
+            if (existingSession == null) {
+                val failed = session.copy(status = RecordingStatus.ERROR, errorMessage = gateError.toString())
+                repository.saveSession(failed)
+            } else {
+                repository.updateStatus(
+                    sessionId = session.id,
+                    status = PodcastSessionStatus.ERROR,
+                    errorMessage = gateError.toString()
+                )
+            }
             mutableState.value = mutableState.value.copy(
-                currentSession = failed,
-                selectedSessionId = failed.id,
+                currentSession = session.copy(status = RecordingStatus.ERROR, errorMessage = gateError.toString()),
+                selectedSessionId = session.id,
                 recordingStatus = RecordingStatus.ERROR,
                 audioSourceType = sourceType,
                 error = gateError
             )
-            return
+            return AppResult.Failure(gateError)
         }
 
         val serviceError = if (foregroundServiceAlreadyStarted) null else startForegroundServiceSafely(foregroundServiceType)
         if (serviceError != null) {
-            val failed = session.copy(status = RecordingStatus.ERROR, errorMessage = serviceError.toString())
-            repository.saveSession(failed)
+            if (existingSession == null) {
+                val failed = session.copy(status = RecordingStatus.ERROR, errorMessage = serviceError.toString())
+                repository.saveSession(failed)
+            } else {
+                repository.updateStatus(
+                    sessionId = session.id,
+                    status = PodcastSessionStatus.ERROR,
+                    errorMessage = serviceError.toString()
+                )
+            }
             mutableState.value = mutableState.value.copy(
-                currentSession = failed,
-                selectedSessionId = failed.id,
+                currentSession = session.copy(status = RecordingStatus.ERROR, errorMessage = serviceError.toString()),
+                selectedSessionId = session.id,
                 recordingStatus = RecordingStatus.ERROR,
                 audioSourceType = sourceType,
                 error = serviceError
             )
-            return
+            return AppResult.Failure(serviceError)
         }
 
         activeCaptureManager = captureManager
         val capturing = session.copy(status = RecordingStatus.CAPTURING_AUDIO)
-        repository.saveSession(capturing)
+        if (existingSession == null) {
+            repository.saveSession(capturing)
+        }
         mutableState.value = mutableState.value.copy(
             currentSession = capturing,
             selectedSessionId = capturing.id,
@@ -361,24 +476,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
         captureJob = viewModelScope.launch(captureDispatcher) {
             runCatching {
-                runRecordingPipeline(capturing, settings, captureManager)
+                runRecordingPipeline(capturing, settings, captureManager, recordingSegmentId)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 stopForegroundService()
                 handleCaptureFailure(
                     sessionId = capturing.id,
+                    recordingSegmentId = recordingSegmentId,
                     error = AppError.RecordingPipelineFailed(error.message ?: error.javaClass.simpleName)
                 )
             }.onSuccess {
                 activeCaptureManager = null
             }
         }
+        return AppResult.Success(Unit)
     }
 
     private suspend fun runRecordingPipeline(
         session: RecordingSessionEntity,
         settings: AppSettings,
-        captureManager: AudioCaptureManager
+        captureManager: AudioCaptureManager,
+        recordingSegmentId: String? = null
     ) = coroutineScope {
         val chunkDurationMs = settings.transcriptionChunkDurationMs.coerceIn(10_000L, 600_000L)
         val chunker = PcmChunker(chunkDurationMs)
@@ -396,7 +514,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     session = session,
                     chunk = chunk,
                     recognizer = recognizer,
-                    diarization = diarization
+                    diarization = diarization,
+                    recordingSegmentId = recordingSegmentId
                 )
             }
         }
@@ -404,7 +523,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         try {
             captureManager.start().collect { captureResult ->
                 when (captureResult) {
-                    is AppResult.Failure -> handleCaptureFailure(session.id, captureResult.error)
+                    is AppResult.Failure -> handleCaptureFailure(session.id, recordingSegmentId, captureResult.error)
                     is AppResult.Success -> {
                         val readyChunks = chunker.offer(captureResult.value)
                         readyChunks.forEach { chunk -> sendChunk(chunks, chunk) }
@@ -441,9 +560,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         session: RecordingSessionEntity,
         chunk: PcmChunk,
         recognizer: SenseVoiceRecognizer,
-        diarization: SpeakerDiarizationEngine
+        diarization: SpeakerDiarizationEngine,
+        recordingSegmentId: String? = null
     ) {
-        val recognizerSegments = chunk.toVadSegments(MAX_RECOGNIZER_SEGMENT_MS)
+        val recognizerSegments = chunk.toVadSegments(LocalProcessingPolicy.MAX_RECOGNIZER_SEGMENT_MS)
         updateRecordingState(
             recordingStatus = RecordingStatus.TRANSCRIBING,
             vadLabel = "正在转写第 ${chunk.sequence} 批（${chunk.startMs / 1000}-${chunk.endMs / 1000} 秒）"
@@ -458,7 +578,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
             val asr = recognizer.recognize(segment)
             if (asr is AppResult.Failure) {
-                handleCaptureFailure(session.id, asr.error)
+                handleCaptureFailure(session.id, recordingSegmentId, asr.error)
                 return
             }
 
@@ -467,12 +587,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
             val speaker = labelSpeaker(diarization, segment)
             if (speaker is AppResult.Failure) {
-                handleCaptureFailure(session.id, speaker.error)
+                handleCaptureFailure(session.id, recordingSegmentId, speaker.error)
                 return
             }
 
             val transcriptSegment = transcriptAssembler.assemble(
                 sessionId = session.id,
+                recordingSegmentId = recordingSegmentId,
                 vadStartMs = segment.startMs,
                 vadEndMs = segment.endMs,
                 asrResult = asrResult,
@@ -506,25 +627,72 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         diarization: SpeakerDiarizationEngine,
         segment: VadSegment
     ): AppResult<SpeakerSegment> {
-        if (segment.endMs - segment.startMs > MAX_DIARIZATION_SEGMENT_MS) {
-            return AppResult.Success(
-                SpeakerSegment(
-                    speakerId = "speaker_1",
-                    displayName = "Speaker 1",
-                    unstable = true,
-                    vadConfidence = null
-                )
-            )
+        LocalProcessingPolicy.speakerFallbackForLongSegment(segment)?.let { fallback ->
+            return AppResult.Success(fallback)
         }
         return diarization.label(segment)
     }
 
+    private suspend fun startSegmentRecording(request: SegmentStartRequest): AppResult<Unit> {
+        if (request.sourceType != AudioSourceType.MICROPHONE) {
+            return AppResult.Failure(AppError.MediaProjectionDenied)
+        }
+        val session = repository.getSession(request.sessionId)
+            ?: return AppResult.Failure(AppError.Unknown("记录不存在"))
+        val manager = MicAudioCaptureManager(getApplication())
+        return startRecording(
+            sourceType = AudioSourceType.MICROPHONE,
+            captureManager = manager,
+            foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+            existingSession = session,
+            recordingSegmentId = request.segmentId
+        )
+    }
+
+    private suspend fun stopSegmentRecording(
+        activeSegment: ActiveRecordingSegment
+    ): AppResult<SegmentStopResult> {
+        val job = captureJob
+        val manager = activeCaptureManager
+        updateStopRequestedState()
+        manager?.stop()
+        activeCaptureManager = null
+        captureJob = null
+        return try {
+            job?.join()
+            val endedAt = System.currentTimeMillis()
+            val startedAt = repository.observeSessionDetail(activeSegment.sessionId)
+                .first()
+                ?.recordingSegments
+                ?.firstOrNull { it.id == activeSegment.segmentId }
+                ?.startedAt
+                ?: endedAt
+            AppResult.Success(
+                SegmentStopResult(
+                    endedAt = endedAt,
+                    durationMs = (endedAt - startedAt).coerceAtLeast(0L)
+                )
+            )
+        } finally {
+            stopForegroundService()
+        }
+    }
+
     private suspend fun handleCaptureFailure(sessionId: String, error: AppError) {
-        if (error == AppError.InternalAudioSilent) {
+        handleCaptureFailure(sessionId = sessionId, recordingSegmentId = null, error = error)
+    }
+
+    private suspend fun handleCaptureFailure(
+        sessionId: String,
+        recordingSegmentId: String?,
+        error: AppError
+    ) {
+        val failureState = RecordingLifecyclePolicy.captureFailureState(error)
+        if (!failureState.persistFailure) {
             updateRecordingState(
-                recordingStatus = RecordingStatus.CAPTURING_AUDIO,
-                vadLabel = "等待可捕获的系统声音",
-                error = null
+                recordingStatus = failureState.recordingStatus,
+                vadLabel = failureState.vadLabel ?: mutableState.value.vadLabel,
+                error = failureState.error
             )
             return
         }
@@ -532,10 +700,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (session != null) {
             repository.saveSession(session.copy(status = RecordingStatus.ERROR, errorMessage = error.toString()))
         }
+        if (recordingSegmentId != null) {
+            repository.markSegmentTranscriptionFailed(
+                sessionId = sessionId,
+                recordingSegmentId = recordingSegmentId,
+                errorMessage = "Transcription failed"
+            )
+        }
         updateRecordingState(
-            recordingStatus = RecordingStatus.ERROR,
-            error = error
+            recordingStatus = failureState.recordingStatus,
+            error = failureState.error
         )
+    }
+
+    private fun handleRecordingControllerResult(result: AppResult<*>) {
+        if (result is AppResult.Failure) {
+            mutableState.value = mutableState.value.copy(error = result.error)
+        }
+    }
+
+    private inner class ViewModelSegmentRecorder : SegmentRecorder {
+        override suspend fun start(request: SegmentStartRequest): AppResult<Unit> {
+            return startSegmentRecording(request)
+        }
+
+        override suspend fun stop(activeSegment: ActiveRecordingSegment): AppResult<SegmentStopResult> {
+            return stopSegmentRecording(activeSegment)
+        }
     }
 
     private suspend fun updateRecordingState(
@@ -562,13 +753,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun modelGateError(settings: AppSettings = mutableState.value.settings): AppError? {
-        val status = mutableState.value.modelStatus
-        return when {
-            status.vad == ModelLoadStatus.MISSING && settings.enableVad -> AppError.VadModelMissing
-            status.senseVoice == ModelLoadStatus.MISSING -> AppError.SenseVoiceModelMissing
-            status.diarization == ModelLoadStatus.MISSING && settings.enableSpeakerDiarization -> AppError.DiarizationModelMissing
-            else -> null
-        }
+        return RecordingLifecyclePolicy.modelGateError(settings, mutableState.value.modelStatus)
     }
 
     private fun updateStopRequestedState() {
@@ -589,8 +774,4 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
     }
 
-    private companion object {
-        const val MAX_RECOGNIZER_SEGMENT_MS = 30_000L
-        const val MAX_DIARIZATION_SEGMENT_MS = 60_000L
-    }
 }

@@ -14,7 +14,10 @@ class SummaryRepository(
         transcript: String,
         settings: AppSettings
     ): AppResult<String> {
-        if (apiKey.isBlank()) return AppResult.Failure(AppError.DeepSeekApiKeyMissing)
+        when (val validation = SummaryGenerationPolicy.validateInputs(apiKey, transcript)) {
+            is AppResult.Failure -> return validation
+            is AppResult.Success -> Unit
+        }
         val chunks = chunker.chunk(transcript)
         if (chunks.isEmpty()) return AppResult.Failure(AppError.Unknown("转写为空"))
 

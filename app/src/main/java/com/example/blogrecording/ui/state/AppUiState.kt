@@ -18,6 +18,7 @@ enum class AppScreen {
 
 data class AppUiState(
     val currentScreen: AppScreen = AppScreen.HOME,
+    val home: HomeUiState = HomeUiState(),
     val settings: AppSettings = AppSettings(),
     val hasApiKey: Boolean = false,
     val currentSession: RecordingSessionEntity? = null,

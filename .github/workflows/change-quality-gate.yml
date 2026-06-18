@@ -1,0 +1,100 @@
+name: Change Quality Gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      change:
+        description: OpenSpec change name
+        required: true
+        default: add-home-podcast-cards
+
+jobs:
+  quality-gate:
+    runs-on: windows-latest
+    env:
+      CHANGE_NAME: ${{ github.event.inputs.change || 'add-home-podcast-cards' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Node for OpenSpec
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install OpenSpec
+        run: npm install --global @fission-ai/openspec
+
+      - name: OpenSpec validate
+        run: openspec validate $env:CHANGE_NAME
+
+      - name: Gradle clean
+        run: .\gradlew.bat clean
+
+      - name: Debug APK build
+        run: .\gradlew.bat :app:assembleDebug
+
+      - name: Unit tests
+        run: .\gradlew.bat testDebugUnitTest
+
+      - name: Android lint
+        run: .\gradlew.bat :app:lintDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: app/build/reports/tests/
+
+      - name: Upload lint reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-reports
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+
+      - name: Manual QA checklist
+        shell: pwsh
+        run: |
+          @(
+            "创建播客 A",
+            "A 开始录音",
+            "A 暂停",
+            "A 续录",
+            "创建播客 B",
+            "A 暂停后 B 录制",
+            "B 暂停后 A 续录",
+            "A 完成并总结",
+            "杀进程恢复",
+            "系统内录音权限取消",
+            "DeepSeek Key 缺失"
+          ) | ForEach-Object { "- [ ] $_" } | Set-Content manual-qa-checklist.md -Encoding UTF8
+          Get-Content manual-qa-checklist.md
+
+      - name: Upload manual QA checklist
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: manual-qa-checklist
+          path: manual-qa-checklist.md

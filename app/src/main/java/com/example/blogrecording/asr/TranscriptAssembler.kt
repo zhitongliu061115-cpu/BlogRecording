@@ -7,6 +7,7 @@ import java.util.UUID
 class TranscriptAssembler {
     fun assemble(
         sessionId: String,
+        recordingSegmentId: String? = null,
         vadStartMs: Long,
         vadEndMs: Long,
         asrResult: AsrResult,
@@ -15,6 +16,7 @@ class TranscriptAssembler {
         return TranscriptSegmentEntity(
             id = UUID.randomUUID().toString(),
             sessionId = sessionId,
+            recordingSegmentId = recordingSegmentId,
             startMs = vadStartMs,
             endMs = vadEndMs,
             speakerId = speaker.speakerId,

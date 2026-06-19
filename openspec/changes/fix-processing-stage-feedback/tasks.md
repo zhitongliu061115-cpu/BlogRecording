@@ -6,11 +6,11 @@
 
 - [x] 2.1 Add unit coverage for processing-stage UI state mapping and summary blocking reasons.
 - [x] 2.2 Add unit coverage for silent/non-speech chunk filtering before transcript persistence.
-- [ ] 2.3 Add unit coverage for the 30-second default transcription chunk setting.
+- [x] 2.3 Add unit coverage for the 30-second default transcription chunk setting.
 
 ## 3. Recording And Transcription
 
-- [ ] 3.1 Change the default transcription chunk duration to 30 seconds.
+- [x] 3.1 Change the default transcription chunk duration to 30 seconds.
 - [ ] 3.2 Add structured processing-stage state updates for permission, capture, buffering, transcription, pause/finalize, and failures.
 - [ ] 3.3 Filter silent or non-speech chunks before SenseVoice recognition and skip transcript persistence for those chunks.
 

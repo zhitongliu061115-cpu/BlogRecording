@@ -48,7 +48,7 @@ class SettingsContractTest {
         assertEquals(300L, defaults.minSpeechDurationMs)
         assertEquals(500L, defaults.minSilenceDurationMs)
         assertEquals(30_000L, defaults.maxSpeechDurationMs)
-        assertEquals(180_000L, defaults.transcriptionChunkDurationMs)
+        assertEquals(30_000L, defaults.transcriptionChunkDurationMs)
         assertFalse(defaults.firstRunPrivacyAccepted)
     }
 

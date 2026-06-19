@@ -1,6 +1,7 @@
 package com.example.blogrecording.audio
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
@@ -14,6 +15,8 @@ import kotlinx.coroutines.flow.callbackFlow
 
 class InternalAudioCaptureManager(
     private val mediaProjection: MediaProjection?,
+    private val context: Context? = null,
+    private val preferredCaptureUids: List<Int> = emptyList(),
     private val sampleRate: Int = DEFAULT_SAMPLE_RATE
 ) : AudioCaptureManager {
     @Volatile
@@ -43,11 +46,7 @@ class InternalAudioCaptureManager(
             return@callbackFlow
         }
 
-        val captureConfigBuilder = AudioPlaybackCaptureConfiguration.Builder(projection)
-        InternalAudioCapturePolicy.matchingUsages.forEach { usage ->
-            captureConfigBuilder.addMatchingUsage(usage)
-        }
-        val captureConfig = captureConfigBuilder.build()
+        val captureConfig = buildCaptureConfig(projection)
 
         val format = AudioFormat.Builder()
             .setSampleRate(sampleRate)
@@ -175,6 +174,36 @@ class InternalAudioCaptureManager(
         var sum = 0L
         samples.forEach { sample -> sum += kotlin.math.abs(sample.toInt()) }
         return sum.toDouble() / samples.size
+    }
+
+    private fun buildCaptureConfig(projection: MediaProjection): AudioPlaybackCaptureConfiguration {
+        val builder = AudioPlaybackCaptureConfiguration.Builder(projection)
+        val matchingUids = preferredCaptureUids()
+        if (matchingUids.isNotEmpty()) {
+            matchingUids.forEach { uid -> builder.addMatchingUid(uid) }
+            Log.i(TAG, "capture_config matchingUids=${matchingUids.joinToString(",")}")
+            return builder.build()
+        }
+
+        InternalAudioCapturePolicy.matchingUsages.forEach { usage ->
+            builder.addMatchingUsage(usage)
+        }
+        Log.i(TAG, "capture_config fallback_to_usages=${InternalAudioCapturePolicy.matchingUsages.joinToString(",")}")
+        return builder.build()
+    }
+
+    private fun preferredCaptureUids(): List<Int> {
+        if (preferredCaptureUids.isNotEmpty()) return preferredCaptureUids.distinct()
+        val packageManager = context?.packageManager ?: return emptyList()
+        return InternalAudioCapturePolicy.preferredCapturePackages.mapNotNull { packageName ->
+            runCatching {
+                packageManager.getApplicationInfo(packageName, 0).uid.also { uid ->
+                    Log.i(TAG, "preferred_package_resolved package=$packageName uid=$uid")
+                }
+            }.onFailure {
+                Log.i(TAG, "preferred_package_unavailable package=$packageName error=${it.javaClass.simpleName}")
+            }.getOrNull()
+        }.distinct()
     }
 
     private companion object {

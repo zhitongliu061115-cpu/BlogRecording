@@ -11,4 +11,13 @@ class InternalAudioCapturePolicyTest {
         assertTrue(InternalAudioCapturePolicy.matchingUsages.contains(AudioAttributes.USAGE_GAME))
         assertTrue(InternalAudioCapturePolicy.matchingUsages.contains(AudioAttributes.USAGE_UNKNOWN))
     }
+
+    @Test
+    fun preferredCapturePackagesIncludeCosmosPodcast() {
+        assertTrue(
+            InternalAudioCapturePolicy.preferredCapturePackages.contains(
+                InternalAudioCapturePolicy.COSMOS_PACKAGE_NAME
+            )
+        )
+    }
 }

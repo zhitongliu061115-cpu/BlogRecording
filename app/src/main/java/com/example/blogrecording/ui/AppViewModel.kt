@@ -12,6 +12,7 @@ import com.example.blogrecording.asr.SenseVoiceRecognizer
 import com.example.blogrecording.asr.TranscriptAssembler
 import com.example.blogrecording.audio.AudioCaptureManager
 import com.example.blogrecording.audio.InternalAudioCaptureManager
+import com.example.blogrecording.audio.InternalAudioCapturePolicy
 import com.example.blogrecording.audio.MicAudioCaptureManager
 import com.example.blogrecording.audio.PcmChunk
 import com.example.blogrecording.audio.PcmChunker
@@ -549,7 +550,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }.onSuccess {
                 Log.i(TAG, "capture_job_completed source=$sourceType session=${capturing.id.take(8)}")
-                activeCaptureManager = null
+                if (activeCaptureManager === captureManager) {
+                    activeCaptureManager = null
+                }
             }
         }
         Log.i(TAG, "capture_job_scheduled source=$sourceType session=${capturing.id.take(8)}")
@@ -587,7 +590,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
-
         try {
             captureManager.start().collect { captureResult ->
                 when (captureResult) {
@@ -650,7 +652,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         recordingSegmentId: String? = null
     ) {
         val chunkEnergy = silenceDetector.averageAmplitude(chunk.samples)
-        val recognizerSegments = TranscriptionChunkPolicy.recognizerSegments(chunk, ::hasMeaningfulAudio)
+        val recognizerSegments = TranscriptionChunkPolicy.recognizerSegments(
+            chunk = chunk,
+            sourceType = session.sourceType,
+            hasMeaningfulAudio = ::hasMeaningfulAudio
+        )
         Log.i(
             TAG,
             "chunk_prepare chunk=${chunk.sequence} avgAmp=${chunkEnergy.toInt()} recognizerSegments=${recognizerSegments.size}"
@@ -679,7 +685,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         var wroteAnySegment = false
         recognizerSegments.forEachIndexed { index, segment ->
-            val segmentEnergy = silenceDetector.averageAmplitude(segment.samples)
+            val recognizerSegment = segment.prepareForRecognition(session.sourceType)
+            val segmentEnergy = silenceDetector.averageAmplitude(recognizerSegment.samples)
             Log.i(
                 TAG,
                 "asr_attempt chunk=${chunk.sequence} segment=${index + 1}/${recognizerSegments.size} avgAmp=${segmentEnergy.toInt()}"
@@ -696,7 +703,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 processingSessionId = session.id
             )
 
-            val asr = recognizer.recognize(segment)
+            val asr = recognizer.recognize(recognizerSegment)
             if (asr is AppResult.Failure) {
                 Log.w(
                     TAG,
@@ -791,6 +798,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return !silenceDetector.isSilent(stream)
     }
 
+    private fun VadSegment.prepareForRecognition(sourceType: AudioSourceType): VadSegment {
+        if (sourceType != AudioSourceType.INTERNAL_AUDIO) return this
+        val peak = samples.maxOfOrNull { kotlin.math.abs(it.toInt()) } ?: 0
+        if (peak <= 0 || peak >= INTERNAL_AUDIO_TARGET_PEAK) return this
+        val gain = (INTERNAL_AUDIO_TARGET_PEAK.toFloat() / peak)
+            .coerceAtMost(INTERNAL_AUDIO_MAX_GAIN)
+        if (gain <= 1.0f) return this
+        return copy(
+            samples = ShortArray(samples.size) { index ->
+                (samples[index] * gain)
+                    .toInt()
+                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    .toShort()
+            }
+        )
+    }
+
     private suspend fun labelSpeaker(
         diarization: SpeakerDiarizationEngine,
         segment: VadSegment
@@ -822,7 +846,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         Log.w(TAG, "start_segment_internal_missing_projection session=${request.sessionId.take(8)}")
                     }
                 pendingInternalAudioProjection = null
-                val manager = InternalAudioCaptureManager(projection)
+                val preferredCaptureUids = preferredInternalCaptureUids()
+                Log.i(
+                    TAG,
+                    "preferred_internal_capture_uids=${preferredCaptureUids.joinToString(",")}"
+                )
+                val manager = InternalAudioCaptureManager(
+                    mediaProjection = projection,
+                    context = getApplication(),
+                    preferredCaptureUids = preferredCaptureUids
+                )
                 val result = startRecording(
                     sourceType = AudioSourceType.INTERNAL_AUDIO,
                     captureManager = manager,
@@ -838,6 +871,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 result
             }
         }
+    }
+
+    private fun preferredInternalCaptureUids(): List<Int> {
+        val packageManager = getApplication<Application>().packageManager
+        return InternalAudioCapturePolicy.preferredCapturePackages.mapNotNull { packageName ->
+            runCatching {
+                packageManager.getApplicationInfo(packageName, 0).uid.also { uid ->
+                    Log.i(TAG, "preferred_internal_capture_package package=$packageName uid=$uid")
+                }
+            }.onFailure {
+                Log.w(
+                    TAG,
+                    "preferred_internal_capture_package_failed package=$packageName error=${it.javaClass.simpleName}"
+                )
+            }.getOrNull()
+        }.distinct()
     }
 
     private suspend fun stopSegmentRecording(
@@ -1053,5 +1102,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val TAG = "BlogRecordingPipeline"
+        const val INTERNAL_AUDIO_TARGET_PEAK = 12_000
+        const val INTERNAL_AUDIO_MAX_GAIN = 12.0f
     }
 }

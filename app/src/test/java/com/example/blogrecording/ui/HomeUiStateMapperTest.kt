@@ -238,6 +238,54 @@ class HomeUiStateMapperTest {
         assertEquals("session-a", state.activeRecordingSessionId)
     }
 
+    @Test
+    fun homeShowsOnlyLatestFiveCardsByUpdatedAt() {
+        val details = (1..7).map { index ->
+            detail(
+                session = session(
+                    id = "session-$index",
+                    title = "Episode $index",
+                    updatedAt = index.toLong()
+                )
+            )
+        }
+
+        val state = HomeUiStateMapper.map(details)
+
+        assertEquals(5, state.cards.size)
+        assertEquals(
+            listOf("session-7", "session-6", "session-5", "session-4", "session-3"),
+            state.cards.map { it.sessionId }
+        )
+    }
+
+    @Test
+    fun cardShowsRecentTranscriptPreviewSnippets() {
+        val card = HomeUiStateMapper.map(
+            listOf(
+                detail(
+                    session = session(
+                        id = "session-1",
+                        transcript = "aggregate",
+                        transcriptSegmentCount = 4
+                    ),
+                    transcriptSegments = listOf(
+                        transcriptSegment(text = "first", startMs = 1_000L),
+                        transcriptSegment(text = "second", startMs = 2_000L),
+                        transcriptSegment(text = " ", startMs = 3_000L),
+                        transcriptSegment(text = "third", startMs = 4_000L),
+                        transcriptSegment(text = "fourth", startMs = 5_000L)
+                    )
+                )
+            )
+        ).cards.single()
+
+        assertEquals(
+            listOf("second", "third", "fourth"),
+            card.transcriptPreviewSnippets.map { it.text }
+        )
+    }
+
     private fun detail(
         session: PodcastSession,
         recordingSegments: List<RecordingSegment> = emptyList(),
@@ -256,6 +304,7 @@ class HomeUiStateMapperTest {
         title: String = "Episode",
         status: PodcastSessionStatus = PodcastSessionStatus.DRAFT,
         activeSegmentId: String? = null,
+        updatedAt: Long = 2L,
         transcript: String = "",
         transcriptSegmentCount: Int = 0,
         summary: SessionSummary? = null
@@ -264,7 +313,7 @@ class HomeUiStateMapperTest {
             id = id,
             title = title,
             createdAt = 1L,
-            updatedAt = 2L,
+            updatedAt = updatedAt,
             sourceType = AudioSourceType.MICROPHONE,
             status = status,
             activeSegmentId = activeSegmentId,
@@ -313,14 +362,15 @@ class HomeUiStateMapperTest {
 
     private fun transcriptSegment(
         sessionId: String = "session-1",
+        startMs: Long = 1L,
         text: String
     ): TranscriptSegmentEntity {
         return TranscriptSegmentEntity(
             id = "transcript-1",
             sessionId = sessionId,
             recordingSegmentId = null,
-            startMs = 1L,
-            endMs = 2L,
+            startMs = startMs,
+            endMs = startMs + 1L,
             speakerId = "speaker-1",
             speakerDisplayName = "Speaker 1",
             text = text,
@@ -328,7 +378,7 @@ class HomeUiStateMapperTest {
             confidence = null,
             vadConfidence = null,
             isFinal = true,
-            createdAt = 1L
+            createdAt = startMs
         )
     }
 

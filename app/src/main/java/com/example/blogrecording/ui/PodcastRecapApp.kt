@@ -3,6 +3,7 @@ package com.example.blogrecording.ui
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.ui.components.PrivacyNoticeDialog
 import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
@@ -34,7 +35,9 @@ fun PodcastRecapApp(
                 onRequestRename = viewModel::requestRenamePodcastSession,
                 onRenameSession = viewModel::renamePodcastSession,
                 onDismissRename = viewModel::dismissRenamePodcastSession,
-                onStartSummary = viewModel::startSummaryForPodcastSession,
+                onStartSummary = viewModel::requestSummaryStylePick,
+                onStartSummaryWithStyle = viewModel::startSummaryWithStyle,
+                onDismissStylePicker = viewModel::dismissSummaryStylePicker,
                 onOpenDetail = viewModel::openDetail,
                 onNavigate = viewModel::navigate
             )

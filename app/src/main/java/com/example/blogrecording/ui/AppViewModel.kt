@@ -26,6 +26,8 @@ import com.example.blogrecording.data.BundledModelInstaller
 import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
+import com.example.blogrecording.data.SummaryStyle
+import com.example.blogrecording.ui.state.SummaryStylePickerState
 import com.example.blogrecording.data.Repository
 import com.example.blogrecording.data.SettingsStore
 import com.example.blogrecording.data.TranscriptSegmentEntity
@@ -72,8 +74,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val sessionSummaryUseCase = SessionSummaryUseCase(
         sessionRepository = repository,
         readApiKey = { apiKeyStore.readApiKey() },
-        generateSummary = { apiKey, transcript, settings ->
-            summaryRepository.generateSummary(apiKey, transcript, settings)
+        generateSummary = { apiKey, transcript, settings, overrideStyle ->
+            summaryRepository.generateSummary(apiKey, transcript, settings, overrideStyle)
         }
     )
     private val transcriptAssembler = TranscriptAssembler()
@@ -382,7 +384,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         startSummaryForPodcastSession(session.id)
     }
 
-    fun startSummaryForPodcastSession(sessionId: String) {
+    fun requestSummaryStylePick(sessionId: String) {
+        mutableState.value = mutableState.value.copy(
+            summaryStylePicker = SummaryStylePickerState(sessionId)
+        )
+    }
+
+    fun startSummaryWithStyle(sessionId: String, style: SummaryStyle) {
+        mutableState.value = mutableState.value.copy(summaryStylePicker = null)
+        startSummaryForPodcastSession(sessionId, style)
+    }
+
+    fun dismissSummaryStylePicker() {
+        mutableState.value = mutableState.value.copy(summaryStylePicker = null)
+    }
+
+    fun startSummaryForPodcastSession(sessionId: String, overrideStyle: SummaryStyle? = null) {
         summaryJob?.cancel()
         summaryJob = viewModelScope.launch {
             mutableState.value = mutableState.value.copy(
@@ -397,7 +414,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 recordingState = CaptureNotificationState.STATE_SUMMARIZING,
                 stage = ProcessingStageUiState.summarizing()
             )
-            when (val result = sessionSummaryUseCase.start(sessionId, mutableState.value.settings)) {
+            when (val result = sessionSummaryUseCase.start(sessionId, mutableState.value.settings, overrideStyle)) {
                 is AppResult.Success -> {
                     val updated = repository.getSession(sessionId)
                     val segments = repository.getSegments(sessionId)

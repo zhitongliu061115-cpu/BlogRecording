@@ -11,7 +11,7 @@ class SummaryPromptBuilderTest {
         val prompt = SummaryPromptBuilder().buildChunkPrompt(
             transcript = "[00:00:01 - 00:00:03] Speaker 1：内容",
             language = SummaryLanguage.CHINESE,
-            style = SummaryStyle.POINTS_QUOTES_ACTIONS
+            style = SummaryStyle.BULLET_SUMMARY
         )
 
         assertTrue(prompt.contains("不要编造"))

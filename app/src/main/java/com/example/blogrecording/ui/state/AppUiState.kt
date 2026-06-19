@@ -7,6 +7,7 @@ import com.example.blogrecording.data.ModelLoadStatus
 import com.example.blogrecording.data.ModelStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
+import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.data.TranscriptSegmentEntity
 
 enum class AppScreen {
@@ -38,5 +39,10 @@ data class AppUiState(
         diarization = ModelLoadStatus.MISSING
     ),
     val isGeneratingSummary: Boolean = false,
+    val summaryStylePicker: SummaryStylePickerState? = null,
     val error: AppError? = null
+)
+
+data class SummaryStylePickerState(
+    val sessionId: String
 )

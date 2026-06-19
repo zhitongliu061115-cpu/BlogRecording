@@ -579,7 +579,7 @@ class RecordingControllerTest {
                 lastCompletedSegmentId = null,
                 transcript = "",
                 summary = null,
-                summaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
+                summaryStyle = SummaryStyle.BULLET_SUMMARY,
                 summaryLanguage = SummaryLanguage.CHINESE,
                 summaryModelName = "deepseek-chat",
                 asrModelName = "SenseVoice sherpa-onnx",

@@ -40,7 +40,7 @@ class SettingsContractTest {
 
         assertEquals("deepseek-chat", defaults.deepSeekModel)
         assertEquals(SummaryLanguage.CHINESE, defaults.summaryLanguage)
-        assertEquals(SummaryStyle.POINTS_QUOTES_ACTIONS, defaults.summaryStyle)
+        assertEquals(SummaryStyle.BULLET_SUMMARY, defaults.summaryStyle)
         assertTrue(defaults.enableVad)
         assertTrue(defaults.enableSpeakerDiarization)
         assertEquals(4, defaults.maxSpeakerCount)

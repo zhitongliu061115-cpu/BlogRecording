@@ -80,7 +80,7 @@ class UiNavigationPolicyTest {
             vadModelName = "Silero VAD sherpa-onnx",
             diarizationModelName = "sherpa-onnx speaker diarization",
             summaryModelName = "deepseek-chat",
-            summaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
+            summaryStyle = SummaryStyle.BULLET_SUMMARY,
             summaryLanguage = SummaryLanguage.CHINESE,
             detectedSpeakerCount = 1,
             segmentCount = 1,

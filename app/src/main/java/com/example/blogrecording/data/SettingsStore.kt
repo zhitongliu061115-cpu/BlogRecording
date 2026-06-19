@@ -20,7 +20,7 @@ class SettingsStore(private val context: Context) {
             deepSeekModel = prefs[Keys.DeepSeekModel] ?: defaults.deepSeekModel,
             summaryLanguage = prefs[Keys.SummaryLanguage]?.toEnumOrDefault(SummaryLanguage.CHINESE)
                 ?: defaults.summaryLanguage,
-            summaryStyle = prefs[Keys.SummaryStyle]?.toEnumOrDefault(SummaryStyle.POINTS_QUOTES_ACTIONS)
+            summaryStyle = prefs[Keys.SummaryStyle]?.let { SummaryStyle.fromLegacyName(it) }
                 ?: defaults.summaryStyle,
             sherpaModelRootPath = prefs[Keys.SherpaModelRootPath] ?: defaults.sherpaModelRootPath,
             senseVoiceModelPath = prefs[Keys.SenseVoiceModelPath] ?: defaults.senseVoiceModelPath,

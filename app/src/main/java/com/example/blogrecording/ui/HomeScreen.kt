@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -37,9 +38,11 @@ import androidx.compose.ui.unit.dp
 import com.example.blogrecording.common.toUserMessage
 import com.example.blogrecording.data.ModelLoadStatus
 import com.example.blogrecording.data.ModelStatus
+import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.ui.components.ModelStatusPanel
 import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
+import com.example.blogrecording.ui.state.SummaryStylePickerState
 import com.example.blogrecording.ui.state.HomeUiState
 import com.example.blogrecording.ui.state.PodcastCardUiState
 import com.example.blogrecording.ui.state.ProcessingStageUiState
@@ -64,6 +67,8 @@ fun HomeScreen(
     onRenameSession: (String, String) -> Unit,
     onDismissRename: () -> Unit,
     onStartSummary: (String) -> Unit,
+    onStartSummaryWithStyle: (String, SummaryStyle) -> Unit = { _, _ -> },
+    onDismissStylePicker: () -> Unit = {},
     onOpenDetail: (String) -> Unit,
     onNavigate: (AppScreen) -> Unit
 ) {
@@ -153,6 +158,14 @@ fun HomeScreen(
             state = dialog,
             onConfirm = onRenameSession,
             onDismiss = onDismissRename
+        )
+    }
+
+    state.summaryStylePicker?.let { picker ->
+        SummaryStylePickerDialog(
+            state = picker,
+            onSelect = onStartSummaryWithStyle,
+            onDismiss = onDismissStylePicker
         )
     }
 }
@@ -468,6 +481,46 @@ private fun PodcastSessionCardPreview() {
         onRename = {},
         onStartSummary = {},
         onOpenDetail = {}
+    )
+}
+
+@Composable
+private fun SummaryStylePickerDialog(
+    state: SummaryStylePickerState,
+    onSelect: (String, SummaryStyle) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择总结风格") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SummaryStyle.values().forEach { style ->
+                    OutlinedButton(
+                        onClick = { onSelect(state.sessionId, style) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(style.displayName, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                style.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
     )
 }
 

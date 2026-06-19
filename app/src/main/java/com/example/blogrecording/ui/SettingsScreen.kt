@@ -98,14 +98,7 @@ fun SettingsScreen(
             label = "总结风格",
             value = draft.summaryStyle,
             values = SummaryStyle.values().toList(),
-            valueLabel = {
-                when (it) {
-                    SummaryStyle.BRIEF -> "简洁摘要"
-                    SummaryStyle.DEEP_RECAP -> "深度复盘"
-                    SummaryStyle.TIMELINE_NOTES -> "时间线笔记"
-                    SummaryStyle.POINTS_QUOTES_ACTIONS -> "要点 + 金句 + 行动项"
-                }
-            },
+            valueLabel = { it.displayName },
             onSelect = { draft = draft.copy(summaryStyle = it) }
         )
 

@@ -6,17 +6,19 @@ import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.PodcastSession
 import com.example.blogrecording.data.SessionRepository
 import com.example.blogrecording.data.SummaryStatus
+import com.example.blogrecording.data.SummaryStyle
 import kotlinx.coroutines.flow.first
 
 class SessionSummaryUseCase(
     private val sessionRepository: SessionRepository,
     private val readApiKey: suspend () -> AppResult<String>,
-    private val generateSummary: suspend (apiKey: String, transcript: String, settings: AppSettings) -> AppResult<String>,
+    private val generateSummary: suspend (apiKey: String, transcript: String, settings: AppSettings, overrideStyle: SummaryStyle?) -> AppResult<String>,
     private val nowMillis: () -> Long = System::currentTimeMillis
 ) {
     suspend fun start(
         sessionId: String,
-        settings: AppSettings
+        settings: AppSettings,
+        overrideStyle: SummaryStyle? = null
     ): AppResult<PodcastSession> {
         val detail = sessionRepository.observeSessionDetail(sessionId).first()
             ?: return AppResult.Failure(AppError.Unknown("session missing"))
@@ -43,7 +45,7 @@ class SessionSummaryUseCase(
             is AppResult.Failure -> return marking
         }
 
-        return when (val result = generateSummary(apiKey, aggregateTranscript, settings)) {
+        return when (val result = generateSummary(apiKey, aggregateTranscript, settings, overrideStyle)) {
             is AppResult.Success -> sessionRepository.updateSummaryLifecycle(
                 sessionId = sessionId,
                 status = SummaryStatus.SUMMARIZED,

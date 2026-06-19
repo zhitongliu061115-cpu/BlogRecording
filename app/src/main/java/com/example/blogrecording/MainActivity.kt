@@ -62,8 +62,14 @@ class MainActivity : ComponentActivity() {
                     true
                 }
                 when {
-                    !audioGranted -> viewModel.onRecordAudioPermissionDenied()
-                    !notificationGranted -> viewModel.onNotificationPermissionDenied()
+                    !audioGranted -> {
+                        viewModel.onRecordAudioPermissionDenied()
+                        pendingStart.value = null
+                    }
+                    !notificationGranted -> {
+                        viewModel.onNotificationPermissionDenied()
+                        pendingStart.value = null
+                    }
                     else -> when (val action = pendingStart.value) {
                         is PendingStartAction.Internal -> {
                             mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())

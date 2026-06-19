@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -43,6 +44,7 @@ import com.example.blogrecording.ui.state.HomeUiState
 import com.example.blogrecording.ui.state.PodcastCardUiState
 import com.example.blogrecording.ui.state.RecordingActionState
 import com.example.blogrecording.ui.state.RenameDialogUiState
+import com.example.blogrecording.ui.state.TranscriptPreviewSnippet
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -50,9 +52,9 @@ fun HomeScreen(
     state: AppUiState,
     onCreateSession: () -> Unit,
     onStartInternal: () -> Unit,
-    onStartMic: (String?) -> Unit,
+    onStartInternalSession: (String) -> Unit,
     onPauseRecording: (String) -> Unit,
-    onResumeRecording: (String) -> Unit,
+    onResumeInternalSession: (String) -> Unit,
     onFinishSession: (String) -> Unit,
     onRequestRename: (String) -> Unit,
     onRenameSession: (String, String) -> Unit,
@@ -93,9 +95,9 @@ fun HomeScreen(
             home.cards.forEach { card ->
                 PodcastSessionCard(
                     state = card,
-                    onStartRecording = { onStartMic(card.sessionId) },
+                    onStartRecording = { onStartInternalSession(card.sessionId) },
                     onPauseRecording = { onPauseRecording(card.sessionId) },
-                    onResumeRecording = { onResumeRecording(card.sessionId) },
+                    onResumeRecording = { onResumeInternalSession(card.sessionId) },
                     onFinishSession = { onFinishSession(card.sessionId) },
                     onRename = { onRequestRename(card.sessionId) },
                     onStartSummary = { onStartSummary(card.sessionId) },
@@ -232,6 +234,8 @@ fun PodcastSessionCard(
                 CardInfoText("摘要 ${state.summaryLabel}")
             }
 
+            TranscriptPreview(snippets = state.transcriptPreviewSnippets)
+
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -270,6 +274,48 @@ fun PodcastSessionCard(
 
             state.startSummaryDisabledReason?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TranscriptPreview(snippets: List<TranscriptPreviewSnippet>) {
+    val scrollState = rememberScrollState()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (snippets.isEmpty()) {
+                Text("暂无转写内容", style = MaterialTheme.typography.bodySmall)
+            } else {
+                snippets.forEach { snippet ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = snippet.timestampLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.width(44.dp)
+                        )
+                        Text(
+                            text = snippet.text,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         }
     }
@@ -332,6 +378,10 @@ private fun PodcastSessionCardPreview() {
             durationLabel = "12:08",
             segmentCountLabel = "3 段",
             transcriptionLabel = "已转写 2 段",
+            transcriptPreviewSnippets = listOf(
+                TranscriptPreviewSnippet("0:12", "欢迎来到本期播客。"),
+                TranscriptPreviewSnippet("0:28", "我们先聊一下今天的主题。")
+            ),
             summaryLabel = "未就绪",
             isRecording = true,
             actionState = RecordingActionState(
@@ -369,9 +419,9 @@ private fun HomeScreenEmptyPreview() {
         ),
         onCreateSession = {},
         onStartInternal = {},
-        onStartMic = {},
+        onStartInternalSession = {},
         onPauseRecording = {},
-        onResumeRecording = {},
+        onResumeInternalSession = {},
         onFinishSession = {},
         onRequestRename = {},
         onRenameSession = { _, _ -> },

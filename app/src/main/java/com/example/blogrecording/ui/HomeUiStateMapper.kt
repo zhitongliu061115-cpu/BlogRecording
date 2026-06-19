@@ -12,6 +12,7 @@ import com.example.blogrecording.ui.state.HomeUiState
 import com.example.blogrecording.ui.state.PodcastCardUiState
 import com.example.blogrecording.ui.state.RecordingActionState
 import com.example.blogrecording.ui.state.RenameDialogUiState
+import com.example.blogrecording.ui.state.TranscriptPreviewSnippet
 
 object HomeUiStateMapper {
     fun map(
@@ -27,8 +28,12 @@ object HomeUiStateMapper {
             ?.session
             ?.id
 
+        val visibleDetails = details
+            .sortedByDescending { it.session.updatedAt }
+            .take(MAX_HOME_CARDS)
+
         return HomeUiState(
-            cards = details.map { detail ->
+            cards = visibleDetails.map { detail ->
                 detail.toCard(activeRecordingSessionId)
             },
             isEmpty = details.isEmpty(),
@@ -73,6 +78,7 @@ object HomeUiStateMapper {
             durationLabel = totalDurationMs.toDurationLabel(),
             segmentCountLabel = "${recordingSegments.size} 段",
             transcriptionLabel = transcriptionLabel(session),
+            transcriptPreviewSnippets = transcriptPreviewSnippets(),
             summaryLabel = summaryLabel(session, hasTranscript),
             isRecording = isRecording,
             actionState = RecordingActionState(
@@ -118,6 +124,19 @@ object HomeUiStateMapper {
         }
     }
 
+    private fun PodcastSessionDetail.transcriptPreviewSnippets(): List<TranscriptPreviewSnippet> {
+        return transcriptSegments
+            .filter { it.text.isNotBlank() }
+            .sortedBy { it.startMs }
+            .takeLast(MAX_TRANSCRIPT_PREVIEW_SNIPPETS)
+            .map { segment ->
+                TranscriptPreviewSnippet(
+                    timestampLabel = segment.startMs.toDurationLabel(),
+                    text = segment.text.trim()
+                )
+            }
+    }
+
     private fun summaryLabel(session: PodcastSession, hasTranscript: Boolean): String {
         val status = session.summary?.status ?: if (session.transcript.isBlank()) {
             if (hasTranscript) SummaryStatus.READY else SummaryStatus.NOT_READY
@@ -160,6 +179,9 @@ object HomeUiStateMapper {
             "%d:%02d".format(minutes, seconds)
         }
     }
+
+    private const val MAX_HOME_CARDS = 5
+    private const val MAX_TRANSCRIPT_PREVIEW_SNIPPETS = 3
 
     private val RESUMABLE_STATUSES = setOf(
         PodcastSessionStatus.PAUSED,

@@ -15,6 +15,7 @@ data class PodcastCardUiState(
     val durationLabel: String,
     val segmentCountLabel: String,
     val transcriptionLabel: String,
+    val transcriptPreviewSnippets: List<TranscriptPreviewSnippet>,
     val summaryLabel: String,
     val isRecording: Boolean,
     val actionState: RecordingActionState,
@@ -29,6 +30,11 @@ data class RecordingActionState(
     val canPause: Boolean,
     val canResume: Boolean,
     val switchingFromAnotherSession: Boolean
+)
+
+data class TranscriptPreviewSnippet(
+    val timestampLabel: String,
+    val text: String
 )
 
 data class RenameDialogUiState(

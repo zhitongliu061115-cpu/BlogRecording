@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val pendingStart = remember { mutableStateOf<(() -> Unit)?>(null) }
+            val pendingStart = remember { mutableStateOf<PendingStartAction?>(null) }
             val mediaProjectionManager = remember {
                 getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             }
@@ -40,10 +40,17 @@ class MainActivity : ComponentActivity() {
             ) { result ->
                 val data = result.data
                 if (result.resultCode == RESULT_OK && data != null) {
-                    viewModel.startInternalRecording(result.resultCode, data)
+                    when (val action = pendingStart.value) {
+                        is PendingStartAction.Internal -> {
+                            viewModel.startInternalRecording(result.resultCode, data, action.sessionId)
+                        }
+                        is PendingStartAction.Microphone,
+                        null -> viewModel.startInternalRecording(result.resultCode, data)
+                    }
                 } else {
                     viewModel.onMediaProjectionDenied()
                 }
+                pendingStart.value = null
             }
             val capturePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -57,9 +64,17 @@ class MainActivity : ComponentActivity() {
                 when {
                     !audioGranted -> viewModel.onRecordAudioPermissionDenied()
                     !notificationGranted -> viewModel.onNotificationPermissionDenied()
-                    else -> pendingStart.value?.invoke()
+                    else -> when (val action = pendingStart.value) {
+                        is PendingStartAction.Internal -> {
+                            mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                        }
+                        is PendingStartAction.Microphone -> viewModel.startMicrophoneRecording(action.sessionId)
+                        null -> Unit
+                    }
                 }
-                pendingStart.value = null
+                if (pendingStart.value !is PendingStartAction.Internal) {
+                    pendingStart.value = null
+                }
             }
             val state by viewModel.state.collectAsState()
             BlogRecordingTheme {
@@ -67,13 +82,15 @@ class MainActivity : ComponentActivity() {
                     state = state,
                     viewModel = viewModel,
                     onStartInternal = {
-                        pendingStart.value = {
-                            mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
-                        }
+                        pendingStart.value = PendingStartAction.Internal(sessionId = null)
                         capturePermissionLauncher.launch(capturePermissions())
                     },
-                    onStartMic = { sessionId ->
-                        pendingStart.value = { viewModel.startMicrophoneRecording(sessionId) }
+                    onStartInternalSession = { sessionId ->
+                        pendingStart.value = PendingStartAction.Internal(sessionId)
+                        capturePermissionLauncher.launch(capturePermissions())
+                    },
+                    onResumeInternalSession = { sessionId ->
+                        pendingStart.value = PendingStartAction.Internal(sessionId)
                         capturePermissionLauncher.launch(capturePermissions())
                     }
                 )
@@ -90,6 +107,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private sealed interface PendingStartAction {
+    data class Internal(val sessionId: String?) : PendingStartAction
+    data class Microphone(val sessionId: String?) : PendingStartAction
+}
+
 @Composable
 fun AppPreview() {
     BlogRecordingTheme {
@@ -97,9 +119,9 @@ fun AppPreview() {
             state = AppUiState(),
             onCreateSession = {},
             onStartInternal = {},
-            onStartMic = {},
+            onStartInternalSession = {},
             onPauseRecording = {},
-            onResumeRecording = {},
+            onResumeInternalSession = {},
             onFinishSession = {},
             onRequestRename = {},
             onRenameSession = { _, _ -> },

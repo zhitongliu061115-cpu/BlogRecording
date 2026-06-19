@@ -1,7 +1,6 @@
 package com.example.blogrecording.audio
 
 import android.annotation.SuppressLint
-import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
@@ -44,10 +43,11 @@ class InternalAudioCaptureManager(
             return@callbackFlow
         }
 
-        val captureConfig = AudioPlaybackCaptureConfiguration.Builder(projection)
-            .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-            .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
-            .build()
+        val captureConfigBuilder = AudioPlaybackCaptureConfiguration.Builder(projection)
+        InternalAudioCapturePolicy.matchingUsages.forEach { usage ->
+            captureConfigBuilder.addMatchingUsage(usage)
+        }
+        val captureConfig = captureConfigBuilder.build()
 
         val format = AudioFormat.Builder()
             .setSampleRate(sampleRate)

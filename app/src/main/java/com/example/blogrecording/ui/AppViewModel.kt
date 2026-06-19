@@ -673,7 +673,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val asrResult = (asr as AppResult.Success).value
-            if (asrResult.text.isBlank()) {
+            if (!TranscriptionResultPolicy.shouldPersist(asrResult.text)) {
                 Log.i(TAG, "asr_blank chunk=${chunk.sequence} segment=${index + 1}/${recognizerSegments.size}")
                 updateRecordingState(
                     recordingStatus = RecordingStatus.TRANSCRIBING,

@@ -106,11 +106,15 @@ class CaptureForegroundService : Service() {
         private const val START_TIMEOUT_MS = 10_000L
         private val pendingStarts = ConcurrentHashMap<String, CompletableDeferred<StartResult>>()
 
-        suspend fun startAndWait(context: Context, foregroundServiceType: Int): AppError? {
+        suspend fun startAndWait(
+            context: Context,
+            foregroundServiceType: Int,
+            notificationState: CaptureNotificationState = CaptureNotificationState()
+        ): AppError? {
             val requestId = UUID.randomUUID().toString()
             val deferred = CompletableDeferred<StartResult>()
             pendingStarts[requestId] = deferred
-            val intent = buildStartIntent(context, foregroundServiceType)
+            val intent = buildStartIntent(context, foregroundServiceType, notificationState)
                 .putExtra(EXTRA_START_REQUEST_ID, requestId)
             return try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

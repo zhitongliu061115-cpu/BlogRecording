@@ -88,14 +88,17 @@ class MainActivity : ComponentActivity() {
                     state = state,
                     viewModel = viewModel,
                     onStartInternal = {
+                        viewModel.prepareInternalAudioAuthorization()
                         pendingStart.value = PendingStartAction.Internal(sessionId = null)
                         capturePermissionLauncher.launch(capturePermissions())
                     },
                     onStartInternalSession = { sessionId ->
+                        viewModel.prepareInternalAudioAuthorization(sessionId)
                         pendingStart.value = PendingStartAction.Internal(sessionId)
                         capturePermissionLauncher.launch(capturePermissions())
                     },
                     onResumeInternalSession = { sessionId ->
+                        viewModel.prepareInternalAudioAuthorization(sessionId)
                         pendingStart.value = PendingStartAction.Internal(sessionId)
                         capturePermissionLauncher.launch(capturePermissions())
                     }

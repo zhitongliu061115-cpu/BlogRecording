@@ -85,5 +85,18 @@ data class ProcessingStageUiState(
             message = "仅发送转写文本生成总结",
             isActive = true
         )
+
+        fun completed(message: String): ProcessingStageUiState = ProcessingStageUiState(
+            stage = ProcessingStage.COMPLETED,
+            title = "已完成",
+            message = message
+        )
+
+        fun error(message: String): ProcessingStageUiState = ProcessingStageUiState(
+            stage = ProcessingStage.ERROR,
+            title = "需要处理",
+            message = message,
+            isWarning = true
+        )
     }
 }

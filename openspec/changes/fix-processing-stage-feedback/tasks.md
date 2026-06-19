@@ -11,13 +11,13 @@
 ## 3. Recording And Transcription
 
 - [x] 3.1 Change the default transcription chunk duration to 30 seconds.
-- [ ] 3.2 Add structured processing-stage state updates for permission, capture, buffering, transcription, pause/finalize, and failures.
-- [ ] 3.3 Filter silent or non-speech chunks before SenseVoice recognition and skip transcript persistence for those chunks.
+- [x] 3.2 Add structured processing-stage state updates for permission, capture, buffering, transcription, pause/finalize, and failures.
+- [x] 3.3 Filter silent or non-speech chunks before SenseVoice recognition and skip transcript persistence for those chunks.
 
 ## 4. UI And Notification
 
 - [ ] 4.1 Display processing-stage feedback on home podcast cards and detail screen.
-- [ ] 4.2 Update foreground notification text with the current high-level stage in Chinese.
+- [x] 4.2 Update foreground notification text with the current high-level stage in Chinese.
 - [ ] 4.3 Update real-device UI test assertions for the new status text.
 
 ## 5. Harness

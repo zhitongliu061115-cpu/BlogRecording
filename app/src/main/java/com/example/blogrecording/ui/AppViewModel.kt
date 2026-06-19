@@ -14,8 +14,11 @@ import com.example.blogrecording.audio.InternalAudioCaptureManager
 import com.example.blogrecording.audio.MicAudioCaptureManager
 import com.example.blogrecording.audio.PcmChunk
 import com.example.blogrecording.audio.PcmChunker
+import com.example.blogrecording.audio.PcmAudioStream
+import com.example.blogrecording.audio.SilenceDetector
 import com.example.blogrecording.common.AppError
 import com.example.blogrecording.common.AppResult
+import com.example.blogrecording.common.toUserMessage
 import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.AudioSourceType
 import com.example.blogrecording.data.BundledModelInstaller
@@ -35,13 +38,16 @@ import com.example.blogrecording.recording.SegmentRecorder
 import com.example.blogrecording.recording.SegmentStartRequest
 import com.example.blogrecording.recording.SegmentStopResult
 import com.example.blogrecording.security.ApiKeyStore
+import com.example.blogrecording.service.CaptureNotificationState
 import com.example.blogrecording.service.CaptureForegroundService
 import com.example.blogrecording.summary.DeepSeekSummaryClient
 import com.example.blogrecording.summary.SessionSummaryUseCase
 import com.example.blogrecording.summary.SummaryRepository
 import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
+import com.example.blogrecording.ui.state.ProcessingStageUiState
 import com.example.blogrecording.ui.state.RenameDialogUiState
+import com.example.blogrecording.vad.SherpaVadDetector
 import com.example.blogrecording.vad.VadSegment
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +78,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     )
     private val transcriptAssembler = TranscriptAssembler()
     private val speakerProfileManager = SpeakerProfileManager()
+    private val silenceDetector = SilenceDetector()
     private val recordingController: RecordingController by lazy {
         RecordingController(
             sessionRepository = repository,
@@ -110,7 +117,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     home = HomeUiStateMapper.map(
                         details = podcastDetails,
                         renameDialog = mutableState.value.home.renameDialog,
-                        error = mutableState.value.error
+                        error = mutableState.value.error,
+                        processingStage = mutableState.value.processingStage,
+                        processingSessionId = mutableState.value.processingSessionId,
+                        hasApiKey = apiKeyStore.hasApiKey()
                     ),
                     settings = settings,
                     sessions = sessions,
@@ -194,7 +204,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             recordingStatus = RecordingStatus.ERROR,
             audioSourceType = AudioSourceType.INTERNAL_AUDIO,
             vadLabel = "需要 MediaProjection 授权",
+            processingStage = ProcessingStageUiState.error("未授予系统内录权限"),
             error = AppError.MediaProjectionDenied
+        )
+    }
+
+    fun prepareInternalAudioAuthorization(sessionId: String? = null) {
+        mutableState.value = mutableState.value.copy(
+            audioSourceType = AudioSourceType.INTERNAL_AUDIO,
+            processingStage = ProcessingStageUiState.authorizingSystemAudio(),
+            processingSessionId = sessionId,
+            error = null
         )
     }
 
@@ -268,11 +288,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun startInternalRecording(resultCode: Int, data: Intent, sessionId: String? = null) {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            val serviceError = startForegroundServiceSafely(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            val serviceError = startForegroundServiceSafely(
+                foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+                notificationState = CaptureNotificationState(
+                    captureSource = CaptureNotificationState.SOURCE_SYSTEM_AUDIO,
+                    recordingState = CaptureNotificationState.STATE_RECORDING,
+                    stageText = "系统内录授权已通过"
+                )
+            )
             if (serviceError != null) {
                 mutableState.value = mutableState.value.copy(
                     recordingStatus = RecordingStatus.ERROR,
                     audioSourceType = AudioSourceType.INTERNAL_AUDIO,
+                    processingStage = ProcessingStageUiState.error(serviceError.toUserMessage()),
                     error = serviceError
                 )
                 return@launch
@@ -283,6 +311,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 mutableState.value = mutableState.value.copy(
                     recordingStatus = RecordingStatus.ERROR,
                     audioSourceType = AudioSourceType.INTERNAL_AUDIO,
+                    processingStage = ProcessingStageUiState.error(AppError.MediaProjectionDenied.toUserMessage()),
                     error = AppError.MediaProjectionDenied
                 )
                 context.stopService(Intent(context, CaptureForegroundService::class.java))
@@ -328,6 +357,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         currentSession = completed,
                         recordingStatus = RecordingStatus.COMPLETED,
                         vadLabel = "已停止，可生成总结",
+                        processingStage = ProcessingStageUiState.completed("录制已完成，可生成总结"),
+                        processingSessionId = completed.id,
                         error = null
                     )
                 }
@@ -348,7 +379,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             mutableState.value = mutableState.value.copy(
                 isGeneratingSummary = true,
                 recordingStatus = RecordingStatus.SUMMARIZING,
+                processingStage = ProcessingStageUiState.summarizing(),
+                processingSessionId = sessionId,
                 error = null
+            )
+            updateForegroundNotification(
+                sourceType = mutableState.value.audioSourceType,
+                recordingState = CaptureNotificationState.STATE_SUMMARIZING,
+                stage = ProcessingStageUiState.summarizing()
             )
             when (val result = sessionSummaryUseCase.start(sessionId, mutableState.value.settings)) {
                 is AppResult.Success -> {
@@ -357,6 +395,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     mutableState.value = mutableState.value.copy(
                         isGeneratingSummary = false,
                         recordingStatus = updated?.status ?: RecordingStatus.COMPLETED,
+                        processingStage = ProcessingStageUiState.completed("总结已生成"),
+                        processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
                         currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
                             segments
@@ -371,6 +411,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     mutableState.value = mutableState.value.copy(
                         isGeneratingSummary = false,
                         recordingStatus = updated?.status ?: mutableState.value.recordingStatus,
+                        processingStage = ProcessingStageUiState.error(result.error.toUserMessage()),
+                        processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
                         error = result.error
                     )
@@ -423,6 +465,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 selectedSessionId = session.id,
                 recordingStatus = RecordingStatus.ERROR,
                 audioSourceType = sourceType,
+                processingStage = ProcessingStageUiState.error(gateError.toUserMessage()),
+                processingSessionId = session.id,
                 error = gateError
             )
             return AppResult.Failure(gateError)
@@ -445,6 +489,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 selectedSessionId = session.id,
                 recordingStatus = RecordingStatus.ERROR,
                 audioSourceType = sourceType,
+                processingStage = ProcessingStageUiState.error(serviceError.toUserMessage()),
+                processingSessionId = session.id,
                 error = serviceError
             )
             return AppResult.Failure(serviceError)
@@ -455,6 +501,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (existingSession == null) {
             repository.saveSession(capturing)
         }
+        val stage = ProcessingStageUiState.capturing(sourceType.sourceLabel())
         mutableState.value = mutableState.value.copy(
             currentSession = capturing,
             selectedSessionId = capturing.id,
@@ -462,7 +509,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             recordingStatus = RecordingStatus.CAPTURING_AUDIO,
             audioSourceType = sourceType,
             vadLabel = "录音中，按 ${settings.transcriptionChunkDurationMs / 1000} 秒分片异步转写",
+            processingStage = stage,
+            processingSessionId = capturing.id,
             error = null
+        )
+        updateForegroundNotification(
+            sourceType = sourceType,
+            recordingState = CaptureNotificationState.STATE_RECORDING,
+            stage = stage,
+            session = capturing
         )
         captureJob = viewModelScope.launch(captureDispatcher) {
             runCatching {
@@ -492,6 +547,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val chunker = PcmChunker(chunkDurationMs)
         val chunks = Channel<PcmChunk>(capacity = 2)
         val recognizer = SenseVoiceRecognizer(settings.senseVoiceModelPath)
+        val vadDetector = if (settings.enableVad) {
+            SherpaVadDetector(
+                modelPath = settings.vadModelPath,
+                speechThreshold = settings.vadSpeechThreshold,
+                silenceDetector = silenceDetector
+            )
+        } else {
+            null
+        }
         val diarization = SpeakerDiarizationEngine(
             modelPath = settings.diarizationModelPath,
             enabled = settings.enableSpeakerDiarization,
@@ -504,6 +568,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     session = session,
                     chunk = chunk,
                     recognizer = recognizer,
+                    vadDetector = vadDetector,
                     diarization = diarization,
                     recordingSegmentId = recordingSegmentId
                 )
@@ -519,7 +584,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         readyChunks.forEach { chunk -> sendChunk(chunks, chunk) }
                         updateRecordingState(
                             recordingStatus = RecordingStatus.CAPTURING_AUDIO,
-                            vadLabel = "录音中，已缓存 ${chunker.currentDurationMs / 1000} 秒，按 ${chunkDurationMs / 1000} 秒分片转写"
+                            vadLabel = "录音中，已缓存 ${chunker.currentDurationMs / 1000} 秒，按 ${chunkDurationMs / 1000} 秒分片转写",
+                            processingStage = ProcessingStageUiState.buffering(
+                                bufferedMs = chunker.currentDurationMs,
+                                targetMs = chunkDurationMs
+                            ),
+                            processingSessionId = session.id
                         )
                     }
                 }
@@ -529,7 +599,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (partial != null) {
                 updateRecordingState(
                     recordingStatus = RecordingStatus.TRANSCRIBING,
-                    vadLabel = "正在完成最后 ${((partial.endMs - partial.startMs) / 1000).coerceAtLeast(1)} 秒转写"
+                    vadLabel = "正在完成最后 ${((partial.endMs - partial.startMs) / 1000).coerceAtLeast(1)} 秒转写",
+                    processingStage = ProcessingStageUiState.transcribing(partial.sequence),
+                    processingSessionId = session.id
                 )
                 sendChunk(chunks, partial)
             }
@@ -550,20 +622,53 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         session: RecordingSessionEntity,
         chunk: PcmChunk,
         recognizer: SenseVoiceRecognizer,
+        vadDetector: SherpaVadDetector?,
         diarization: SpeakerDiarizationEngine,
         recordingSegmentId: String? = null
     ) {
-        val recognizerSegments = chunk.toVadSegments(LocalProcessingPolicy.MAX_RECOGNIZER_SEGMENT_MS)
+        var speechFailure: AppError? = null
+        val recognizerSegments = TranscriptionChunkPolicy.speechSegments(chunk) { segment ->
+            when (val speech = isSpeechSegment(segment, vadDetector)) {
+                is AppResult.Failure -> {
+                    speechFailure = speech.error
+                    false
+                }
+                is AppResult.Success -> speech.value
+            }
+        }
+        if (speechFailure != null) {
+            handleCaptureFailure(session.id, recordingSegmentId, speechFailure!!)
+            return
+        }
         updateRecordingState(
             recordingStatus = RecordingStatus.TRANSCRIBING,
-            vadLabel = "正在转写第 ${chunk.sequence} 批（${chunk.startMs / 1000}-${chunk.endMs / 1000} 秒）"
+            vadLabel = "正在转写第 ${chunk.sequence} 批（${chunk.startMs / 1000}-${chunk.endMs / 1000} 秒）",
+            processingStage = ProcessingStageUiState.transcribing(chunk.sequence),
+            processingSessionId = session.id
         )
+
+        if (recognizerSegments.isEmpty()) {
+            updateRecordingState(
+                recordingStatus = RecordingStatus.CAPTURING_AUDIO,
+                vadLabel = "第 ${chunk.sequence} 批未检测到可转写语音，继续录音",
+                processingStage = ProcessingStageUiState.silentInternalAudio(),
+                processingSessionId = session.id,
+                error = null
+            )
+            return
+        }
 
         var wroteAnySegment = false
         recognizerSegments.forEachIndexed { index, segment ->
             updateRecordingState(
                 recordingStatus = RecordingStatus.TRANSCRIBING,
-                vadLabel = "正在转写第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size}"
+                vadLabel = "正在转写第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size}",
+                processingStage = ProcessingStageUiState.transcribing(
+                    chunkSequence = chunk.sequence,
+                    segmentIndex = index + 1,
+                    segmentCount = recognizerSegments.size
+                ),
+                processingSessionId = session.id
             )
 
             val asr = recognizer.recognize(segment)
@@ -596,7 +701,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (!wroteAnySegment) {
             updateRecordingState(
                 recordingStatus = RecordingStatus.CAPTURING_AUDIO,
-                vadLabel = "第 ${chunk.sequence} 批为空白，继续录音"
+                vadLabel = "第 ${chunk.sequence} 批为空白，继续录音",
+                processingStage = ProcessingStageUiState.silentInternalAudio(),
+                processingSessionId = session.id,
+                error = null
             )
             return
         }
@@ -609,8 +717,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             currentSegments = segments,
             recordingStatus = RecordingStatus.CAPTURING_AUDIO,
             vadLabel = "已写入 ${segments.size} 段，继续录音并分片缓存",
+            processingStage = ProcessingStageUiState.buffering(
+                bufferedMs = 0L,
+                targetMs = mutableState.value.settings.transcriptionChunkDurationMs
+            ),
+            processingSessionId = session.id,
             error = null
         )
+    }
+
+    private fun isSpeechSegment(
+        segment: VadSegment,
+        vadDetector: SherpaVadDetector?
+    ): AppResult<Boolean> {
+        val stream = PcmAudioStream(
+            samples = segment.samples,
+            sampleRate = segment.sampleRate,
+            channelCount = 1,
+            timestampMs = segment.startMs
+        )
+        if (silenceDetector.isSilent(stream)) return AppResult.Success(false)
+        return vadDetector?.accept(stream) ?: AppResult.Success(true)
     }
 
     private suspend fun labelSpeaker(
@@ -681,7 +808,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     endedAt = endedAt,
                     durationMs = (endedAt - startedAt).coerceAtLeast(0L)
                 )
-            )
+            ).also {
+                updateRecordingState(
+                    recordingStatus = RecordingStatus.COMPLETED,
+                    processingStage = ProcessingStageUiState.paused(),
+                    processingSessionId = activeSegment.sessionId,
+                    error = null
+                )
+            }
         } finally {
             stopForegroundService()
         }
@@ -701,6 +835,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             updateRecordingState(
                 recordingStatus = failureState.recordingStatus,
                 vadLabel = failureState.vadLabel ?: mutableState.value.vadLabel,
+                processingStage = ProcessingStageUiState.silentInternalAudio(),
+                processingSessionId = sessionId,
                 error = failureState.error
             )
             return
@@ -718,13 +854,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
         updateRecordingState(
             recordingStatus = failureState.recordingStatus,
+            processingStage = ProcessingStageUiState.error(error.toUserMessage()),
+            processingSessionId = sessionId,
             error = failureState.error
         )
     }
 
     private fun handleRecordingControllerResult(result: AppResult<*>) {
         if (result is AppResult.Failure) {
-            mutableState.value = mutableState.value.copy(error = result.error)
+            mutableState.value = mutableState.value.copy(
+                processingStage = ProcessingStageUiState.error(result.error.toUserMessage()),
+                error = result.error
+            )
         }
     }
 
@@ -743,6 +884,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         currentSegments: List<TranscriptSegmentEntity> = mutableState.value.currentSegments,
         recordingStatus: RecordingStatus = mutableState.value.recordingStatus,
         vadLabel: String = mutableState.value.vadLabel,
+        processingStage: ProcessingStageUiState = mutableState.value.processingStage,
+        processingSessionId: String? = mutableState.value.processingSessionId,
         error: AppError? = mutableState.value.error
     ) {
         withContext(Dispatchers.Main.immediate) {
@@ -751,14 +894,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 currentSegments = currentSegments,
                 recordingStatus = recordingStatus,
                 vadLabel = vadLabel,
+                processingStage = processingStage,
+                processingSessionId = processingSessionId,
                 error = error
+            )
+            updateForegroundNotification(
+                sourceType = mutableState.value.audioSourceType,
+                recordingState = recordingStatus.toNotificationState(),
+                stage = processingStage,
+                session = currentSession
             )
         }
     }
 
-    private suspend fun startForegroundServiceSafely(foregroundServiceType: Int): AppError? {
+    private suspend fun startForegroundServiceSafely(
+        foregroundServiceType: Int,
+        notificationState: CaptureNotificationState = CaptureNotificationState()
+    ): AppError? {
         val context = getApplication<Application>()
-        return CaptureForegroundService.startAndWait(context, foregroundServiceType)
+        return CaptureForegroundService.startAndWait(context, foregroundServiceType, notificationState)
     }
 
     private fun modelGateError(settings: AppSettings = mutableState.value.settings): AppError? {
@@ -769,8 +923,66 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         mutableState.value = mutableState.value.copy(
             recordingStatus = RecordingStatus.TRANSCRIBING,
             vadLabel = "正在停止录音并转写最后一段",
+            processingStage = ProcessingStageUiState.transcribing(1),
             error = null
         )
+    }
+
+    private fun updateForegroundNotification(
+        sourceType: AudioSourceType?,
+        recordingState: String,
+        stage: ProcessingStageUiState,
+        session: RecordingSessionEntity? = mutableState.value.currentSession
+    ) {
+        val source = sourceType ?: return
+        val context = getApplication<Application>()
+        val foregroundServiceType = when (source) {
+            AudioSourceType.INTERNAL_AUDIO -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            AudioSourceType.MICROPHONE -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        }
+        val intent = CaptureForegroundService.buildStartIntent(
+            context = context,
+            foregroundServiceType = foregroundServiceType,
+            notificationState = CaptureNotificationState(
+                podcastTitle = session?.title,
+                captureSource = source.toNotificationSource(),
+                recordingState = recordingState,
+                stageText = stage.toNotificationText(),
+                activeSessionId = session?.id
+            )
+        )
+        runCatching { context.startService(intent) }
+    }
+
+    private fun ProcessingStageUiState.toNotificationText(): String {
+        return listOfNotNull(title, progressLabel).joinToString(" ")
+    }
+
+    private fun AudioSourceType.sourceLabel(): String {
+        return when (this) {
+            AudioSourceType.INTERNAL_AUDIO -> "系统内录"
+            AudioSourceType.MICROPHONE -> "麦克风"
+        }
+    }
+
+    private fun AudioSourceType.toNotificationSource(): String {
+        return when (this) {
+            AudioSourceType.INTERNAL_AUDIO -> CaptureNotificationState.SOURCE_SYSTEM_AUDIO
+            AudioSourceType.MICROPHONE -> CaptureNotificationState.SOURCE_MICROPHONE
+        }
+    }
+
+    private fun RecordingStatus.toNotificationState(): String {
+        return when (this) {
+            RecordingStatus.TRANSCRIBING,
+            RecordingStatus.VAD_DETECTING,
+            RecordingStatus.DIARIZING -> CaptureNotificationState.STATE_PROCESSING
+            RecordingStatus.SUMMARIZING -> CaptureNotificationState.STATE_SUMMARIZING
+            RecordingStatus.COMPLETED,
+            RecordingStatus.ERROR,
+            RecordingStatus.NOT_STARTED -> CaptureNotificationState.STATE_PAUSED
+            RecordingStatus.CAPTURING_AUDIO -> CaptureNotificationState.STATE_RECORDING
+        }
     }
 
     private fun stopForegroundService() {

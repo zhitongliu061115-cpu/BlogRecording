@@ -42,6 +42,7 @@ import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.state.HomeUiState
 import com.example.blogrecording.ui.state.PodcastCardUiState
+import com.example.blogrecording.ui.state.ProcessingStageUiState
 import com.example.blogrecording.ui.state.RecordingActionState
 import com.example.blogrecording.ui.state.RenameDialogUiState
 import com.example.blogrecording.ui.state.TranscriptPreviewSnippet
@@ -234,6 +235,8 @@ fun PodcastSessionCard(
                 CardInfoText("摘要 ${state.summaryLabel}")
             }
 
+            ProcessingStagePanel(state.processingStage)
+
             TranscriptPreview(snippets = state.transcriptPreviewSnippets)
 
             FlowRow(
@@ -275,6 +278,40 @@ fun PodcastSessionCard(
             state.startSummaryDisabledReason?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
             }
+        }
+    }
+}
+
+@Composable
+private fun ProcessingStagePanel(stage: ProcessingStageUiState) {
+    val container = when {
+        stage.isWarning -> MaterialTheme.colorScheme.errorContainer
+        stage.isActive -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surface
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = container)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stage.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                stage.progressLabel?.let {
+                    Text(it, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            Text(stage.message, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -378,6 +415,7 @@ private fun PodcastSessionCardPreview() {
             durationLabel = "12:08",
             segmentCountLabel = "3 段",
             transcriptionLabel = "已转写 2 段",
+            processingStage = ProcessingStageUiState.buffering(12_000L, 30_000L),
             transcriptPreviewSnippets = listOf(
                 TranscriptPreviewSnippet("0:12", "欢迎来到本期播客。"),
                 TranscriptPreviewSnippet("0:28", "我们先聊一下今天的主题。")

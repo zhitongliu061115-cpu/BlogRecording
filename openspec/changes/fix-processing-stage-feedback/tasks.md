@@ -16,9 +16,9 @@
 
 ## 4. UI And Notification
 
-- [ ] 4.1 Display processing-stage feedback on home podcast cards and detail screen.
+- [x] 4.1 Display processing-stage feedback on home podcast cards and detail screen.
 - [x] 4.2 Update foreground notification text with the current high-level stage in Chinese.
-- [ ] 4.3 Update real-device UI test assertions for the new status text.
+- [x] 4.3 Update real-device UI test assertions for the new status text.
 
 ## 5. Harness
 

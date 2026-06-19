@@ -4,8 +4,8 @@
 
 ## 2. Tests First
 
-- [ ] 2.1 Add unit coverage for processing-stage UI state mapping and summary blocking reasons.
-- [ ] 2.2 Add unit coverage for silent/non-speech chunk filtering before transcript persistence.
+- [x] 2.1 Add unit coverage for processing-stage UI state mapping and summary blocking reasons.
+- [x] 2.2 Add unit coverage for silent/non-speech chunk filtering before transcript persistence.
 - [ ] 2.3 Add unit coverage for the 30-second default transcription chunk setting.
 
 ## 3. Recording And Transcription

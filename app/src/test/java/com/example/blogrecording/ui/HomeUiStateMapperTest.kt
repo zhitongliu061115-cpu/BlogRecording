@@ -12,6 +12,8 @@ import com.example.blogrecording.data.SummaryLanguage
 import com.example.blogrecording.data.SummaryStatus
 import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.data.TranscriptSegmentEntity
+import com.example.blogrecording.ui.state.ProcessingStage
+import com.example.blogrecording.ui.state.ProcessingStageUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -101,6 +103,33 @@ class HomeUiStateMapperTest {
     }
 
     @Test
+    fun recordingCardShowsActiveProcessingStage() {
+        val stage = ProcessingStageUiState.buffering(bufferedMs = 12_000L, targetMs = 30_000L)
+        val card = HomeUiStateMapper.map(
+            details = listOf(
+                detail(
+                    session = session(
+                        id = "session-1",
+                        status = PodcastSessionStatus.RECORDING,
+                        activeSegmentId = "segment-1"
+                    ),
+                    recordingSegments = listOf(
+                        segment(
+                            id = "segment-1",
+                            status = RecordingSegmentStatus.RECORDING
+                        )
+                    )
+                )
+            ),
+            processingStage = stage,
+            processingSessionId = "session-1"
+        ).cards.single()
+
+        assertEquals(ProcessingStage.BUFFERING, card.processingStage.stage)
+        assertEquals("12/30 秒", card.processingStage.progressLabel)
+    }
+
+    @Test
     fun pausedWithTranscriptCanResumeFinishAndSummarize() {
         val card = HomeUiStateMapper.map(
             listOf(
@@ -174,6 +203,25 @@ class HomeUiStateMapperTest {
         assertEquals("总结中", card.summaryLabel)
         assertFalse(card.canStartSummary)
         assertEquals("当前状态不可总结", card.startSummaryDisabledReason)
+    }
+
+    @Test
+    fun summaryStartRequiresApiKeyWhenTranscriptExists() {
+        val card = HomeUiStateMapper.map(
+            details = listOf(
+                detail(
+                    session = session(
+                        status = PodcastSessionStatus.PAUSED,
+                        transcript = "hello"
+                    ),
+                    recordingSegments = listOf(segment(status = RecordingSegmentStatus.COMPLETED))
+                )
+            ),
+            hasApiKey = false
+        ).cards.single()
+
+        assertFalse(card.canStartSummary)
+        assertEquals("请先配置 DeepSeek API Key", card.startSummaryDisabledReason)
     }
 
     @Test

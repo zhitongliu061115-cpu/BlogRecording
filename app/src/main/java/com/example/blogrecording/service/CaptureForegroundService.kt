@@ -97,6 +97,7 @@ class CaptureForegroundService : Service() {
         const val EXTRA_PODCAST_TITLE = AndroidPlatformContract.EXTRA_PODCAST_TITLE
         const val EXTRA_CAPTURE_SOURCE = AndroidPlatformContract.EXTRA_CAPTURE_SOURCE
         const val EXTRA_RECORDING_STATE = AndroidPlatformContract.EXTRA_RECORDING_STATE
+        const val EXTRA_STAGE_TEXT = "processing_stage_text"
         const val EXTRA_ACTIVE_SESSION_ID = AndroidPlatformContract.EXTRA_ACTIVE_SESSION_ID
         const val ACTION_PAUSE_CAPTURE = AndroidPlatformContract.ACTION_PAUSE_CAPTURE
         const val ACTION_RESUME_CAPTURE = AndroidPlatformContract.ACTION_RESUME_CAPTURE
@@ -141,6 +142,7 @@ class CaptureForegroundService : Service() {
                 .putExtra(EXTRA_PODCAST_TITLE, notificationState.podcastTitle)
                 .putExtra(EXTRA_CAPTURE_SOURCE, notificationState.captureSource)
                 .putExtra(EXTRA_RECORDING_STATE, notificationState.recordingState)
+                .putExtra(EXTRA_STAGE_TEXT, notificationState.stageText)
                 .putExtra(EXTRA_ACTIVE_SESSION_ID, notificationState.activeSessionId)
         }
 
@@ -161,6 +163,7 @@ data class CaptureNotificationState(
     val podcastTitle: String? = null,
     val captureSource: String? = null,
     val recordingState: String? = null,
+    val stageText: String? = null,
     val activeSessionId: String? = null
 ) {
     fun titleText(): String {
@@ -168,9 +171,28 @@ data class CaptureNotificationState(
     }
 
     fun bodyText(): String {
-        val source = captureSource?.takeIf { it.isNotBlank() } ?: SOURCE_AUDIO
-        val state = recordingState?.takeIf { it.isNotBlank() } ?: STATE_RECORDING
-        return "$source $state locally"
+        val source = captureSource.sourceLabel()
+        val stage = stageText?.takeIf { it.isNotBlank() }
+        if (stage != null) return "$source：$stage"
+        val state = recordingState.stateLabel()
+        return "$source：$state，本机处理"
+    }
+
+    private fun String?.sourceLabel(): String {
+        return when (this) {
+            SOURCE_MICROPHONE -> "麦克风"
+            SOURCE_SYSTEM_AUDIO -> "系统内录"
+            else -> "音频"
+        }
+    }
+
+    private fun String?.stateLabel(): String {
+        return when (this) {
+            STATE_PAUSED -> "已暂停"
+            STATE_PROCESSING -> "处理中"
+            STATE_SUMMARIZING -> "总结中"
+            else -> "录制中"
+        }
     }
 
     companion object {
@@ -180,12 +202,14 @@ data class CaptureNotificationState(
         const val STATE_RECORDING = "recording"
         const val STATE_PAUSED = "paused"
         const val STATE_PROCESSING = "processing"
+        const val STATE_SUMMARIZING = "summarizing"
 
         fun from(intent: Intent?): CaptureNotificationState {
             return CaptureNotificationState(
                 podcastTitle = intent?.getStringExtra(CaptureForegroundService.EXTRA_PODCAST_TITLE),
                 captureSource = intent?.getStringExtra(CaptureForegroundService.EXTRA_CAPTURE_SOURCE),
                 recordingState = intent?.getStringExtra(CaptureForegroundService.EXTRA_RECORDING_STATE),
+                stageText = intent?.getStringExtra(CaptureForegroundService.EXTRA_STAGE_TEXT),
                 activeSessionId = intent?.getStringExtra(CaptureForegroundService.EXTRA_ACTIVE_SESSION_ID)
             )
         }

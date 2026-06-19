@@ -10,6 +10,7 @@ import com.example.blogrecording.data.SummaryStatus
 import com.example.blogrecording.summary.SessionSummaryEligibilityPolicy
 import com.example.blogrecording.ui.state.HomeUiState
 import com.example.blogrecording.ui.state.PodcastCardUiState
+import com.example.blogrecording.ui.state.ProcessingStageUiState
 import com.example.blogrecording.ui.state.RecordingActionState
 import com.example.blogrecording.ui.state.RenameDialogUiState
 import com.example.blogrecording.ui.state.TranscriptPreviewSnippet
@@ -18,7 +19,10 @@ object HomeUiStateMapper {
     fun map(
         details: List<PodcastSessionDetail>,
         renameDialog: RenameDialogUiState? = null,
-        error: AppError? = null
+        error: AppError? = null,
+        processingStage: ProcessingStageUiState = ProcessingStageUiState.idle(),
+        processingSessionId: String? = null,
+        hasApiKey: Boolean = true
     ): HomeUiState {
         val activeRecordingSessionId = details
             .firstOrNull { detail ->
@@ -34,17 +38,26 @@ object HomeUiStateMapper {
 
         return HomeUiState(
             cards = visibleDetails.map { detail ->
-                detail.toCard(activeRecordingSessionId)
+                detail.toCard(
+                    activeRecordingSessionId = activeRecordingSessionId,
+                    processingStage = processingStage,
+                    processingSessionId = processingSessionId,
+                    hasApiKey = hasApiKey
+                )
             },
             isEmpty = details.isEmpty(),
             activeRecordingSessionId = activeRecordingSessionId,
+            processingStage = processingStage,
             renameDialog = renameDialog,
             errorMessage = error?.toUserMessage()
         )
     }
 
     private fun PodcastSessionDetail.toCard(
-        activeRecordingSessionId: String?
+        activeRecordingSessionId: String?,
+        processingStage: ProcessingStageUiState,
+        processingSessionId: String?,
+        hasApiKey: Boolean
     ): PodcastCardUiState {
         val session = session
         val isRecording = session.id == activeRecordingSessionId
@@ -69,6 +82,7 @@ object HomeUiStateMapper {
         }
         val canStartSummary = summaryEligibility.canStart &&
             activeRecordingSessionId == null &&
+            hasApiKey &&
             session.status in SUMMARY_STARTABLE_STATUSES
 
         return PodcastCardUiState(
@@ -78,6 +92,9 @@ object HomeUiStateMapper {
             durationLabel = totalDurationMs.toDurationLabel(),
             segmentCountLabel = "${recordingSegments.size} 段",
             transcriptionLabel = transcriptionLabel(session),
+            processingStage = processingStage.takeIf {
+                session.id == processingSessionId || session.id == activeRecordingSessionId
+            } ?: session.toProcessingStage(),
             transcriptPreviewSnippets = transcriptPreviewSnippets(),
             summaryLabel = summaryLabel(session, hasTranscript),
             isRecording = isRecording,
@@ -95,6 +112,7 @@ object HomeUiStateMapper {
                 activeRecordingSessionId = activeRecordingSessionId,
                 isRecording = isRecording,
                 session = session,
+                hasApiKey = hasApiKey,
                 summaryEligibilityReason = summaryEligibility.disabledReason
             )
         )
@@ -157,14 +175,40 @@ object HomeUiStateMapper {
         activeRecordingSessionId: String?,
         isRecording: Boolean,
         session: PodcastSession,
+        hasApiKey: Boolean,
         summaryEligibilityReason: String?
     ): String? {
         return when {
             !hasTranscript -> "没有可总结的转写"
+            !hasApiKey -> "请先配置 DeepSeek API Key"
             activeRecordingSessionId != null || isRecording -> "请先暂停当前录音"
             session.status !in SUMMARY_STARTABLE_STATUSES -> "当前状态不可总结"
             summaryEligibilityReason != null -> summaryEligibilityReason
             else -> null
+        }
+    }
+
+    private fun PodcastSession.toProcessingStage(): ProcessingStageUiState {
+        return when (status) {
+            PodcastSessionStatus.DRAFT -> ProcessingStageUiState.idle()
+            PodcastSessionStatus.RECORDING -> ProcessingStageUiState.capturing("系统内录")
+            PodcastSessionStatus.PAUSED -> ProcessingStageUiState.paused()
+            PodcastSessionStatus.PROCESSING -> ProcessingStageUiState.transcribing(1)
+            PodcastSessionStatus.READY_FOR_SUMMARY -> ProcessingStageUiState(
+                title = "可生成总结",
+                message = "转写已就绪"
+            )
+            PodcastSessionStatus.SUMMARIZING -> ProcessingStageUiState.summarizing()
+            PodcastSessionStatus.SUMMARIZED -> ProcessingStageUiState(
+                title = "已总结",
+                message = "总结已生成"
+            )
+            PodcastSessionStatus.ERROR -> ProcessingStageUiState(
+                stage = com.example.blogrecording.ui.state.ProcessingStage.ERROR,
+                title = "需要处理",
+                message = errorMessage ?: "录制或处理失败",
+                isWarning = true
+            )
         }
     }
 

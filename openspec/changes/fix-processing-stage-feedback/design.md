@@ -23,7 +23,7 @@ The UI mostly exposes a single status label and a few persisted session counters
 
 - Introduce a structured UI stage model rather than overloading one free-form VAD string. This lets cards, detail, and notification render the same state consistently.
 - Keep local segmented ASR, but set the default chunk duration to 30 seconds. This preserves battery/performance characteristics while making progress visible fast enough for manual testing.
-- Use the existing sherpa VAD/fallback silence detector before SenseVoice. If a chunk has no speech, update the stage and skip persistence instead of sending it to ASR.
+- Use a conservative PCM energy gate before SenseVoice. Exact or near-silent chunks are skipped, but VAD is not allowed to hard-block non-silent chunks because it can reject valid podcast/system audio and prevent any transcript from being attempted.
 - Treat internal-audio silence as a recoverable capture state. Recording continues, but UI explains that the current app may not allow system capture or no audible media is playing.
 - Do not persist raw stage logs or sensitive data. Persisted transcript remains only recognized user content.
 

@@ -16,12 +16,17 @@ The app SHALL expose a user-visible processing stage for active and recently upd
 - **THEN** the UI shows which chunk or segment is being transcribed
 
 ### Requirement: Silence Does Not Persist Hallucinated Transcripts
-The app SHALL filter silent or non-speech audio before saving recognized transcript segments.
+The app SHALL filter silent or near-silent audio before SenseVoice recognition, but SHALL NOT use VAD as a hard gate that prevents non-silent audio from reaching ASR.
 
 #### Scenario: Internal audio is silent
-- **WHEN** internal audio capture repeatedly emits silent buffers or VAD finds no speech in a chunk
+- **WHEN** internal audio capture repeatedly emits silent buffers or a chunk has no meaningful PCM energy
 - **THEN** no transcript segment is saved for that silent chunk
 - **AND** the UI explains that audio is silent or the current app may not allow system capture
+
+#### Scenario: Internal audio is non-silent
+- **WHEN** internal audio capture emits a chunk with meaningful PCM energy
+- **THEN** the app sends the chunk to SenseVoice even if VAD would classify it as non-speech
+- **AND** the UI shows that ASR is being attempted
 
 ### Requirement: Summary Processing Feedback
 The app SHALL show summary readiness and summary generation progress in the same user-facing status system.

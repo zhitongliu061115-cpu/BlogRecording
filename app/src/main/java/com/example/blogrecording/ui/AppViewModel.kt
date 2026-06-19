@@ -3,7 +3,6 @@ package com.example.blogrecording.ui
 import android.app.Application
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.projection.MediaProjectionManager
 import android.media.projection.MediaProjection
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -18,6 +17,8 @@ import com.example.blogrecording.audio.PcmChunk
 import com.example.blogrecording.audio.PcmChunker
 import com.example.blogrecording.audio.PcmAudioStream
 import com.example.blogrecording.audio.SilenceDetector
+import com.example.blogrecording.audio.SystemAudioCaptureManager
+import com.example.blogrecording.audio.SystemAudioCapturePermissionPolicy
 import com.example.blogrecording.common.AppError
 import com.example.blogrecording.common.AppResult
 import com.example.blogrecording.common.toUserMessage
@@ -39,6 +40,7 @@ import com.example.blogrecording.recording.RecordingController
 import com.example.blogrecording.recording.SegmentRecorder
 import com.example.blogrecording.recording.SegmentStartRequest
 import com.example.blogrecording.recording.SegmentStopResult
+import com.example.blogrecording.recording.SystemAudioPermissionGate
 import com.example.blogrecording.security.ApiKeyStore
 import com.example.blogrecording.service.CaptureNotificationState
 import com.example.blogrecording.service.CaptureForegroundService
@@ -83,7 +85,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val recordingController: RecordingController by lazy {
         RecordingController(
             sessionRepository = repository,
-            recorder = ViewModelSegmentRecorder()
+            recorder = ViewModelSegmentRecorder(),
+            systemAudioPermissionGate = SystemAudioPermissionGate {
+                SystemAudioCapturePermissionPolicy.hasPrivilegedCapturePermission(application)
+            }
         )
     }
 
@@ -289,42 +294,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startInternalRecording(resultCode: Int, data: Intent, sessionId: String? = null) {
+        Log.i(
+            TAG,
+            "start_internal_callback_legacy_media_projection_ignored sessionIdPresent=${sessionId != null} resultCode=$resultCode"
+        )
+        startSystemAudioRecording(sessionId)
+    }
+
+    fun startSystemAudioRecording(sessionId: String? = null) {
         viewModelScope.launch {
-            Log.i(TAG, "start_internal_callback sessionIdPresent=${sessionId != null} resultCode=$resultCode")
-            val context = getApplication<Application>()
-            val serviceError = startForegroundServiceSafely(
-                foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
-                notificationState = CaptureNotificationState(
-                    captureSource = CaptureNotificationState.SOURCE_SYSTEM_AUDIO,
-                    recordingState = CaptureNotificationState.STATE_RECORDING,
-                    stageText = "系统内录授权已通过"
-                )
-            )
-            if (serviceError != null) {
-                Log.w(TAG, "start_internal_service_failed error=${serviceError::class.simpleName}")
-                mutableState.value = mutableState.value.copy(
-                    recordingStatus = RecordingStatus.ERROR,
-                    audioSourceType = AudioSourceType.INTERNAL_AUDIO,
-                    processingStage = ProcessingStageUiState.error(serviceError.toUserMessage()),
-                    error = serviceError
-                )
-                return@launch
-            }
-            val projection = try {
-                context.getSystemService(MediaProjectionManager::class.java).getMediaProjection(resultCode, data)
-            } catch (error: SecurityException) {
-                Log.w(TAG, "start_internal_projection_security error=${error.javaClass.simpleName}")
-                mutableState.value = mutableState.value.copy(
-                    recordingStatus = RecordingStatus.ERROR,
-                    audioSourceType = AudioSourceType.INTERNAL_AUDIO,
-                    processingStage = ProcessingStageUiState.error(AppError.MediaProjectionDenied.toUserMessage()),
-                    error = AppError.MediaProjectionDenied
-                )
-                context.stopService(Intent(context, CaptureForegroundService::class.java))
-                return@launch
-            }
-            Log.i(TAG, "start_internal_projection_ready projectionPresent=${projection != null}")
-            pendingInternalAudioProjection = projection
+            Log.i(TAG, "start_system_audio_recording sessionIdPresent=${sessionId != null}")
+            pendingInternalAudioProjection?.stop()
+            pendingInternalAudioProjection = null
             val result = if (sessionId == null) {
                 recordingController.startSystemAudio(title = null)
             } else {
@@ -332,9 +313,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             if (result is AppResult.Failure) {
                 Log.w(TAG, "start_internal_controller_failed error=${result.error::class.simpleName}")
-                pendingInternalAudioProjection?.stop()
-                pendingInternalAudioProjection = null
                 stopForegroundService()
+                mutableState.value = mutableState.value.copy(
+                    recordingStatus = RecordingStatus.ERROR,
+                    audioSourceType = AudioSourceType.INTERNAL_AUDIO,
+                    processingStage = ProcessingStageUiState.error(result.error.toUserMessage()),
+                    processingSessionId = sessionId ?: mutableState.value.processingSessionId,
+                    error = result.error
+                )
             } else {
                 Log.i(TAG, "start_internal_controller_started sessionIdPresent=${sessionId != null}")
             }
@@ -841,26 +827,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             AudioSourceType.INTERNAL_AUDIO -> {
                 Log.i(TAG, "start_segment_internal session=${request.sessionId.take(8)} segment=${request.segmentId.take(8)}")
-                val projection = pendingInternalAudioProjection
-                    ?: return AppResult.Failure(AppError.MediaProjectionDenied).also {
-                        Log.w(TAG, "start_segment_internal_missing_projection session=${request.sessionId.take(8)}")
-                    }
+                pendingInternalAudioProjection?.stop()
                 pendingInternalAudioProjection = null
-                val preferredCaptureUids = preferredInternalCaptureUids()
-                Log.i(
-                    TAG,
-                    "preferred_internal_capture_uids=${preferredCaptureUids.joinToString(",")}"
-                )
-                val manager = InternalAudioCaptureManager(
-                    mediaProjection = projection,
-                    context = getApplication(),
-                    preferredCaptureUids = preferredCaptureUids
-                )
+                val context = getApplication<Application>()
+                if (!SystemAudioCapturePermissionPolicy.hasPrivilegedCapturePermission(context)) {
+                    Log.w(TAG, "start_segment_internal_missing_privileged_system_audio_permission")
+                    return AppResult.Failure(AppError.SystemAudioCapturePermissionDenied)
+                }
+                val manager = SystemAudioCaptureManager(context)
                 val result = startRecording(
                     sourceType = AudioSourceType.INTERNAL_AUDIO,
                     captureManager = manager,
-                    foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
-                    foregroundServiceAlreadyStarted = true,
+                    foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
                     existingSession = session,
                     recordingSegmentId = request.segmentId
                 )

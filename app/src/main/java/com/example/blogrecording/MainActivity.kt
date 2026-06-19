@@ -3,9 +3,6 @@ package com.example.blogrecording
 import android.Manifest
 import android.os.Bundle
 import android.os.Build
-import android.content.Context
-import android.content.Intent
-import android.media.projection.MediaProjectionManager
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,26 +29,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val pendingStart = remember { mutableStateOf<PendingStartAction?>(null) }
-            val mediaProjectionManager = remember {
-                getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            }
-            val mediaProjectionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.StartActivityForResult()
-            ) { result ->
-                val data = result.data
-                if (result.resultCode == RESULT_OK && data != null) {
-                    when (val action = pendingStart.value) {
-                        is PendingStartAction.Internal -> {
-                            viewModel.startInternalRecording(result.resultCode, data, action.sessionId)
-                        }
-                        is PendingStartAction.Microphone,
-                        null -> viewModel.startInternalRecording(result.resultCode, data)
-                    }
-                } else {
-                    viewModel.onMediaProjectionDenied()
-                }
-                pendingStart.value = null
-            }
             val capturePermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions()
             ) { grants ->
@@ -72,15 +49,13 @@ class MainActivity : ComponentActivity() {
                     }
                     else -> when (val action = pendingStart.value) {
                         is PendingStartAction.Internal -> {
-                            mediaProjectionLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                            viewModel.startSystemAudioRecording(action.sessionId)
                         }
                         is PendingStartAction.Microphone -> viewModel.startMicrophoneRecording(action.sessionId)
                         null -> Unit
                     }
                 }
-                if (pendingStart.value !is PendingStartAction.Internal) {
-                    pendingStart.value = null
-                }
+                pendingStart.value = null
             }
             val state by viewModel.state.collectAsState()
             BlogRecordingTheme {

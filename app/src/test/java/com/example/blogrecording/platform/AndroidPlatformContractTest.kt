@@ -40,5 +40,7 @@ class AndroidPlatformContractTest {
             "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" in
                 AndroidPlatformContract.REQUIRED_PERMISSIONS
         )
+        assertTrue("android.permission.CAPTURE_AUDIO_OUTPUT" in AndroidPlatformContract.REQUIRED_PERMISSIONS)
+        assertTrue("android.permission.CAPTURE_MEDIA_OUTPUT" in AndroidPlatformContract.REQUIRED_PERMISSIONS)
     }
 }

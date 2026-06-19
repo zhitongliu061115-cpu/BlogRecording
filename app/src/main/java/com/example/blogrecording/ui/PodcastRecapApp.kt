@@ -12,8 +12,11 @@ fun PodcastRecapApp(
     state: AppUiState,
     viewModel: AppViewModel,
     onStartInternal: () -> Unit = {},
+    onStartMicrophone: () -> Unit = {},
     onStartInternalSession: (String) -> Unit = {},
-    onResumeInternalSession: (String) -> Unit = onStartInternalSession
+    onStartMicrophoneSession: (String) -> Unit = {},
+    onResumeInternalSession: (String) -> Unit = onStartInternalSession,
+    onResumeMicrophoneSession: (String) -> Unit = onStartMicrophoneSession
 ) {
     Surface(color = MaterialTheme.colorScheme.background) {
         when (state.currentScreen) {
@@ -21,9 +24,12 @@ fun PodcastRecapApp(
                 state = state,
                 onCreateSession = viewModel::createPodcastSession,
                 onStartInternal = onStartInternal,
+                onStartMicrophone = onStartMicrophone,
                 onStartInternalSession = onStartInternalSession,
+                onStartMicrophoneSession = onStartMicrophoneSession,
                 onPauseRecording = viewModel::pausePodcastRecording,
                 onResumeInternalSession = onResumeInternalSession,
+                onResumeMicrophoneSession = onResumeMicrophoneSession,
                 onFinishSession = viewModel::finishPodcastSession,
                 onRequestRename = viewModel::requestRenamePodcastSession,
                 onRenameSession = viewModel::renamePodcastSession,

@@ -92,14 +92,26 @@ class MainActivity : ComponentActivity() {
                         pendingStart.value = PendingStartAction.Internal(sessionId = null)
                         capturePermissionLauncher.launch(capturePermissions())
                     },
+                    onStartMicrophone = {
+                        pendingStart.value = PendingStartAction.Microphone(sessionId = null)
+                        capturePermissionLauncher.launch(capturePermissions())
+                    },
                     onStartInternalSession = { sessionId ->
                         viewModel.prepareInternalAudioAuthorization(sessionId)
                         pendingStart.value = PendingStartAction.Internal(sessionId)
                         capturePermissionLauncher.launch(capturePermissions())
                     },
+                    onStartMicrophoneSession = { sessionId ->
+                        pendingStart.value = PendingStartAction.Microphone(sessionId)
+                        capturePermissionLauncher.launch(capturePermissions())
+                    },
                     onResumeInternalSession = { sessionId ->
                         viewModel.prepareInternalAudioAuthorization(sessionId)
                         pendingStart.value = PendingStartAction.Internal(sessionId)
+                        capturePermissionLauncher.launch(capturePermissions())
+                    },
+                    onResumeMicrophoneSession = { sessionId ->
+                        pendingStart.value = PendingStartAction.Microphone(sessionId)
                         capturePermissionLauncher.launch(capturePermissions())
                     }
                 )
@@ -128,9 +140,12 @@ fun AppPreview() {
             state = AppUiState(),
             onCreateSession = {},
             onStartInternal = {},
+            onStartMicrophone = {},
             onStartInternalSession = {},
+            onStartMicrophoneSession = {},
             onPauseRecording = {},
             onResumeInternalSession = {},
+            onResumeMicrophoneSession = {},
             onFinishSession = {},
             onRequestRename = {},
             onRenameSession = { _, _ -> },

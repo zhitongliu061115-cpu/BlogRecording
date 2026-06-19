@@ -53,9 +53,12 @@ fun HomeScreen(
     state: AppUiState,
     onCreateSession: () -> Unit,
     onStartInternal: () -> Unit,
+    onStartMicrophone: () -> Unit,
     onStartInternalSession: (String) -> Unit,
+    onStartMicrophoneSession: (String) -> Unit,
     onPauseRecording: (String) -> Unit,
     onResumeInternalSession: (String) -> Unit,
+    onResumeMicrophoneSession: (String) -> Unit,
     onFinishSession: (String) -> Unit,
     onRequestRename: (String) -> Unit,
     onRenameSession: (String, String) -> Unit,
@@ -97,8 +100,10 @@ fun HomeScreen(
                 PodcastSessionCard(
                     state = card,
                     onStartRecording = { onStartInternalSession(card.sessionId) },
+                    onStartMicrophoneRecording = { onStartMicrophoneSession(card.sessionId) },
                     onPauseRecording = { onPauseRecording(card.sessionId) },
                     onResumeRecording = { onResumeInternalSession(card.sessionId) },
+                    onResumeMicrophoneRecording = { onResumeMicrophoneSession(card.sessionId) },
                     onFinishSession = { onFinishSession(card.sessionId) },
                     onRename = { onRequestRename(card.sessionId) },
                     onStartSummary = { onStartSummary(card.sessionId) },
@@ -110,6 +115,9 @@ fun HomeScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onStartInternal) {
                 Text("系统内录")
+            }
+            OutlinedButton(onClick = onStartMicrophone) {
+                Text("麦克风录音")
             }
             OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
                 Text("历史")
@@ -171,8 +179,10 @@ fun HomeEmptyState(
 fun PodcastSessionCard(
     state: PodcastCardUiState,
     onStartRecording: () -> Unit,
+    onStartMicrophoneRecording: () -> Unit,
     onPauseRecording: () -> Unit,
     onResumeRecording: () -> Unit,
+    onResumeMicrophoneRecording: () -> Unit,
     onFinishSession: () -> Unit,
     onRename: () -> Unit,
     onStartSummary: () -> Unit,
@@ -250,6 +260,12 @@ fun PodcastSessionCard(
                     Text(if (state.actionState.switchingFromAnotherSession) "切换录制" else "开始")
                 }
                 OutlinedButton(
+                    onClick = onStartMicrophoneRecording,
+                    enabled = state.actionState.canStart
+                ) {
+                    Text("麦克风开始")
+                }
+                OutlinedButton(
                     onClick = onPauseRecording,
                     enabled = state.actionState.canPause
                 ) {
@@ -260,6 +276,12 @@ fun PodcastSessionCard(
                     enabled = state.actionState.canResume
                 ) {
                     Text(if (state.actionState.switchingFromAnotherSession) "切换续录" else "续录")
+                }
+                OutlinedButton(
+                    onClick = onResumeMicrophoneRecording,
+                    enabled = state.actionState.canResume
+                ) {
+                    Text("麦克风续录")
                 }
                 OutlinedButton(
                     onClick = onFinishSession,
@@ -434,8 +456,10 @@ private fun PodcastSessionCardPreview() {
             startSummaryDisabledReason = "请先暂停当前录音"
         ),
         onStartRecording = {},
+        onStartMicrophoneRecording = {},
         onPauseRecording = {},
         onResumeRecording = {},
+        onResumeMicrophoneRecording = {},
         onFinishSession = {},
         onRename = {},
         onStartSummary = {},
@@ -457,9 +481,12 @@ private fun HomeScreenEmptyPreview() {
         ),
         onCreateSession = {},
         onStartInternal = {},
+        onStartMicrophone = {},
         onStartInternalSession = {},
+        onStartMicrophoneSession = {},
         onPauseRecording = {},
         onResumeInternalSession = {},
+        onResumeMicrophoneSession = {},
         onFinishSession = {},
         onRequestRename = {},
         onRenameSession = { _, _ -> },

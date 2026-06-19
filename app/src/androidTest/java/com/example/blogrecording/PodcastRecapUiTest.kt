@@ -16,9 +16,21 @@ class PodcastRecapUiTest {
     fun firstRunPrivacyDialogCanBeAccepted() {
         acceptPrivacyIfShown()
 
-        composeRule.onNodeWithText("Podcast Recap Local ASR").assertIsDisplayed()
-        composeRule.onNodeWithText("开始麦克风录音").assertIsDisplayed()
+        composeRule.onNodeWithText("BlogRecording").assertIsDisplayed()
+        composeRule.onNodeWithText("新建播客").assertIsDisplayed()
+        composeRule.onNodeWithText("系统内录").assertIsDisplayed()
         composeRule.onNodeWithText("隐私边界").assertIsDisplayed()
+    }
+
+    @Test
+    fun createdPodcastCardShowsStartAndTranscriptPreview() {
+        acceptPrivacyIfShown()
+
+        composeRule.onNodeWithText("新建播客").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("开始").assertIsDisplayed()
+        composeRule.onNodeWithText("暂无转写内容").assertIsDisplayed()
     }
 
     @Test
@@ -34,7 +46,7 @@ class PodcastRecapUiTest {
     fun historyScreenShowsEmptyState() {
         acceptPrivacyIfShown()
 
-        composeRule.onNodeWithText("查看历史").performClick()
+        composeRule.onNodeWithText("历史").performClick()
         composeRule.onNodeWithText("历史").assertIsDisplayed()
         composeRule.onNodeWithText("暂无记录。").assertIsDisplayed()
     }

@@ -670,7 +670,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             updateRecordingState(
                 recordingStatus = RecordingStatus.CAPTURING_AUDIO,
                 vadLabel = "第 ${chunk.sequence} 批音频能量 ${chunkEnergy.toInt()}，低于转写阈值，继续录音",
-                processingStage = ProcessingStageUiState.silentInternalAudio(),
+                processingStage = ProcessingStageUiState.internalAudioUnavailable(),
                 processingSessionId = session.id,
                 error = null
             )
@@ -757,7 +757,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             updateRecordingState(
                 recordingStatus = RecordingStatus.CAPTURING_AUDIO,
                 vadLabel = "第 ${chunk.sequence} 批为空白，继续录音",
-                processingStage = ProcessingStageUiState.silentInternalAudio(),
+                processingStage = ProcessingStageUiState.internalAudioUnavailable(),
                 processingSessionId = session.id,
                 error = null
             )
@@ -890,7 +890,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             updateRecordingState(
                 recordingStatus = failureState.recordingStatus,
                 vadLabel = failureState.vadLabel ?: mutableState.value.vadLabel,
-                processingStage = ProcessingStageUiState.silentInternalAudio(),
+                processingStage = ProcessingStageUiState.internalAudioUnavailable(),
                 processingSessionId = sessionId,
                 error = failureState.error
             )

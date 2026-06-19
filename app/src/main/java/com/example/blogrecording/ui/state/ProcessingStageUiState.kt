@@ -78,6 +78,14 @@ data class ProcessingStageUiState(
             isWarning = true
         )
 
+        fun internalAudioUnavailable(): ProcessingStageUiState = ProcessingStageUiState(
+            stage = ProcessingStage.SILENCE,
+            title = "未捕获到可转写声音",
+            message = "源 App 可能禁止系统内录，或蓝牙/静音导致捕获为空；请换可捕获音源、切扬声器，或用麦克风录音。",
+            isActive = true,
+            isWarning = true
+        )
+
         fun paused(): ProcessingStageUiState = ProcessingStageUiState(
             stage = ProcessingStage.PAUSED,
             title = "已暂停",

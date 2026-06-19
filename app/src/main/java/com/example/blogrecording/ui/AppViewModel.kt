@@ -47,7 +47,6 @@ import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.state.ProcessingStageUiState
 import com.example.blogrecording.ui.state.RenameDialogUiState
-import com.example.blogrecording.vad.SherpaVadDetector
 import com.example.blogrecording.vad.VadSegment
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -547,15 +546,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val chunker = PcmChunker(chunkDurationMs)
         val chunks = Channel<PcmChunk>(capacity = 2)
         val recognizer = SenseVoiceRecognizer(settings.senseVoiceModelPath)
-        val vadDetector = if (settings.enableVad) {
-            SherpaVadDetector(
-                modelPath = settings.vadModelPath,
-                speechThreshold = settings.vadSpeechThreshold,
-                silenceDetector = silenceDetector
-            )
-        } else {
-            null
-        }
         val diarization = SpeakerDiarizationEngine(
             modelPath = settings.diarizationModelPath,
             enabled = settings.enableSpeakerDiarization,
@@ -568,7 +558,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     session = session,
                     chunk = chunk,
                     recognizer = recognizer,
-                    vadDetector = vadDetector,
                     diarization = diarization,
                     recordingSegmentId = recordingSegmentId
                 )
@@ -622,27 +611,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         session: RecordingSessionEntity,
         chunk: PcmChunk,
         recognizer: SenseVoiceRecognizer,
-        vadDetector: SherpaVadDetector?,
         diarization: SpeakerDiarizationEngine,
         recordingSegmentId: String? = null
     ) {
-        var speechFailure: AppError? = null
-        val recognizerSegments = TranscriptionChunkPolicy.speechSegments(chunk) { segment ->
-            when (val speech = isSpeechSegment(segment, vadDetector)) {
-                is AppResult.Failure -> {
-                    speechFailure = speech.error
-                    false
-                }
-                is AppResult.Success -> speech.value
-            }
-        }
-        if (speechFailure != null) {
-            handleCaptureFailure(session.id, recordingSegmentId, speechFailure!!)
-            return
-        }
+        val recognizerSegments = TranscriptionChunkPolicy.recognizerSegments(chunk, ::hasMeaningfulAudio)
         updateRecordingState(
             recordingStatus = RecordingStatus.TRANSCRIBING,
-            vadLabel = "正在转写第 ${chunk.sequence} 批（${chunk.startMs / 1000}-${chunk.endMs / 1000} 秒）",
+            vadLabel = "准备调用 SenseVoice 转写第 ${chunk.sequence} 批（${chunk.startMs / 1000}-${chunk.endMs / 1000} 秒）",
             processingStage = ProcessingStageUiState.transcribing(chunk.sequence),
             processingSessionId = session.id
         )
@@ -662,7 +637,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         recognizerSegments.forEachIndexed { index, segment ->
             updateRecordingState(
                 recordingStatus = RecordingStatus.TRANSCRIBING,
-                vadLabel = "正在转写第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size}",
+                vadLabel = "SenseVoice 正在识别第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size}",
                 processingStage = ProcessingStageUiState.transcribing(
                     chunkSequence = chunk.sequence,
                     segmentIndex = index + 1,
@@ -678,7 +653,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val asrResult = (asr as AppResult.Success).value
-            if (asrResult.text.isBlank()) return@forEachIndexed
+            if (asrResult.text.isBlank()) {
+                updateRecordingState(
+                    recordingStatus = RecordingStatus.TRANSCRIBING,
+                    vadLabel = "SenseVoice 已返回空文本，继续处理下一段",
+                    processingStage = ProcessingStageUiState.transcribing(
+                        chunkSequence = chunk.sequence,
+                        segmentIndex = index + 1,
+                        segmentCount = recognizerSegments.size
+                    ),
+                    processingSessionId = session.id,
+                    error = null
+                )
+                return@forEachIndexed
+            }
 
             val speaker = labelSpeaker(diarization, segment)
             if (speaker is AppResult.Failure) {
@@ -696,6 +684,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             )
             repository.appendSegment(transcriptSegment)
             wroteAnySegment = true
+            updateRecordingState(
+                recordingStatus = RecordingStatus.TRANSCRIBING,
+                vadLabel = "已保存第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size} 的转写",
+                processingStage = ProcessingStageUiState.transcribing(
+                    chunkSequence = chunk.sequence,
+                    segmentIndex = index + 1,
+                    segmentCount = recognizerSegments.size
+                ),
+                processingSessionId = session.id,
+                error = null
+            )
         }
 
         if (!wroteAnySegment) {
@@ -726,18 +725,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    private fun isSpeechSegment(
-        segment: VadSegment,
-        vadDetector: SherpaVadDetector?
-    ): AppResult<Boolean> {
+    private fun hasMeaningfulAudio(segment: VadSegment): Boolean {
         val stream = PcmAudioStream(
             samples = segment.samples,
             sampleRate = segment.sampleRate,
             channelCount = 1,
             timestampMs = segment.startMs
         )
-        if (silenceDetector.isSilent(stream)) return AppResult.Success(false)
-        return vadDetector?.accept(stream) ?: AppResult.Success(true)
+        return !silenceDetector.isSilent(stream)
     }
 
     private suspend fun labelSpeaker(

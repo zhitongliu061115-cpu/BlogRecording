@@ -27,6 +27,6 @@
 
 ## 6. Transcription Reliability Follow-up
 
-- [ ] 6.1 Replace hard VAD gating with conservative PCM-energy gating before ASR.
-- [ ] 6.2 Surface ASR attempt, empty result, and saved segment counts in processing feedback.
+- [x] 6.1 Replace hard VAD gating with conservative PCM-energy gating before ASR.
+- [x] 6.2 Surface ASR attempt, empty result, and saved segment counts in processing feedback.
 - [ ] 6.3 Validate the reliability follow-up with unit tests and assemble.

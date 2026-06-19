@@ -10,16 +10,16 @@ class TranscriptionChunkPolicyTest {
     fun silentChunkProducesNoRecognizerSegments() {
         val chunk = chunk(samples = ShortArray(16_000) { 0 })
 
-        val segments = TranscriptionChunkPolicy.speechSegments(chunk) { false }
+        val segments = TranscriptionChunkPolicy.recognizerSegments(chunk) { false }
 
         assertTrue(segments.isEmpty())
     }
 
     @Test
-    fun speechChunkKeepsRecognizerSegments() {
+    fun nonSilentChunkKeepsRecognizerSegmentsEvenWhenVadWouldReject() {
         val chunk = chunk(samples = ShortArray(16_000) { 1_000 })
 
-        val segments = TranscriptionChunkPolicy.speechSegments(chunk) { true }
+        val segments = TranscriptionChunkPolicy.recognizerSegments(chunk) { true }
 
         assertEquals(1, segments.size)
         assertEquals(0L, segments.single().startMs)

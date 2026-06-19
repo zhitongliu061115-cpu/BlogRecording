@@ -50,7 +50,12 @@ data class ProcessingStageUiState(
             )
         }
 
-        fun transcribing(chunkSequence: Int, segmentIndex: Int? = null, segmentCount: Int? = null): ProcessingStageUiState {
+        fun transcribing(
+            chunkSequence: Int,
+            segmentIndex: Int? = null,
+            segmentCount: Int? = null,
+            message: String = "SenseVoice 正在识别本地音频"
+        ): ProcessingStageUiState {
             val progress = if (segmentIndex != null && segmentCount != null) {
                 "第 ${chunkSequence} 批 ${segmentIndex}/${segmentCount}"
             } else {
@@ -59,7 +64,7 @@ data class ProcessingStageUiState(
             return ProcessingStageUiState(
                 stage = ProcessingStage.TRANSCRIBING,
                 title = "正在转文字",
-                message = "SenseVoice 正在识别本地音频",
+                message = message,
                 progressLabel = progress,
                 isActive = true
             )

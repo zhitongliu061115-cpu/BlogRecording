@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjectionManager
 import android.media.projection.MediaProjection
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.blogrecording.asr.SenseVoiceRecognizer
@@ -614,18 +615,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         diarization: SpeakerDiarizationEngine,
         recordingSegmentId: String? = null
     ) {
+        val chunkEnergy = silenceDetector.averageAmplitude(chunk.samples)
         val recognizerSegments = TranscriptionChunkPolicy.recognizerSegments(chunk, ::hasMeaningfulAudio)
+        Log.i(
+            TAG,
+            "chunk_prepare chunk=${chunk.sequence} avgAmp=${chunkEnergy.toInt()} recognizerSegments=${recognizerSegments.size}"
+        )
         updateRecordingState(
             recordingStatus = RecordingStatus.TRANSCRIBING,
-            vadLabel = "准备调用 SenseVoice 转写第 ${chunk.sequence} 批（${chunk.startMs / 1000}-${chunk.endMs / 1000} 秒）",
-            processingStage = ProcessingStageUiState.transcribing(chunk.sequence),
+            vadLabel = "准备调用 SenseVoice 转写第 ${chunk.sequence} 批，音频能量 ${chunkEnergy.toInt()}",
+            processingStage = ProcessingStageUiState.transcribing(
+                chunkSequence = chunk.sequence,
+                message = "音频能量 ${chunkEnergy.toInt()}，准备调用 SenseVoice"
+            ),
             processingSessionId = session.id
         )
 
         if (recognizerSegments.isEmpty()) {
+            Log.i(TAG, "chunk_skip_silence chunk=${chunk.sequence} avgAmp=${chunkEnergy.toInt()}")
             updateRecordingState(
                 recordingStatus = RecordingStatus.CAPTURING_AUDIO,
-                vadLabel = "第 ${chunk.sequence} 批未检测到可转写语音，继续录音",
+                vadLabel = "第 ${chunk.sequence} 批音频能量 ${chunkEnergy.toInt()}，低于转写阈值，继续录音",
                 processingStage = ProcessingStageUiState.silentInternalAudio(),
                 processingSessionId = session.id,
                 error = null
@@ -635,25 +645,36 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         var wroteAnySegment = false
         recognizerSegments.forEachIndexed { index, segment ->
+            val segmentEnergy = silenceDetector.averageAmplitude(segment.samples)
+            Log.i(
+                TAG,
+                "asr_attempt chunk=${chunk.sequence} segment=${index + 1}/${recognizerSegments.size} avgAmp=${segmentEnergy.toInt()}"
+            )
             updateRecordingState(
                 recordingStatus = RecordingStatus.TRANSCRIBING,
-                vadLabel = "SenseVoice 正在识别第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size}",
+                vadLabel = "SenseVoice 正在识别第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size}，音频能量 ${segmentEnergy.toInt()}",
                 processingStage = ProcessingStageUiState.transcribing(
                     chunkSequence = chunk.sequence,
                     segmentIndex = index + 1,
-                    segmentCount = recognizerSegments.size
+                    segmentCount = recognizerSegments.size,
+                    message = "音频能量 ${segmentEnergy.toInt()}，SenseVoice 正在识别"
                 ),
                 processingSessionId = session.id
             )
 
             val asr = recognizer.recognize(segment)
             if (asr is AppResult.Failure) {
+                Log.w(
+                    TAG,
+                    "asr_failure chunk=${chunk.sequence} segment=${index + 1}/${recognizerSegments.size} error=${asr.error::class.simpleName}"
+                )
                 handleCaptureFailure(session.id, recordingSegmentId, asr.error)
                 return
             }
 
             val asrResult = (asr as AppResult.Success).value
             if (asrResult.text.isBlank()) {
+                Log.i(TAG, "asr_blank chunk=${chunk.sequence} segment=${index + 1}/${recognizerSegments.size}")
                 updateRecordingState(
                     recordingStatus = RecordingStatus.TRANSCRIBING,
                     vadLabel = "SenseVoice 已返回空文本，继续处理下一段",
@@ -684,6 +705,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             )
             repository.appendSegment(transcriptSegment)
             wroteAnySegment = true
+            Log.i(TAG, "asr_saved chunk=${chunk.sequence} segment=${index + 1}/${recognizerSegments.size}")
             updateRecordingState(
                 recordingStatus = RecordingStatus.TRANSCRIBING,
                 vadLabel = "已保存第 ${chunk.sequence} 批 ${index + 1}/${recognizerSegments.size} 的转写",
@@ -991,4 +1013,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
     }
 
+    private companion object {
+        const val TAG = "BlogRecordingPipeline"
+    }
 }

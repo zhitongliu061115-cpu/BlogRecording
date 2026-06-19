@@ -6,6 +6,7 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
+import android.util.Log
 import com.example.blogrecording.common.AppError
 import com.example.blogrecording.common.AppResult
 import kotlinx.coroutines.channels.awaitClose
@@ -23,17 +24,21 @@ class InternalAudioCaptureManager(
     override fun start(): Flow<AppResult<PcmAudioStream>> = callbackFlow {
         val projection = mediaProjection
         if (projection == null) {
+            Log.w(TAG, "start_denied projection=null")
             trySend(AppResult.Failure(AppError.MediaProjectionDenied))
             close()
             return@callbackFlow
         }
+        Log.i(TAG, "start_requested sampleRate=$sampleRate")
 
         val minBuffer = AudioRecord.getMinBufferSize(
             sampleRate,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
+        Log.i(TAG, "min_buffer size=$minBuffer")
         if (minBuffer <= 0) {
+            Log.w(TAG, "min_buffer_invalid size=$minBuffer")
             trySend(AppResult.Failure(AppError.AudioRecordInitFailed("minBuffer=$minBuffer")))
             close()
             return@callbackFlow
@@ -50,13 +55,22 @@ class InternalAudioCaptureManager(
             .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
             .build()
 
-        val record = AudioRecord.Builder()
-            .setAudioFormat(format)
-            .setBufferSizeInBytes(minBuffer * 2)
-            .setAudioPlaybackCaptureConfig(captureConfig)
-            .build()
+        val record = try {
+            AudioRecord.Builder()
+                .setAudioFormat(format)
+                .setBufferSizeInBytes(minBuffer * 2)
+                .setAudioPlaybackCaptureConfig(captureConfig)
+                .build()
+        } catch (error: Throwable) {
+            Log.w(TAG, "build_failed error=${error.javaClass.simpleName}")
+            trySend(AppResult.Failure(AppError.AudioRecordInitFailed(error.javaClass.simpleName)))
+            close()
+            return@callbackFlow
+        }
 
+        Log.i(TAG, "record_built state=${record.state}")
         if (record.state != AudioRecord.STATE_INITIALIZED) {
+            Log.w(TAG, "record_uninitialized state=${record.state}")
             record.release()
             trySend(AppResult.Failure(AppError.AudioRecordInitFailed("STATE_UNINITIALIZED")))
             close()
@@ -64,22 +78,51 @@ class InternalAudioCaptureManager(
         }
 
         audioRecord = record
-        record.startRecording()
+        try {
+            record.startRecording()
+        } catch (error: Throwable) {
+            Log.w(TAG, "start_recording_failed error=${error.javaClass.simpleName}")
+            record.release()
+            audioRecord = null
+            trySend(AppResult.Failure(AppError.AudioRecordInitFailed(error.javaClass.simpleName)))
+            close()
+            return@callbackFlow
+        }
+        Log.i(TAG, "record_started recordingState=${record.recordingState}")
+        if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+            Log.w(TAG, "record_not_recording recordingState=${record.recordingState}")
+            record.release()
+            audioRecord = null
+            trySend(AppResult.Failure(AppError.AudioRecordInitFailed("RECORDSTATE_NOT_RECORDING")))
+            close()
+            return@callbackFlow
+        }
         val buffer = ShortArray(minBuffer / 2)
         val reader = Thread {
             try {
                 var silentReads = 0
+                var totalReads = 0
+                var firstNonZeroLogged = false
                 while (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                     val count = record.read(buffer, 0, buffer.size)
                     if (count > 0) {
+                        totalReads += 1
                         val samples = buffer.copyOf(count)
                         if (samples.all { it == 0.toShort() }) {
                             silentReads += 1
+                            if (silentReads == 1 || silentReads % SILENT_LOG_INTERVAL == 0) {
+                                Log.i(TAG, "read_silence totalReads=$totalReads silentReads=$silentReads samples=$count")
+                            }
                             if (silentReads >= SILENT_READ_LIMIT) {
+                                Log.w(TAG, "read_silence_limit totalReads=$totalReads silentReads=$silentReads")
                                 trySend(AppResult.Failure(AppError.InternalAudioSilent))
                                 silentReads = 0
                             }
                         } else {
+                            if (!firstNonZeroLogged) {
+                                Log.i(TAG, "read_non_zero_first totalReads=$totalReads avgAmp=${averageAmplitude(samples).toInt()} samples=$count")
+                                firstNonZeroLogged = true
+                            }
                             silentReads = 0
                         }
                         trySend(
@@ -93,12 +136,15 @@ class InternalAudioCaptureManager(
                             )
                         )
                     } else if (count < 0) {
+                        Log.w(TAG, "read_failed count=$count")
                         trySend(AppResult.Failure(AppError.AudioRecordInitFailed("read=$count")))
                     }
                 }
             } catch (_: Throwable) {
+                Log.i(TAG, "reader_unwound")
                 // stop() may release AudioRecord while the reader thread is unwinding.
             } finally {
+                Log.i(TAG, "reader_closed")
                 close()
             }
         }
@@ -112,18 +158,29 @@ class InternalAudioCaptureManager(
 
     override fun stop() {
         val record = audioRecord ?: return
+        Log.i(TAG, "stop_requested recordingState=${record.recordingState}")
         runCatching {
             if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                 record.stop()
             }
-        }
+        }.onFailure { Log.w(TAG, "stop_failed error=${it.javaClass.simpleName}") }
         record.release()
         audioRecord = null
         runCatching { mediaProjection?.stop() }
+            .onFailure { Log.w(TAG, "projection_stop_failed error=${it.javaClass.simpleName}") }
+    }
+
+    private fun averageAmplitude(samples: ShortArray): Double {
+        if (samples.isEmpty()) return 0.0
+        var sum = 0L
+        samples.forEach { sample -> sum += kotlin.math.abs(sample.toInt()) }
+        return sum.toDouble() / samples.size
     }
 
     private companion object {
+        const val TAG = "BlogRecordingInternalAudio"
         const val DEFAULT_SAMPLE_RATE = 16_000
         const val SILENT_READ_LIMIT = 80
+        const val SILENT_LOG_INTERVAL = 40
     }
 }

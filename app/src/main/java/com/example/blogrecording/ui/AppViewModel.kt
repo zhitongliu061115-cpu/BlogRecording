@@ -198,6 +198,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onMediaProjectionDenied() {
+        Log.w(TAG, "media_projection_denied")
         pendingInternalAudioProjection?.stop()
         pendingInternalAudioProjection = null
         mutableState.value = mutableState.value.copy(
@@ -210,6 +211,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun prepareInternalAudioAuthorization(sessionId: String? = null) {
+        Log.i(TAG, "prepare_internal_authorization sessionIdPresent=${sessionId != null}")
         mutableState.value = mutableState.value.copy(
             audioSourceType = AudioSourceType.INTERNAL_AUDIO,
             processingStage = ProcessingStageUiState.authorizingSystemAudio(),
@@ -287,6 +289,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startInternalRecording(resultCode: Int, data: Intent, sessionId: String? = null) {
         viewModelScope.launch {
+            Log.i(TAG, "start_internal_callback sessionIdPresent=${sessionId != null} resultCode=$resultCode")
             val context = getApplication<Application>()
             val serviceError = startForegroundServiceSafely(
                 foregroundServiceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
@@ -297,6 +300,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
             if (serviceError != null) {
+                Log.w(TAG, "start_internal_service_failed error=${serviceError::class.simpleName}")
                 mutableState.value = mutableState.value.copy(
                     recordingStatus = RecordingStatus.ERROR,
                     audioSourceType = AudioSourceType.INTERNAL_AUDIO,
@@ -308,6 +312,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val projection = try {
                 context.getSystemService(MediaProjectionManager::class.java).getMediaProjection(resultCode, data)
             } catch (error: SecurityException) {
+                Log.w(TAG, "start_internal_projection_security error=${error.javaClass.simpleName}")
                 mutableState.value = mutableState.value.copy(
                     recordingStatus = RecordingStatus.ERROR,
                     audioSourceType = AudioSourceType.INTERNAL_AUDIO,
@@ -317,6 +322,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 context.stopService(Intent(context, CaptureForegroundService::class.java))
                 return@launch
             }
+            Log.i(TAG, "start_internal_projection_ready projectionPresent=${projection != null}")
             pendingInternalAudioProjection = projection
             val result = if (sessionId == null) {
                 recordingController.startSystemAudio(title = null)
@@ -324,9 +330,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 recordingController.resumeSystemAudio(sessionId)
             }
             if (result is AppResult.Failure) {
+                Log.w(TAG, "start_internal_controller_failed error=${result.error::class.simpleName}")
                 pendingInternalAudioProjection?.stop()
                 pendingInternalAudioProjection = null
                 stopForegroundService()
+            } else {
+                Log.i(TAG, "start_internal_controller_started sessionIdPresent=${sessionId != null}")
             }
             handleRecordingControllerResult(result)
         }
@@ -445,11 +454,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         activeCaptureManager?.stop()
         captureJob = null
         activeCaptureManager = null
+        Log.i(
+            TAG,
+            "start_recording_requested source=$sourceType existingSession=${existingSession != null} segmentPresent=${recordingSegmentId != null}"
+        )
 
         val settings = mutableState.value.settings
         val gateError = modelGateError(settings)
         val session = existingSession ?: repository.createSession(sourceType, settings)
         if (gateError != null) {
+            Log.w(TAG, "start_recording_model_gate source=$sourceType error=${gateError::class.simpleName}")
             if (existingSession == null) {
                 val failed = session.copy(status = RecordingStatus.ERROR, errorMessage = gateError.toString())
                 repository.saveSession(failed)
@@ -474,6 +488,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val serviceError = if (foregroundServiceAlreadyStarted) null else startForegroundServiceSafely(foregroundServiceType)
         if (serviceError != null) {
+            Log.w(TAG, "start_recording_service_failed source=$sourceType error=${serviceError::class.simpleName}")
             if (existingSession == null) {
                 val failed = session.copy(status = RecordingStatus.ERROR, errorMessage = serviceError.toString())
                 repository.saveSession(failed)
@@ -521,9 +536,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
         captureJob = viewModelScope.launch(captureDispatcher) {
             runCatching {
+                Log.i(TAG, "capture_job_started source=$sourceType session=${capturing.id.take(8)}")
                 runRecordingPipeline(capturing, settings, captureManager, recordingSegmentId)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
+                Log.w(TAG, "capture_job_failed source=$sourceType error=${error.javaClass.simpleName}")
                 stopForegroundService()
                 handleCaptureFailure(
                     sessionId = capturing.id,
@@ -531,9 +548,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     error = AppError.RecordingPipelineFailed(error.message ?: error.javaClass.simpleName)
                 )
             }.onSuccess {
+                Log.i(TAG, "capture_job_completed source=$sourceType session=${capturing.id.take(8)}")
                 activeCaptureManager = null
             }
         }
+        Log.i(TAG, "capture_job_scheduled source=$sourceType session=${capturing.id.take(8)}")
         return AppResult.Success(Unit)
     }
 
@@ -544,6 +563,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         recordingSegmentId: String? = null
     ) = coroutineScope {
         val chunkDurationMs = settings.transcriptionChunkDurationMs.coerceIn(10_000L, 600_000L)
+        Log.i(
+            TAG,
+            "pipeline_start session=${session.id.take(8)} source=${session.sourceType} chunkMs=$chunkDurationMs"
+        )
         val chunker = PcmChunker(chunkDurationMs)
         val chunks = Channel<PcmChunk>(capacity = 2)
         val recognizer = SenseVoiceRecognizer(settings.senseVoiceModelPath)
@@ -568,9 +591,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         try {
             captureManager.start().collect { captureResult ->
                 when (captureResult) {
-                    is AppResult.Failure -> handleCaptureFailure(session.id, recordingSegmentId, captureResult.error)
+                    is AppResult.Failure -> {
+                        Log.w(TAG, "capture_result_failure error=${captureResult.error::class.simpleName}")
+                        handleCaptureFailure(session.id, recordingSegmentId, captureResult.error)
+                    }
                     is AppResult.Success -> {
                         val readyChunks = chunker.offer(captureResult.value)
+                        if (readyChunks.isNotEmpty()) {
+                            Log.i(
+                                TAG,
+                                "chunk_ready count=${readyChunks.size} bufferedMs=${chunker.currentDurationMs}"
+                            )
+                        }
                         readyChunks.forEach { chunk -> sendChunk(chunks, chunk) }
                         updateRecordingState(
                             recordingStatus = RecordingStatus.CAPTURING_AUDIO,
@@ -587,6 +619,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         } finally {
             val partial = chunker.flush()
             if (partial != null) {
+                Log.i(TAG, "chunk_flush_partial chunk=${partial.sequence} durationMs=${partial.endMs - partial.startMs}")
                 updateRecordingState(
                     recordingStatus = RecordingStatus.TRANSCRIBING,
                     vadLabel = "正在完成最后 ${((partial.endMs - partial.startMs) / 1000).coerceAtLeast(1)} 秒转写",
@@ -597,6 +630,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
             chunks.close()
             processor.join()
+            Log.i(TAG, "pipeline_closed session=${session.id.take(8)}")
         }
     }
 
@@ -782,8 +816,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             AudioSourceType.INTERNAL_AUDIO -> {
+                Log.i(TAG, "start_segment_internal session=${request.sessionId.take(8)} segment=${request.segmentId.take(8)}")
                 val projection = pendingInternalAudioProjection
-                    ?: return AppResult.Failure(AppError.MediaProjectionDenied)
+                    ?: return AppResult.Failure(AppError.MediaProjectionDenied).also {
+                        Log.w(TAG, "start_segment_internal_missing_projection session=${request.sessionId.take(8)}")
+                    }
                 pendingInternalAudioProjection = null
                 val manager = InternalAudioCaptureManager(projection)
                 val result = startRecording(
@@ -795,6 +832,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     recordingSegmentId = request.segmentId
                 )
                 if (result is AppResult.Failure) {
+                    Log.w(TAG, "start_segment_internal_failed error=${result.error::class.simpleName}")
                     manager.stop()
                 }
                 result

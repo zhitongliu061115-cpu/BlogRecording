@@ -22,5 +22,5 @@
 
 ## 5. Harness
 
-- [ ] 5.1 Run OpenSpec validation, unit tests, assemble/lint checks, and connected test when available.
-- [ ] 5.2 Record harness results and any device blockers in the change documentation.
+- [x] 5.1 Run OpenSpec validation, unit tests, assemble/lint checks, and connected test when available.
+- [x] 5.2 Record harness results and any device blockers in the change documentation.

@@ -144,6 +144,29 @@ class RecordingControllerTest {
     }
 
     @Test
+    fun resumeSystemAudioAppendsInternalAudioSegment() = runBlocking {
+        val repository = FakeSessionRepository()
+        val recorder = FakeSegmentRecorder()
+        val controller = RecordingController(
+            sessionRepository = repository,
+            recorder = recorder,
+            systemAudioPermissionGate = SystemAudioPermissionGate { true },
+            nowMillis = TickClock()
+        )
+        val started = controller.startSystemAudio(title = "System Episode") as AppResult.Success
+        val sessionId = started.value.activeSessionId!!
+
+        controller.pauseSystemAudio(sessionId)
+        val resumed = controller.resumeSystemAudio(sessionId) as AppResult.Success
+        val detail = repository.observeSessionDetail(sessionId).first()!!
+
+        assertTrue(resumed.value.isRecording)
+        assertEquals(AudioSourceType.INTERNAL_AUDIO, resumed.value.sourceType)
+        assertEquals(listOf(AudioSourceType.INTERNAL_AUDIO, AudioSourceType.INTERNAL_AUDIO), detail.recordingSegments.map { it.sourceType })
+        assertEquals(listOf(RecordingSegmentStatus.COMPLETED, RecordingSegmentStatus.RECORDING), detail.recordingSegments.map { it.status })
+    }
+
+    @Test
     fun invalidSystemAudioPermissionDoesNotCreateSegment() = runBlocking {
         val repository = FakeSessionRepository()
         val recorder = FakeSegmentRecorder()

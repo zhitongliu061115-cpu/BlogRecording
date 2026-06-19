@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -13,12 +14,27 @@ class PodcastRecapUiTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun firstRunPrivacyDialogCanBeAccepted() {
+    fun homeShowsRecordingEntrypointsAndPrivacyBoundary() {
         acceptPrivacyIfShown()
 
-        composeRule.onNodeWithText("Podcast Recap Local ASR").assertIsDisplayed()
-        composeRule.onNodeWithText("开始麦克风录音").assertIsDisplayed()
-        composeRule.onNodeWithText("隐私边界").assertIsDisplayed()
+        composeRule.onNodeWithText("BlogRecording").assertIsDisplayed()
+        assertTextExists("系统内录")
+        assertTextExists("麦克风录音")
+        assertTextExists("历史")
+        assertTextExists("设置")
+        assertTextExists("隐私边界")
+    }
+
+    @Test
+    fun createdPodcastCardShowsStartAndTranscriptPreview() {
+        acceptPrivacyIfShown()
+
+        clickFirstExisting("新建播客", "新建")
+        composeRule.waitForIdle()
+
+        assertTextExists("开始")
+        assertTextExists("麦克风开始")
+        assertTextExists("暂无转写内容")
     }
 
     @Test
@@ -31,12 +47,12 @@ class PodcastRecapUiTest {
     }
 
     @Test
-    fun historyScreenShowsEmptyState() {
+    fun historyScreenCanOpenWithExistingOrEmptyData() {
         acceptPrivacyIfShown()
 
-        composeRule.onNodeWithText("查看历史").performClick()
-        composeRule.onNodeWithText("历史").assertIsDisplayed()
-        composeRule.onNodeWithText("暂无记录。").assertIsDisplayed()
+        composeRule.onNodeWithText("历史").performClick()
+        assertTextExists("历史")
+        assertTextExists("返回")
     }
 
     private fun acceptPrivacyIfShown() {
@@ -46,5 +62,23 @@ class PodcastRecapUiTest {
             accept[0].performClick()
             composeRule.waitForIdle()
         }
+    }
+
+    private fun clickFirstExisting(vararg labels: String) {
+        for (label in labels) {
+            val nodes = composeRule.onAllNodesWithText(label).fetchSemanticsNodes()
+            if (nodes.isNotEmpty()) {
+                composeRule.onAllNodesWithText(label)[0].performClick()
+                return
+            }
+        }
+        error("None of the expected labels was found: ${labels.joinToString()}")
+    }
+
+    private fun assertTextExists(label: String) {
+        assertTrue(
+            "Expected text not found: $label",
+            composeRule.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty()
+        )
     }
 }

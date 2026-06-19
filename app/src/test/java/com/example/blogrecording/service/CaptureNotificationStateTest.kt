@@ -16,8 +16,20 @@ class CaptureNotificationStateTest {
         )
 
         assertEquals("Episode A", state.titleText())
-        assertTrue(state.bodyText().contains("microphone"))
-        assertTrue(state.bodyText().contains("recording"))
+        assertTrue(state.bodyText().contains("麦克风"))
+        assertTrue(state.bodyText().contains("录制中"))
+    }
+
+    @Test
+    fun notificationTextShowsChineseProcessingStageWhenProvided() {
+        val state = CaptureNotificationState(
+            podcastTitle = "Episode A",
+            captureSource = CaptureNotificationState.SOURCE_SYSTEM_AUDIO,
+            recordingState = CaptureNotificationState.STATE_PROCESSING,
+            stageText = "正在转文字：第 1 批"
+        )
+
+        assertEquals("系统内录：正在转文字：第 1 批", state.bodyText())
     }
 
     @Test

@@ -28,6 +28,8 @@ data class AppUiState(
     val recordingStatus: RecordingStatus = RecordingStatus.NOT_STARTED,
     val audioSourceType: AudioSourceType? = null,
     val vadLabel: String = "未开始",
+    val processingStage: ProcessingStageUiState = ProcessingStageUiState.idle(),
+    val processingSessionId: String? = null,
     val lastSpeechAtMs: Long? = null,
     val silentDurationMs: Long = 0L,
     val modelStatus: ModelStatus = ModelStatus(

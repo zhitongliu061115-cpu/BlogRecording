@@ -348,7 +348,7 @@ data class AppSettings(
     val minSpeechDurationMs: Long = 300L,
     val minSilenceDurationMs: Long = 500L,
     val maxSpeechDurationMs: Long = 30_000L,
-    val transcriptionChunkDurationMs: Long = 180_000L,
+    val transcriptionChunkDurationMs: Long = 30_000L,
     val firstRunPrivacyAccepted: Boolean = false
 )
 

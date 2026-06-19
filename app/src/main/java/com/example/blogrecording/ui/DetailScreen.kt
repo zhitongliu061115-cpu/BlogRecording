@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.example.blogrecording.common.toUserMessage
 import com.example.blogrecording.data.toTranscriptText
 import com.example.blogrecording.ui.state.AppUiState
+import com.example.blogrecording.ui.state.ProcessingStageUiState
 
 @Composable
 fun DetailScreen(
@@ -56,6 +57,7 @@ fun DetailScreen(
         state.error?.let {
             Text("错误：${it.toUserMessage()}", color = MaterialTheme.colorScheme.error)
         }
+        DetailProcessingStage(state.processingStage)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(plainTranscript)) }) { Text("复制纯文本") }
             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(transcriptWithMeta)) }) { Text("复制带标签转写") }
@@ -78,6 +80,19 @@ fun DetailScreen(
                 Text("说话人说明", style = MaterialTheme.typography.titleMedium)
                 Text("Speaker 1、Speaker 2 是自动分离标签，不代表真实身份。多人同时说话、背景音乐和麦克风外放录音会降低准确性。")
             }
+        }
+    }
+}
+
+@Composable
+private fun DetailProcessingStage(stage: ProcessingStageUiState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stage.title, style = MaterialTheme.typography.titleMedium)
+            stage.progressLabel?.let {
+                Text(it, style = MaterialTheme.typography.labelMedium)
+            }
+            Text(stage.message, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

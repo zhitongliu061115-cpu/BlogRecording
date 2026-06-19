@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -41,8 +42,10 @@ import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.state.HomeUiState
 import com.example.blogrecording.ui.state.PodcastCardUiState
+import com.example.blogrecording.ui.state.ProcessingStageUiState
 import com.example.blogrecording.ui.state.RecordingActionState
 import com.example.blogrecording.ui.state.RenameDialogUiState
+import com.example.blogrecording.ui.state.TranscriptPreviewSnippet
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -50,9 +53,12 @@ fun HomeScreen(
     state: AppUiState,
     onCreateSession: () -> Unit,
     onStartInternal: () -> Unit,
-    onStartMic: (String?) -> Unit,
+    onStartMicrophone: () -> Unit,
+    onStartInternalSession: (String) -> Unit,
+    onStartMicrophoneSession: (String) -> Unit,
     onPauseRecording: (String) -> Unit,
-    onResumeRecording: (String) -> Unit,
+    onResumeInternalSession: (String) -> Unit,
+    onResumeMicrophoneSession: (String) -> Unit,
     onFinishSession: (String) -> Unit,
     onRequestRename: (String) -> Unit,
     onRenameSession: (String, String) -> Unit,
@@ -93,9 +99,11 @@ fun HomeScreen(
             home.cards.forEach { card ->
                 PodcastSessionCard(
                     state = card,
-                    onStartRecording = { onStartMic(card.sessionId) },
+                    onStartRecording = { onStartInternalSession(card.sessionId) },
+                    onStartMicrophoneRecording = { onStartMicrophoneSession(card.sessionId) },
                     onPauseRecording = { onPauseRecording(card.sessionId) },
-                    onResumeRecording = { onResumeRecording(card.sessionId) },
+                    onResumeRecording = { onResumeInternalSession(card.sessionId) },
+                    onResumeMicrophoneRecording = { onResumeMicrophoneSession(card.sessionId) },
                     onFinishSession = { onFinishSession(card.sessionId) },
                     onRename = { onRequestRename(card.sessionId) },
                     onStartSummary = { onStartSummary(card.sessionId) },
@@ -107,6 +115,9 @@ fun HomeScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = onStartInternal) {
                 Text("系统内录")
+            }
+            OutlinedButton(onClick = onStartMicrophone) {
+                Text("麦克风录音")
             }
             OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
                 Text("历史")
@@ -168,8 +179,10 @@ fun HomeEmptyState(
 fun PodcastSessionCard(
     state: PodcastCardUiState,
     onStartRecording: () -> Unit,
+    onStartMicrophoneRecording: () -> Unit,
     onPauseRecording: () -> Unit,
     onResumeRecording: () -> Unit,
+    onResumeMicrophoneRecording: () -> Unit,
     onFinishSession: () -> Unit,
     onRename: () -> Unit,
     onStartSummary: () -> Unit,
@@ -232,6 +245,10 @@ fun PodcastSessionCard(
                 CardInfoText("摘要 ${state.summaryLabel}")
             }
 
+            ProcessingStagePanel(state.processingStage)
+
+            TranscriptPreview(snippets = state.transcriptPreviewSnippets)
+
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -241,6 +258,12 @@ fun PodcastSessionCard(
                     enabled = state.actionState.canStart
                 ) {
                     Text(if (state.actionState.switchingFromAnotherSession) "切换录制" else "开始")
+                }
+                OutlinedButton(
+                    onClick = onStartMicrophoneRecording,
+                    enabled = state.actionState.canStart
+                ) {
+                    Text("麦克风开始")
                 }
                 OutlinedButton(
                     onClick = onPauseRecording,
@@ -253,6 +276,12 @@ fun PodcastSessionCard(
                     enabled = state.actionState.canResume
                 ) {
                     Text(if (state.actionState.switchingFromAnotherSession) "切换续录" else "续录")
+                }
+                OutlinedButton(
+                    onClick = onResumeMicrophoneRecording,
+                    enabled = state.actionState.canResume
+                ) {
+                    Text("麦克风续录")
                 }
                 OutlinedButton(
                     onClick = onFinishSession,
@@ -270,6 +299,82 @@ fun PodcastSessionCard(
 
             state.startSummaryDisabledReason?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProcessingStagePanel(stage: ProcessingStageUiState) {
+    val container = when {
+        stage.isWarning -> MaterialTheme.colorScheme.errorContainer
+        stage.isActive -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surface
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = container)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stage.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                stage.progressLabel?.let {
+                    Text(it, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            Text(stage.message, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun TranscriptPreview(snippets: List<TranscriptPreviewSnippet>) {
+    val scrollState = rememberScrollState()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (snippets.isEmpty()) {
+                Text("暂无转写内容", style = MaterialTheme.typography.bodySmall)
+            } else {
+                snippets.forEach { snippet ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = snippet.timestampLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.width(44.dp)
+                        )
+                        Text(
+                            text = snippet.text,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         }
     }
@@ -332,6 +437,11 @@ private fun PodcastSessionCardPreview() {
             durationLabel = "12:08",
             segmentCountLabel = "3 段",
             transcriptionLabel = "已转写 2 段",
+            processingStage = ProcessingStageUiState.buffering(12_000L, 30_000L),
+            transcriptPreviewSnippets = listOf(
+                TranscriptPreviewSnippet("0:12", "欢迎来到本期播客。"),
+                TranscriptPreviewSnippet("0:28", "我们先聊一下今天的主题。")
+            ),
             summaryLabel = "未就绪",
             isRecording = true,
             actionState = RecordingActionState(
@@ -346,8 +456,10 @@ private fun PodcastSessionCardPreview() {
             startSummaryDisabledReason = "请先暂停当前录音"
         ),
         onStartRecording = {},
+        onStartMicrophoneRecording = {},
         onPauseRecording = {},
         onResumeRecording = {},
+        onResumeMicrophoneRecording = {},
         onFinishSession = {},
         onRename = {},
         onStartSummary = {},
@@ -369,9 +481,12 @@ private fun HomeScreenEmptyPreview() {
         ),
         onCreateSession = {},
         onStartInternal = {},
-        onStartMic = {},
+        onStartMicrophone = {},
+        onStartInternalSession = {},
+        onStartMicrophoneSession = {},
         onPauseRecording = {},
-        onResumeRecording = {},
+        onResumeInternalSession = {},
+        onResumeMicrophoneSession = {},
         onFinishSession = {},
         onRequestRename = {},
         onRenameSession = { _, _ -> },

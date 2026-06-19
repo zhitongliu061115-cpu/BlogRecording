@@ -4,6 +4,7 @@ data class HomeUiState(
     val cards: List<PodcastCardUiState> = emptyList(),
     val isEmpty: Boolean = true,
     val activeRecordingSessionId: String? = null,
+    val processingStage: ProcessingStageUiState = ProcessingStageUiState.idle(),
     val renameDialog: RenameDialogUiState? = null,
     val errorMessage: String? = null
 )
@@ -15,6 +16,8 @@ data class PodcastCardUiState(
     val durationLabel: String,
     val segmentCountLabel: String,
     val transcriptionLabel: String,
+    val processingStage: ProcessingStageUiState = ProcessingStageUiState.idle(),
+    val transcriptPreviewSnippets: List<TranscriptPreviewSnippet>,
     val summaryLabel: String,
     val isRecording: Boolean,
     val actionState: RecordingActionState,
@@ -29,6 +32,11 @@ data class RecordingActionState(
     val canPause: Boolean,
     val canResume: Boolean,
     val switchingFromAnotherSession: Boolean
+)
+
+data class TranscriptPreviewSnippet(
+    val timestampLabel: String,
+    val text: String
 )
 
 data class RenameDialogUiState(

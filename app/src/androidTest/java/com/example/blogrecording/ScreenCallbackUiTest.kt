@@ -11,6 +11,7 @@ import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.ui.DetailScreen
 import com.example.blogrecording.ui.HistoryScreen
 import com.example.blogrecording.ui.state.AppUiState
+import com.example.blogrecording.ui.state.ProcessingStageUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -54,6 +55,28 @@ class ScreenCallbackUiTest {
         composeRule.onNodeWithText("删除").performClick()
 
         assertTrue(deleted)
+    }
+
+    @Test
+    fun detailShowsProcessingStageFeedback() {
+        composeRule.setContent {
+            DetailScreen(
+                state = AppUiState(
+                    currentSession = fakeSession(title = "Stage Test Recording"),
+                    processingStage = ProcessingStageUiState.transcribing(
+                        chunkSequence = 2,
+                        segmentIndex = 1,
+                        segmentCount = 3
+                    )
+                ),
+                onBack = {},
+                onGenerateSummary = {},
+                onDelete = {}
+            )
+        }
+
+        composeRule.onNodeWithText("正在转文字").assertExists()
+        composeRule.onNodeWithText("第 2 批 1/3").assertExists()
     }
 
     private fun fakeSession(

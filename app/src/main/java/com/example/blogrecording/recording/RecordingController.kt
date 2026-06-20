@@ -288,9 +288,9 @@ class RecordingController(
             sessionRepository.updateStatus(
                 sessionId = sessionId,
                 status = PodcastSessionStatus.ERROR,
-                errorMessage = "Privileged system-audio output capture permission is required"
+                errorMessage = "System-audio permission is required"
             )
-            return AppResult.Failure(AppError.SystemAudioCapturePermissionDenied)
+            return AppResult.Failure(AppError.MediaProjectionDenied)
         }
 
         val startedAt = nowMillis()

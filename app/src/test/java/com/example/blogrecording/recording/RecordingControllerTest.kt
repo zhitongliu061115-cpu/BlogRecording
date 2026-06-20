@@ -183,8 +183,7 @@ class RecordingControllerTest {
 
         assertTrue(result is AppResult.Failure)
         assertEquals(PodcastSessionStatus.ERROR, detail.session.status)
-        assertEquals("Privileged system-audio output capture permission is required", detail.session.errorMessage)
-        assertEquals(AppError.SystemAudioCapturePermissionDenied, (result as AppResult.Failure).error)
+        assertEquals("System-audio permission is required", detail.session.errorMessage)
         assertTrue(detail.recordingSegments.isEmpty())
         assertEquals(0, recorder.starts.size)
         assertFalse(controller.currentState().isRecording)

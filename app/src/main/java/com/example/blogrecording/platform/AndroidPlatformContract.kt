@@ -24,8 +24,6 @@ internal object AndroidPlatformContract {
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
-        "android.permission.CAPTURE_AUDIO_OUTPUT",
-        "android.permission.CAPTURE_MEDIA_OUTPUT"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
     )
 }

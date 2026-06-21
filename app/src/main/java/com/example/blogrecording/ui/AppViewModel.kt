@@ -205,8 +205,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         mutableState.value = mutableState.value.copy(
             recordingStatus = RecordingStatus.ERROR,
             audioSourceType = AudioSourceType.INTERNAL_AUDIO,
-            vadLabel = "需要 MediaProjection 授权",
-            processingStage = ProcessingStageUiState.error("未授予系统内录权限"),
+            vadLabel = "需要允许屏幕和音频捕获",
+            processingStage = ProcessingStageUiState.mediaProjectionDenied(),
             error = AppError.MediaProjectionDenied
         )
     }
@@ -317,7 +317,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 mutableState.value = mutableState.value.copy(
                     recordingStatus = RecordingStatus.ERROR,
                     audioSourceType = AudioSourceType.INTERNAL_AUDIO,
-                    processingStage = ProcessingStageUiState.error(AppError.MediaProjectionDenied.toUserMessage()),
+                    vadLabel = "需要允许屏幕和音频捕获",
+                    processingStage = ProcessingStageUiState.mediaProjectionDenied(),
                     error = AppError.MediaProjectionDenied
                 )
                 context.stopService(Intent(context, CaptureForegroundService::class.java))

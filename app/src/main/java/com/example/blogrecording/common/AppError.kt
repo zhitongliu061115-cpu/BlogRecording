@@ -31,8 +31,8 @@ fun AppError.toUserMessage(): String {
     return when (this) {
         AppError.RecordAudioPermissionDenied -> "未授予录音权限"
         AppError.NotificationPermissionDenied -> "未授予通知权限，前台录音通知可能无法显示"
-        AppError.MediaProjectionDenied -> "未授予屏幕 / 音频捕获权限"
-        AppError.InternalAudioSilent -> "当前 App 音频无法被系统捕获，请尝试麦克风录音"
+        AppError.MediaProjectionDenied -> "未允许屏幕/音频捕获，请重新授权或使用麦克风录音"
+        AppError.InternalAudioSilent -> "当前 App 音频无法被系统捕获，请换可捕获音源、切扬声器，或用麦克风录音"
         AppError.NoSpeechDetected -> "长时间未检测到有效语音"
         AppError.SenseVoiceModelMissing -> "SenseVoice 模型未找到"
         AppError.VadModelMissing -> "VAD 模型未找到"

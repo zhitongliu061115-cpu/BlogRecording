@@ -19,11 +19,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.lifecycleScope
+import com.example.blogrecording.common.AppResult
+import com.example.blogrecording.export.SessionExportFormat
+import com.example.blogrecording.export.SessionExportPayload
 import com.example.blogrecording.ui.AppViewModel
 import com.example.blogrecording.ui.HomeScreen
 import com.example.blogrecording.ui.PodcastRecapApp
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.theme.BlogRecordingTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: AppViewModel by viewModels()
@@ -33,6 +38,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val pendingStart = remember { mutableStateOf<PendingStartAction?>(null) }
+            val pendingExport = remember { mutableStateOf<SessionExportPayload?>(null) }
             val mediaProjectionManager = remember {
                 getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             }
@@ -92,6 +98,18 @@ class MainActivity : ComponentActivity() {
                     viewModel.importLocalMedia(uri)
                 }
             }
+            val saveExportLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                val uri = result.data?.data
+                val payload = pendingExport.value
+                when {
+                    result.resultCode != RESULT_OK || uri == null -> viewModel.onExportCanceled()
+                    payload != null && writeExportPayload(uri, payload) -> Unit
+                    else -> viewModel.onExportWriteFailed()
+                }
+                pendingExport.value = null
+            }
             val state by viewModel.state.collectAsState()
             BlogRecordingTheme {
                 PodcastRecapApp(
@@ -110,6 +128,17 @@ class MainActivity : ComponentActivity() {
                         localMediaLauncher.launch(arrayOf("audio/*", "video/*"))
                     },
                     onImportUrlMedia = viewModel::importUrlMedia,
+                    onSaveExport = { format ->
+                        buildExport(format) { payload ->
+                            pendingExport.value = payload
+                            saveExportLauncher.launch(payload.createDocumentIntent())
+                        }
+                    },
+                    onShareExport = { format ->
+                        buildExport(format) { payload ->
+                            startActivity(payload.shareIntent())
+                        }
+                    },
                     onStartInternalSession = { sessionId ->
                         viewModel.prepareInternalAudioAuthorization(sessionId)
                         pendingStart.value = PendingStartAction.Internal(sessionId)
@@ -140,6 +169,42 @@ class MainActivity : ComponentActivity() {
             arrayOf(Manifest.permission.RECORD_AUDIO)
         }
     }
+
+    private fun buildExport(
+        format: SessionExportFormat,
+        onReady: (SessionExportPayload) -> Unit
+    ) {
+        lifecycleScope.launch {
+            when (val result = viewModel.buildCurrentSessionExport(format)) {
+                is AppResult.Success -> onReady(result.value)
+                is AppResult.Failure -> Unit
+            }
+        }
+    }
+
+    private fun writeExportPayload(uri: Uri, payload: SessionExportPayload): Boolean {
+        return runCatching {
+            contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(payload.content.toByteArray(Charsets.UTF_8))
+            } ?: return false
+            true
+        }.getOrDefault(false)
+    }
+}
+
+private fun SessionExportPayload.createDocumentIntent(): Intent {
+    return Intent(Intent.ACTION_CREATE_DOCUMENT)
+        .addCategory(Intent.CATEGORY_OPENABLE)
+        .setType(mimeType)
+        .putExtra(Intent.EXTRA_TITLE, fileName)
+}
+
+private fun SessionExportPayload.shareIntent(): Intent {
+    val sendIntent = Intent(Intent.ACTION_SEND)
+        .setType(mimeType)
+        .putExtra(Intent.EXTRA_TEXT, content)
+        .putExtra(Intent.EXTRA_TITLE, fileName)
+    return Intent.createChooser(sendIntent, "分享导出")
 }
 
 private sealed interface PendingStartAction {

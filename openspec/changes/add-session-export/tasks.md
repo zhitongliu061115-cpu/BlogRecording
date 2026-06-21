@@ -10,10 +10,10 @@
 
 ## 3. Android Save And Share
 
-- [ ] 3.1 Add detail-screen export entry and format picker.
-- [ ] 3.2 Implement system save flow for selected export format.
-- [ ] 3.3 Implement system share flow for selected export format.
-- [ ] 3.4 Handle empty content, write failure, invalid filename, and user cancellation.
+- [x] 3.1 Add detail-screen export entry and format picker.
+- [x] 3.2 Implement system save flow for selected export format.
+- [x] 3.3 Implement system share flow for selected export format.
+- [x] 3.4 Handle empty content, write failure, invalid filename, and user cancellation.
 
 ## 4. Tests And Harness
 

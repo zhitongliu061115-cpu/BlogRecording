@@ -14,4 +14,18 @@ class DetailScreenContractTest {
         assertTrue(source.contains("收藏"))
         assertTrue(source.contains("onToggleHighlightFavorite"))
     }
+
+    @Test
+    fun detailScreenShowsExportActions() {
+        val detailSource = File("src/main/java/com/example/blogrecording/ui/DetailScreen.kt").readText()
+        val appSource = File("src/main/java/com/example/blogrecording/ui/PodcastRecapApp.kt").readText()
+
+        assertTrue(detailSource.contains("保存导出"))
+        assertTrue(detailSource.contains("分享导出"))
+        assertTrue(detailSource.contains("Markdown"))
+        assertTrue(detailSource.contains("TXT"))
+        assertTrue(detailSource.contains("JSON"))
+        assertTrue(appSource.contains("onSaveExport"))
+        assertTrue(appSource.contains("onShareExport"))
+    }
 }

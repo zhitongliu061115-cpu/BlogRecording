@@ -44,6 +44,9 @@ import com.example.blogrecording.importing.LocalMediaImporter
 import com.example.blogrecording.importing.UrlImportSourceKind
 import com.example.blogrecording.importing.UrlMediaImportPolicy
 import com.example.blogrecording.importing.UrlMediaImporter
+import com.example.blogrecording.export.SessionExportFormat
+import com.example.blogrecording.export.SessionExportPayload
+import com.example.blogrecording.export.SessionExportRenderer
 import com.example.blogrecording.recording.ActiveRecordingSegment
 import com.example.blogrecording.recording.RecordingController
 import com.example.blogrecording.recording.SegmentRecorder
@@ -185,6 +188,36 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 is AppResult.Failure -> mutableState.value = mutableState.value.copy(error = result.error)
             }
         }
+    }
+
+    suspend fun buildCurrentSessionExport(format: SessionExportFormat): AppResult<SessionExportPayload> {
+        val sessionId = mutableState.value.selectedSessionId
+            ?: mutableState.value.currentSession?.id
+            ?: return AppResult.Failure(AppError.ExportEmptyContent).also {
+                mutableState.value = mutableState.value.copy(error = it.error)
+            }
+        val detail = repository.observeSessionDetail(sessionId).first()
+            ?: return AppResult.Failure(AppError.ExportEmptyContent).also {
+                mutableState.value = mutableState.value.copy(error = it.error)
+            }
+        return when (val result = SessionExportRenderer.render(detail, format, System.currentTimeMillis())) {
+            is AppResult.Success -> {
+                mutableState.value = mutableState.value.copy(error = null)
+                result
+            }
+            is AppResult.Failure -> {
+                mutableState.value = mutableState.value.copy(error = result.error)
+                result
+            }
+        }
+    }
+
+    fun onExportCanceled() {
+        // User cancellation is neutral and should not surface as an error.
+    }
+
+    fun onExportWriteFailed() {
+        mutableState.value = mutableState.value.copy(error = AppError.ExportWriteFailed)
     }
 
     fun acceptPrivacy() {

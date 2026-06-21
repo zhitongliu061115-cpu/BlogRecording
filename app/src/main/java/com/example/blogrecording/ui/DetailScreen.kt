@@ -12,10 +12,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -26,6 +32,7 @@ import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.TimelineChapter
 import com.example.blogrecording.data.toTranscriptText
+import com.example.blogrecording.export.SessionExportFormat
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.state.ProcessingStageUiState
 
@@ -35,6 +42,8 @@ fun DetailScreen(
     onBack: () -> Unit,
     onGenerateSummary: () -> Unit,
     onToggleHighlightFavorite: (String) -> Unit,
+    onSaveExport: (SessionExportFormat) -> Unit,
+    onShareExport: (SessionExportFormat) -> Unit,
     onDelete: () -> Unit
 ) {
     val clipboard = LocalClipboardManager.current
@@ -70,6 +79,11 @@ fun DetailScreen(
             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(transcriptWithMeta)) }) { Text("复制带标签转写") }
             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(session?.summary.orEmpty())) }) { Text("复制总结") }
         }
+        ExportActionRow(
+            enabled = session != null,
+            onSaveExport = onSaveExport,
+            onShareExport = onShareExport
+        )
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("转写文本", style = MaterialTheme.typography.titleMedium)
@@ -96,6 +110,72 @@ fun DetailScreen(
                 Text("Speaker 1、Speaker 2 是自动分离标签，不代表真实身份。多人同时说话、背景音乐和麦克风外放录音会降低准确性。")
             }
         }
+    }
+}
+
+@Composable
+private fun ExportActionRow(
+    enabled: Boolean,
+    onSaveExport: (SessionExportFormat) -> Unit,
+    onShareExport: (SessionExportFormat) -> Unit
+) {
+    var saveExpanded by remember { mutableStateOf(false) }
+    var shareExpanded by remember { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExportMenuButton(
+            label = "保存导出",
+            expanded = saveExpanded,
+            enabled = enabled,
+            onExpandedChange = { saveExpanded = it },
+            onSelect = onSaveExport
+        )
+        ExportMenuButton(
+            label = "分享导出",
+            expanded = shareExpanded,
+            enabled = enabled,
+            onExpandedChange = { shareExpanded = it },
+            onSelect = onShareExport
+        )
+    }
+}
+
+@Composable
+private fun ExportMenuButton(
+    label: String,
+    expanded: Boolean,
+    enabled: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelect: (SessionExportFormat) -> Unit
+) {
+    Column {
+        OutlinedButton(
+            enabled = enabled,
+            onClick = { onExpandedChange(true) }
+        ) {
+            Text(label)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            SessionExportFormat.entries.forEach { format ->
+                DropdownMenuItem(
+                    text = { Text(format.displayLabel()) },
+                    onClick = {
+                        onExpandedChange(false)
+                        onSelect(format)
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun SessionExportFormat.displayLabel(): String {
+    return when (this) {
+        SessionExportFormat.MARKDOWN -> "Markdown"
+        SessionExportFormat.TXT -> "TXT"
+        SessionExportFormat.JSON -> "JSON"
     }
 }
 

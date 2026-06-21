@@ -3,6 +3,7 @@ package com.example.blogrecording.ui
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import com.example.blogrecording.export.SessionExportFormat
 import com.example.blogrecording.ui.components.PrivacyNoticeDialog
 import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
@@ -17,6 +18,8 @@ fun PodcastRecapApp(
     onStartMicrophoneSession: (String) -> Unit = {},
     onImportLocalMedia: () -> Unit = {},
     onImportUrlMedia: (String) -> Unit = {},
+    onSaveExport: (SessionExportFormat) -> Unit = {},
+    onShareExport: (SessionExportFormat) -> Unit = {},
     onResumeInternalSession: (String) -> Unit = onStartInternalSession,
     onResumeMicrophoneSession: (String) -> Unit = onStartMicrophoneSession
 ) {
@@ -59,6 +62,8 @@ fun PodcastRecapApp(
                 onBack = { viewModel.navigate(AppScreen.HISTORY) },
                 onGenerateSummary = viewModel::generateSummaryForCurrent,
                 onToggleHighlightFavorite = viewModel::toggleHighlightFavorite,
+                onSaveExport = onSaveExport,
+                onShareExport = onShareExport,
                 onDelete = viewModel::deleteCurrentSession
             )
         }

@@ -2,6 +2,7 @@ package com.example.blogrecording.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.example.blogrecording.export.SessionExportFormat
 import com.example.blogrecording.ui.components.PrivacyNoticeDialog
@@ -47,6 +48,8 @@ fun PodcastRecapApp(
                 onOpenDetail = viewModel::openDetail,
                 onNavigate = viewModel::navigate
             )
+            AppScreen.AI -> Text("AI 助手")
+            AppScreen.MINE -> Text("我的")
             AppScreen.SETTINGS -> SettingsScreen(
                 state = state,
                 onBack = { viewModel.navigate(AppScreen.HOME) },

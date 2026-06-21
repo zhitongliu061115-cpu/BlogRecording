@@ -1,10 +1,10 @@
 ## 1. Specification
 
-- [ ] 1.1 Validate proposal, design, specs, tasks, and harness for the AI bottom navigation change.
+- [x] 1.1 Validate proposal, design, specs, tasks, and harness for the AI bottom navigation change.
 
 ## 2. Navigation
 
-- [ ] 2.1 Extend app navigation state with AI and Mine top-level routes; verify with navigation policy tests.
+- [x] 2.1 Extend app navigation state with AI and Mine top-level routes; verify with navigation policy tests.
 - [ ] 2.2 Add a shared bottom navigation bar with 首页, AI, 我的 and keep secondary routes outside the bottom bar; verify with compile.
 
 ## 3. AI Page

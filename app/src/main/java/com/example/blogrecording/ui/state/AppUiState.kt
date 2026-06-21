@@ -14,6 +14,8 @@ import com.example.blogrecording.data.TranscriptSegmentEntity
 
 enum class AppScreen {
     HOME,
+    AI,
+    MINE,
     SETTINGS,
     HISTORY,
     DETAIL

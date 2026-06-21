@@ -5,7 +5,7 @@
 ## 2. Navigation
 
 - [x] 2.1 Extend app navigation state with AI and Mine top-level routes; verify with navigation policy tests.
-- [ ] 2.2 Add a shared bottom navigation bar with 首页, AI, 我的 and keep secondary routes outside the bottom bar; verify with compile.
+- [x] 2.2 Add a shared bottom navigation bar with 首页, AI, 我的 and keep secondary routes outside the bottom bar; verify with compile.
 
 ## 3. AI Page
 
@@ -14,7 +14,7 @@
 
 ## 4. Mine Page
 
-- [ ] 4.1 Add a Mine hub screen with Settings and History entries so secondary routes remain reachable; verify with compile.
+- [x] 4.1 Add a Mine hub screen with Settings and History entries so secondary routes remain reachable; verify with compile.
 
 ## 5. Harness
 

@@ -10,8 +10,13 @@ import com.example.blogrecording.data.SummaryLanguage
 import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.ui.DetailScreen
 import com.example.blogrecording.ui.HistoryScreen
+import com.example.blogrecording.ui.HomeScreen
+import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
+import com.example.blogrecording.ui.state.HomeUiState
+import com.example.blogrecording.ui.state.PodcastCardUiState
 import com.example.blogrecording.ui.state.ProcessingStageUiState
+import com.example.blogrecording.ui.state.RecordingActionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -48,6 +53,11 @@ class ScreenCallbackUiTest {
                 state = AppUiState(currentSession = fakeSession(title = "Delete Test Recording")),
                 onBack = {},
                 onGenerateSummary = {},
+                onToggleHighlightFavorite = {},
+                onSaveExport = {},
+                onShareExport = {},
+                onAskQuestion = {},
+                onRetryQuestion = {},
                 onDelete = { deleted = true }
             )
         }
@@ -71,12 +81,54 @@ class ScreenCallbackUiTest {
                 ),
                 onBack = {},
                 onGenerateSummary = {},
+                onToggleHighlightFavorite = {},
+                onSaveExport = {},
+                onShareExport = {},
+                onAskQuestion = {},
+                onRetryQuestion = {},
                 onDelete = {}
             )
         }
 
         composeRule.onNodeWithText("正在转文字").assertExists()
         composeRule.onNodeWithText("第 2 批 1/3").assertExists()
+    }
+
+    @Test
+    fun homeHeaderSettingsInvokesNavigationCallback() {
+        var destination: AppScreen? = null
+
+        composeRule.setContent {
+            HomeScreen(
+                state = AppUiState(
+                    home = HomeUiState(
+                        cards = listOf(fakePodcastCard()),
+                        isEmpty = false
+                    )
+                ),
+                onCreateSession = {},
+                onImportLocalMedia = {},
+                onImportUrlMedia = { _ -> },
+                onStartInternal = {},
+                onStartMicrophone = {},
+                onStartInternalSession = {},
+                onStartMicrophoneSession = {},
+                onPauseRecording = {},
+                onResumeInternalSession = {},
+                onResumeMicrophoneSession = {},
+                onFinishSession = {},
+                onRequestRename = {},
+                onRenameSession = { _, _ -> },
+                onDismissRename = {},
+                onStartSummary = {},
+                onOpenDetail = {},
+                onNavigate = { destination = it }
+            )
+        }
+
+        composeRule.onNodeWithText("设置").performClick()
+
+        assertEquals(AppScreen.SETTINGS, destination)
     }
 
     private fun fakeSession(
@@ -101,6 +153,30 @@ class ScreenCallbackUiTest {
             detectedSpeakerCount = 1,
             segmentCount = 1,
             errorMessage = null
+        )
+    }
+
+    private fun fakePodcastCard(): PodcastCardUiState {
+        return PodcastCardUiState(
+            sessionId = "podcast-1",
+            title = "Header Navigation Test",
+            statusLabel = "可录制",
+            durationLabel = "0:00",
+            segmentCountLabel = "0 段",
+            transcriptionLabel = "暂无转写内容",
+            transcriptPreviewSnippets = emptyList(),
+            summaryLabel = "没有可总结的转写",
+            isRecording = false,
+            actionState = RecordingActionState(
+                canStart = true,
+                canPause = false,
+                canResume = false,
+                switchingFromAnotherSession = false
+            ),
+            canRename = true,
+            canFinish = false,
+            canStartSummary = false,
+            startSummaryDisabledReason = "没有可总结的转写"
         )
     }
 }

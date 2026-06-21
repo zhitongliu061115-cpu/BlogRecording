@@ -78,7 +78,20 @@ fun HomeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("BlogRecording", style = MaterialTheme.typography.headlineSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("BlogRecording", style = MaterialTheme.typography.headlineSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
+                    Text("历史")
+                }
+                OutlinedButton(onClick = { onNavigate(AppScreen.SETTINGS) }) {
+                    Text("设置")
+                }
+            }
+        }
 
         home.errorMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
@@ -139,12 +152,6 @@ fun HomeScreen(
             }
             OutlinedButton(onClick = { urlImportDialogOpen = true }) {
                 Text("导入 URL")
-            }
-            OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
-                Text("历史")
-            }
-            OutlinedButton(onClick = { onNavigate(AppScreen.SETTINGS) }) {
-                Text("设置")
             }
         }
 

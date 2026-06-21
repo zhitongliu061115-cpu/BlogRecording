@@ -5,18 +5,18 @@
 ## 2. Data And Generation
 
 - [x] 2.1 Define keyword/tag model with display text, normalized key, order, source, timestamp, and status.
-- [ ] 2.2 Implement generation from structured summary when available and transcript fallback when absent.
-- [ ] 2.3 Normalize duplicates, trim whitespace, cap tag length, and cap tag count.
+- [x] 2.2 Implement generation from structured summary when available and transcript fallback when absent.
+- [x] 2.3 Normalize duplicates, trim whitespace, cap tag length, and cap tag count.
 
 ## 3. UI And Failure States
 
 - [ ] 3.1 Display a compact tag subset on home cards.
 - [ ] 3.2 Display the full generated tag list on the detail screen.
-- [ ] 3.3 Handle missing API key, empty transcript, repeated tags, long tags, and failed retry.
+- [x] 3.3 Handle missing API key, empty transcript, repeated tags, long tags, and failed retry.
 
 ## 4. Tests And Harness
 
-- [ ] 4.1 Add unit tests for tag parsing, normalization, duplicate removal, compatibility, blocked states, and UI state mapping.
+- [x] 4.1 Add unit tests for tag parsing, normalization, duplicate removal, compatibility, blocked states, and UI state mapping.
 - [ ] 4.2 Run `openspec.cmd validate add-keyword-tag-generation`.
 - [ ] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 4.4 Manually verify Chinese content, English content, short content, duplicate tags, and failed retry.

@@ -57,9 +57,17 @@ interface SessionRepository {
         summaryText: String? = null,
         generatedAt: Long? = null,
         structuredSummary: StructuredSummary? = null,
+        tagGeneration: SessionTagGeneration? = null,
         errorMessage: String? = null
     ): AppResult<PodcastSession> {
         return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("summary lifecycle unsupported"))
+    }
+
+    suspend fun updateTagGeneration(
+        sessionId: String,
+        tagGeneration: SessionTagGeneration
+    ): AppResult<PodcastSession> {
+        return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("tag generation unsupported"))
     }
 
     fun observeSessions(): Flow<List<PodcastSession>>

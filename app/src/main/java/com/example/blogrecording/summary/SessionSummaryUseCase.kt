@@ -6,6 +6,7 @@ import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.PodcastSession
 import com.example.blogrecording.data.SessionRepository
 import com.example.blogrecording.data.SummaryStatus
+import com.example.blogrecording.data.TagGenerationStatus
 import kotlinx.coroutines.flow.first
 
 class SessionSummaryUseCase(
@@ -27,6 +28,16 @@ class SessionSummaryUseCase(
         val aggregateTranscript = SessionTranscriptAggregator.aggregate(detail)
         val eligibility = SessionSummaryEligibilityPolicy.evaluate(detail, aggregateTranscript)
         if (!eligibility.canStart) {
+            if (aggregateTranscript.isBlank()) {
+                sessionRepository.updateTagGeneration(
+                    sessionId = sessionId,
+                    tagGeneration = SessionTagGenerator.blocked(
+                        status = TagGenerationStatus.BLOCKED_EMPTY_CONTENT,
+                        updatedAt = nowMillis(),
+                        errorMessage = eligibility.disabledReason
+                    )
+                )
+            }
             return AppResult.Failure(AppError.Unknown(eligibility.disabledReason ?: "summary not ready"))
         }
 
@@ -54,7 +65,8 @@ class SessionSummaryUseCase(
                 modelName = settings.deepSeekModel,
                 summaryText = result.value.text,
                 generatedAt = nowMillis(),
-                structuredSummary = result.value.structured
+                structuredSummary = result.value.structured,
+                tagGeneration = result.value.tagGeneration
             )
             is AppResult.Failure -> {
                 markFailed(sessionId, settings, result.error)
@@ -73,6 +85,17 @@ class SessionSummaryUseCase(
             status = SummaryStatus.FAILED,
             modelName = settings.deepSeekModel,
             errorMessage = error.toSummaryLifecycleMessage()
+        )
+        sessionRepository.updateTagGeneration(
+            sessionId = sessionId,
+            tagGeneration = SessionTagGenerator.blocked(
+                status = when (error) {
+                    AppError.DeepSeekApiKeyMissing -> TagGenerationStatus.BLOCKED_MISSING_API_KEY
+                    else -> TagGenerationStatus.FAILED
+                },
+                updatedAt = nowMillis(),
+                errorMessage = error.toSummaryLifecycleMessage()
+            )
         )
     }
 }

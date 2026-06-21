@@ -10,12 +10,14 @@ import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSegment
 import com.example.blogrecording.data.RecordingSegmentStatus
 import com.example.blogrecording.data.SessionRepository
+import com.example.blogrecording.data.SessionTagGeneration
 import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.StructuredSummaryParseStatus
 import com.example.blogrecording.data.SummaryLanguage
 import com.example.blogrecording.data.SummaryStatus
 import com.example.blogrecording.data.SummaryStyle
+import com.example.blogrecording.data.TagGenerationStatus
 import com.example.blogrecording.data.TranscriptSegmentEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +57,8 @@ class SessionSummaryUseCaseTest {
         assertEquals(SummaryStatus.SUMMARIZED, session.summary?.status)
         assertEquals("session summary", session.summary?.text)
         assertEquals("session summary", session.summary?.structured?.overview)
+        assertEquals(TagGenerationStatus.GENERATED, session.tagGeneration.status)
+        assertEquals(listOf("session summary"), session.tagGeneration.tags.map { it.text })
         assertOrdered(capturedTranscript, "first segment", "second segment")
     }
 
@@ -79,6 +83,7 @@ class SessionSummaryUseCaseTest {
         assertEquals(0, generateCalls)
         assertEquals(SummaryStatus.FAILED, latest.summary?.status)
         assertEquals("DeepSeek API Key missing", latest.summary?.errorMessage)
+        assertEquals(TagGenerationStatus.BLOCKED_MISSING_API_KEY, latest.tagGeneration.status)
     }
 
     @Test
@@ -114,6 +119,7 @@ class SessionSummaryUseCaseTest {
         assertEquals("previous summary", latest.summary?.structured?.overview)
         assertEquals(500L, latest.summary?.generatedAt)
         assertEquals("DeepSeek summary request failed", latest.summary?.errorMessage)
+        assertEquals(TagGenerationStatus.FAILED, latest.tagGeneration.status)
         assertFalse(latest.summary?.errorMessage.orEmpty().contains("ready"))
     }
 
@@ -148,6 +154,7 @@ class SessionSummaryUseCaseTest {
         assertTrue(recordingResult is AppResult.Failure)
         assertTrue(blankResult is AppResult.Failure)
         assertEquals(0, apiKeyReads)
+        assertEquals(TagGenerationStatus.BLOCKED_EMPTY_CONTENT, blankRepository.detail("session-1")?.session?.tagGeneration?.status)
     }
 
     private fun useCase(
@@ -221,6 +228,7 @@ class SessionSummaryUseCaseTest {
             summaryText: String?,
             generatedAt: Long?,
             structuredSummary: StructuredSummary?,
+            tagGeneration: SessionTagGeneration?,
             errorMessage: String?
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
@@ -264,8 +272,23 @@ class SessionSummaryUseCaseTest {
                 activeSegmentId = null,
                 summary = summary,
                 summaryModelName = modelName,
+                tagGeneration = if (status == SummaryStatus.SUMMARIZED) {
+                    tagGeneration ?: detail.session.tagGeneration
+                } else {
+                    detail.session.tagGeneration
+                },
                 errorMessage = if (status == SummaryStatus.FAILED) summary.errorMessage else null
             )
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateTagGeneration(
+            sessionId: String,
+            tagGeneration: SessionTagGeneration
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
+            val updated = detail.session.copy(tagGeneration = tagGeneration)
             details.value = details.value + (sessionId to detail.copy(session = updated))
             return AppResult.Success(updated)
         }
@@ -408,6 +431,12 @@ class SessionSummaryUseCaseTest {
                     openQuestions = emptyList(),
                     quoteCandidates = emptyList(),
                     parseStatus = StructuredSummaryParseStatus.FALLBACK_TEXT
+                ),
+                tagGeneration = SessionTagGenerator.generate(
+                    rawModelText = """{"tags":["$text"]}""",
+                    structured = null,
+                    transcript = text,
+                    generatedAt = 1_000L
                 )
             )
         }

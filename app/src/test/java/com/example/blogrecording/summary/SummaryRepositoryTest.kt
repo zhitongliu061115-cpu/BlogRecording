@@ -53,7 +53,8 @@ class SummaryRepositoryTest {
             .build()
         val repository = SummaryRepository(
             client = DeepSeekSummaryClient(httpClient),
-            chunker = TranscriptChunker(maxCharsPerChunk = 18)
+            chunker = TranscriptChunker(maxCharsPerChunk = 18),
+            nowMillis = { 5_000L }
         )
         val transcript = "a".repeat(8) + "\n\n" + "b".repeat(8) + "\n\n" + "c".repeat(8)
 
@@ -66,6 +67,8 @@ class SummaryRepositoryTest {
         require(result is AppResult.Success)
         assertEquals("final-summary\n\n关键要点\n- p", result.value.text)
         assertEquals("final-summary", result.value.structured.overview)
+        assertEquals(5_000L, result.value.tagGeneration.generatedAt)
+        assertEquals(listOf("final-summary", "p"), result.value.tagGeneration.tags.map { it.text })
         assertEquals(StructuredSummaryParseStatus.PARTIAL, result.value.structured.parseStatus)
         assertEquals(3, callCount)
         assertTrue(requestBodies[0].contains("a".repeat(8)))

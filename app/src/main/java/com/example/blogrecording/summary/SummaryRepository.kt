@@ -3,18 +3,21 @@ package com.example.blogrecording.summary
 import com.example.blogrecording.common.AppError
 import com.example.blogrecording.common.AppResult
 import com.example.blogrecording.data.AppSettings
+import com.example.blogrecording.data.SessionTagGeneration
 import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.StructuredSummaryParseStatus
 
 data class SummaryGenerationResult(
     val text: String,
-    val structured: StructuredSummary
+    val structured: StructuredSummary,
+    val tagGeneration: SessionTagGeneration
 )
 
 class SummaryRepository(
     private val client: DeepSeekSummaryClient,
     private val promptBuilder: SummaryPromptBuilder = SummaryPromptBuilder(),
-    private val chunker: TranscriptChunker = TranscriptChunker()
+    private val chunker: TranscriptChunker = TranscriptChunker(),
+    private val nowMillis: () -> Long = System::currentTimeMillis
 ) {
     suspend fun generateSummary(
         apiKey: String,
@@ -47,10 +50,17 @@ class SummaryRepository(
             }
         }
         val structured = StructuredSummaryParser.parse(rawSummary)
+        val generatedAt = nowMillis()
         return AppResult.Success(
             SummaryGenerationResult(
                 text = structured.toDisplayText(rawSummary),
-                structured = structured
+                structured = structured,
+                tagGeneration = SessionTagGenerator.generate(
+                    rawModelText = rawSummary,
+                    structured = structured,
+                    transcript = transcript,
+                    generatedAt = generatedAt
+                )
             )
         )
     }

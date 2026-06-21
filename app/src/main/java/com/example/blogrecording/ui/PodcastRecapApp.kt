@@ -73,7 +73,8 @@ fun PodcastRecapApp(
                         onSelectPodcast = viewModel::selectAiPodcast,
                         onNewConversation = viewModel::startNewAiConversation,
                         onDraftChange = viewModel::updateAiDraft,
-                        onSend = viewModel::sendAiDraft
+                        onSend = viewModel::sendAiDraft,
+                        onRetryQuestion = viewModel::retryAiQuestion
                     )
                     AppScreen.MINE -> MineScreen(
                         state = state,

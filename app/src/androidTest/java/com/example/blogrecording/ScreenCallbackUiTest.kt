@@ -176,7 +176,8 @@ class ScreenCallbackUiTest {
                 onSelectPodcast = { selectedSessionId = it },
                 onNewConversation = { newConversationRequested = true },
                 onDraftChange = {},
-                onSend = {}
+                onSend = {},
+                onRetryQuestion = {}
             )
         }
 
@@ -211,7 +212,8 @@ class ScreenCallbackUiTest {
                 onSelectPodcast = {},
                 onNewConversation = {},
                 onDraftChange = { draft = it },
-                onSend = { sent = true }
+                onSend = { sent = true },
+                onRetryQuestion = {}
             )
         }
 
@@ -220,6 +222,41 @@ class ScreenCallbackUiTest {
 
         composeRule.onNodeWithTag("ai-send").performClick()
         assertTrue(sent)
+    }
+
+    @Test
+    fun aiFailedMessageInvokesRetryCallback() {
+        var retriedMessageId: String? = null
+
+        composeRule.setContent {
+            AiChatScreen(
+                state = AiChatUiState(
+                    selectedSessionId = "podcast-1",
+                    isChoosingPodcast = false,
+                    cards = listOf(fakeAiPodcastCard()),
+                    messages = listOf(
+                        AiChatMessageUiState(
+                            id = "answer-failed-1",
+                            text = "DeepSeek QA request failed",
+                            sender = AiChatSender.ASSISTANT,
+                            timestampLabel = "10:01",
+                            statusLabel = "可重试",
+                            retryMessageId = "failed-1",
+                            isError = true
+                        )
+                    )
+                ),
+                onSelectPodcast = {},
+                onNewConversation = {},
+                onDraftChange = {},
+                onSend = {},
+                onRetryQuestion = { retriedMessageId = it }
+            )
+        }
+
+        composeRule.onNodeWithTag("ai-retry-failed-1").performClick()
+
+        assertEquals("failed-1", retriedMessageId)
     }
 
     private fun fakeSession(

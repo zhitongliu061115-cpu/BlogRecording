@@ -42,7 +42,8 @@ fun AiChatScreen(
     onSelectPodcast: (String) -> Unit,
     onNewConversation: () -> Unit,
     onDraftChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onRetryQuestion: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -73,13 +74,15 @@ fun AiChatScreen(
         } else {
             ChatConversation(
                 messages = state.messages,
+                onRetryQuestion = onRetryQuestion,
                 modifier = Modifier.weight(1f)
             )
         }
 
         ChatInput(
             value = state.draftQuestion,
-            enabled = state.selectedSessionId != null && !state.isChoosingPodcast,
+            enabled = state.selectedSessionId != null && !state.isChoosingPodcast && !state.isAsking,
+            isAsking = state.isAsking,
             onChange = onDraftChange,
             onSend = onSend
         )
@@ -171,6 +174,7 @@ private fun AiPodcastCard(
 @Composable
 private fun ChatConversation(
     messages: List<AiChatMessageUiState>,
+    onRetryQuestion: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -178,13 +182,19 @@ private fun ChatConversation(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(messages) { message ->
-            ChatBubble(message)
+            ChatBubble(
+                message = message,
+                onRetryQuestion = onRetryQuestion
+            )
         }
     }
 }
 
 @Composable
-private fun ChatBubble(message: AiChatMessageUiState) {
+private fun ChatBubble(
+    message: AiChatMessageUiState,
+    onRetryQuestion: (String) -> Unit
+) {
     val isUser = message.sender == AiChatSender.USER
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -212,6 +222,25 @@ private fun ChatBubble(message: AiChatMessageUiState) {
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
+            message.statusLabel?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (message.isError) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+            }
+            message.retryMessageId?.let { retryMessageId ->
+                OutlinedButton(
+                    onClick = { onRetryQuestion(retryMessageId) },
+                    modifier = Modifier.testTag("ai-retry-$retryMessageId")
+                ) {
+                    Text("重试")
+                }
+            }
         }
     }
 }
@@ -220,6 +249,7 @@ private fun ChatBubble(message: AiChatMessageUiState) {
 private fun ChatInput(
     value: String,
     enabled: Boolean,
+    isAsking: Boolean,
     onChange: (String) -> Unit,
     onSend: () -> Unit
 ) {
@@ -232,7 +262,15 @@ private fun ChatInput(
             value = value,
             onValueChange = onChange,
             enabled = enabled,
-            label = { Text(if (enabled) "输入问题" else "请先选择播客") },
+            label = {
+                Text(
+                    when {
+                        isAsking -> "DeepSeek 回答中"
+                        enabled -> "输入问题"
+                        else -> "请先选择播客"
+                    }
+                )
+            },
             modifier = Modifier
                 .weight(1f)
                 .testTag("ai-chat-input"),
@@ -243,7 +281,7 @@ private fun ChatInput(
             enabled = enabled && value.isNotBlank(),
             modifier = Modifier.testTag("ai-send")
         ) {
-            Text("发送")
+            Text(if (isAsking) "回答中" else "发送")
         }
     }
 }

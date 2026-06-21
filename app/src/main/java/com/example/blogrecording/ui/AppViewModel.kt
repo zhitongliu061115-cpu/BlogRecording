@@ -34,6 +34,7 @@ import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
 import com.example.blogrecording.data.Repository
 import com.example.blogrecording.data.SettingsStore
+import com.example.blogrecording.data.SessionQaMessage
 import com.example.blogrecording.data.TranscriptSegmentEntity
 import com.example.blogrecording.data.isInterruptedOnStartup
 import com.example.blogrecording.diarization.SpeakerDiarizationEngine
@@ -169,10 +170,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectAiPodcast(sessionId: String) {
-        mutableState.value = mutableState.value.copy(
-            aiChat = AiChatUiStateMapper.selectPodcast(mutableState.value.aiChat, sessionId),
-            error = null
-        )
+        viewModelScope.launch {
+            val selected = AiChatUiStateMapper.selectPodcast(mutableState.value.aiChat, sessionId)
+            if (selected.selectedSessionId != sessionId) return@launch
+            val messages = repository.observeSessionDetail(sessionId)
+                .first()
+                ?.session
+                ?.qaHistory
+                ?.messages
+                .orEmpty()
+            mutableState.value = mutableState.value.copy(
+                aiChat = AiChatUiStateMapper.syncQaHistory(
+                    current = selected,
+                    messages = messages,
+                    isAsking = false
+                ),
+                error = null
+            )
+        }
     }
 
     fun startNewAiConversation() {
@@ -189,9 +204,79 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendAiDraft() {
+        val sessionId = mutableState.value.aiChat.selectedSessionId ?: return
+        val question = mutableState.value.aiChat.draftQuestion.trim()
+        if (question.isBlank()) return
         mutableState.value = mutableState.value.copy(
-            aiChat = AiChatUiStateMapper.sendDraft(mutableState.value.aiChat),
+            aiChat = AiChatUiStateMapper.sendDraft(mutableState.value.aiChat).copy(isAsking = true),
             error = null
+        )
+        viewModelScope.launch {
+            when (val result = sessionQaUseCase.ask(sessionId, question, mutableState.value.settings)) {
+                is AppResult.Success -> updateAiQaMessages(
+                    sessionId = sessionId,
+                    messages = result.value.qaHistory.messages,
+                    isAsking = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    updateAiQaMessages(
+                        sessionId = sessionId,
+                        messages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAsking = false,
+                        error = result.error
+                    )
+                }
+            }
+        }
+    }
+
+    fun retryAiQuestion(messageId: String) {
+        val sessionId = mutableState.value.aiChat.selectedSessionId ?: return
+        mutableState.value = mutableState.value.copy(
+            aiChat = mutableState.value.aiChat.copy(isAsking = true),
+            error = null
+        )
+        viewModelScope.launch {
+            when (val result = sessionQaUseCase.retry(sessionId, messageId, mutableState.value.settings)) {
+                is AppResult.Success -> updateAiQaMessages(
+                    sessionId = sessionId,
+                    messages = result.value.qaHistory.messages,
+                    isAsking = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    updateAiQaMessages(
+                        sessionId = sessionId,
+                        messages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAsking = false,
+                        error = result.error
+                    )
+                }
+            }
+        }
+    }
+
+    private fun updateAiQaMessages(
+        sessionId: String,
+        messages: List<SessionQaMessage>,
+        isAsking: Boolean,
+        error: AppError?
+    ) {
+        val current = mutableState.value
+        if (current.aiChat.selectedSessionId != sessionId) {
+            mutableState.value = current.copy(error = error)
+            return
+        }
+        mutableState.value = current.copy(
+            aiChat = AiChatUiStateMapper.syncQaHistory(
+                current = current.aiChat,
+                messages = messages,
+                isAsking = isAsking
+            ),
+            error = error
         )
     }
 

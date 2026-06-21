@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,10 @@ fun AiChatScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("AI 助手", style = MaterialTheme.typography.headlineSmall)
-            OutlinedButton(onClick = onNewConversation) {
+            OutlinedButton(
+                onClick = onNewConversation,
+                modifier = Modifier.testTag("ai-new-conversation")
+            ) {
                 Text("新对话")
             }
         }
@@ -125,6 +129,7 @@ private fun AiPodcastCard(
         modifier = Modifier
             .width(280.dp)
             .height(220.dp)
+            .testTag("ai-podcast-card-${state.sessionId}")
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -228,12 +233,15 @@ private fun ChatInput(
             onValueChange = onChange,
             enabled = enabled,
             label = { Text(if (enabled) "输入问题" else "请先选择播客") },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .testTag("ai-chat-input"),
             singleLine = true
         )
         Button(
             onClick = onSend,
-            enabled = enabled && value.isNotBlank()
+            enabled = enabled && value.isNotBlank(),
+            modifier = Modifier.testTag("ai-send")
         ) {
             Text("发送")
         }

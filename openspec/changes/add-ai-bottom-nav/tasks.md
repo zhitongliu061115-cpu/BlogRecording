@@ -18,8 +18,8 @@
 
 ## 5. Harness
 
-- [ ] 5.1 Run `openspec.cmd validate add-ai-bottom-nav`.
-- [ ] 5.2 Run `git diff --check`.
-- [ ] 5.3 Run targeted unit tests for UI navigation and AI chat state.
-- [ ] 5.4 Run `.\gradlew.bat testDebugUnitTest` and `.\gradlew.bat assembleDebug` if time and environment allow.
-- [ ] 5.5 Manually inspect the AI screen flow for first entry, card selection, new conversation, and bottom tab labels.
+- [x] 5.1 Run `openspec.cmd validate add-ai-bottom-nav`.
+- [x] 5.2 Run `git diff --check`.
+- [x] 5.3 Run targeted unit tests for UI navigation and AI chat state.
+- [x] 5.4 Run `.\gradlew.bat testDebugUnitTest` and `.\gradlew.bat assembleDebug` if time and environment allow.
+- [ ] 5.5 Manually inspect the AI screen flow for first entry, card selection, new conversation, and bottom tab labels. Not run: no connected adb device or emulator.

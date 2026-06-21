@@ -16,4 +16,10 @@
 
 ## Results
 
-- Pending.
+- `openspec.cmd validate add-ai-bottom-nav`: passed.
+- `git diff --check`: passed.
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.blogrecording.ui.UiNavigationPolicyTest" --tests "com.example.blogrecording.ui.AiChatUiStateMapperTest"`: passed.
+- `.\gradlew.bat compileDebugAndroidTestKotlin`: passed.
+- `.\gradlew.bat testDebugUnitTest`: passed.
+- `.\gradlew.bat assembleDebug`: passed.
+- Manual device inspection: not run because `adb devices` returned no connected devices or emulators.

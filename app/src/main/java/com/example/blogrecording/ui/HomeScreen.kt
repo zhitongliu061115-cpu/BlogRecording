@@ -55,6 +55,8 @@ import com.example.blogrecording.ui.state.TranscriptPreviewSnippet
 fun HomeScreen(
     state: AppUiState,
     onCreateSession: () -> Unit,
+    onImportLocalMedia: () -> Unit,
+    onImportUrlMedia: (String) -> Unit,
     onStartInternal: () -> Unit,
     onStartMicrophone: () -> Unit,
     onStartInternalSession: (String) -> Unit,
@@ -73,6 +75,7 @@ fun HomeScreen(
     onNavigate: (AppScreen) -> Unit
 ) {
     val home = state.home
+    var urlImportDialogOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -80,7 +83,20 @@ fun HomeScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("BlogRecording", style = MaterialTheme.typography.headlineSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("BlogRecording", style = MaterialTheme.typography.headlineSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
+                    Text("历史")
+                }
+                OutlinedButton(onClick = { onNavigate(AppScreen.SETTINGS) }) {
+                    Text("设置")
+                }
+            }
+        }
 
         home.errorMessage?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
@@ -90,15 +106,27 @@ fun HomeScreen(
         }
 
         if (home.isEmpty) {
-            HomeEmptyState(onCreateSession = onCreateSession)
+            HomeEmptyState(
+                onCreateSession = onCreateSession,
+                onImportLocalMedia = onImportLocalMedia,
+                onImportUrlMedia = { urlImportDialogOpen = true }
+            )
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("播客", style = MaterialTheme.typography.titleLarge)
-                OutlinedButton(onClick = onCreateSession) {
-                    Text("新建")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onCreateSession) {
+                        Text("新建")
+                    }
+                    OutlinedButton(onClick = onImportLocalMedia) {
+                        Text("导入音视频")
+                    }
+                    OutlinedButton(onClick = { urlImportDialogOpen = true }) {
+                        Text("导入 URL")
+                    }
                 }
             }
             home.cards.forEach { card ->
@@ -128,11 +156,11 @@ fun HomeScreen(
             OutlinedButton(onClick = onStartMicrophone) {
                 Text("麦克风录音")
             }
-            OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
-                Text("历史")
+            OutlinedButton(onClick = onImportLocalMedia) {
+                Text("导入音视频")
             }
-            OutlinedButton(onClick = { onNavigate(AppScreen.SETTINGS) }) {
-                Text("设置")
+            OutlinedButton(onClick = { urlImportDialogOpen = true }) {
+                Text("导入 URL")
             }
         }
 
@@ -168,11 +196,23 @@ fun HomeScreen(
             onDismiss = onDismissStylePicker
         )
     }
+
+    if (urlImportDialogOpen) {
+        UrlImportDialog(
+            onConfirm = { url ->
+                urlImportDialogOpen = false
+                onImportUrlMedia(url)
+            },
+            onDismiss = { urlImportDialogOpen = false }
+        )
+    }
 }
 
 @Composable
 fun HomeEmptyState(
     onCreateSession: () -> Unit,
+    onImportLocalMedia: () -> Unit,
+    onImportUrlMedia: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -186,6 +226,12 @@ fun HomeEmptyState(
             Text("还没有播客", style = MaterialTheme.typography.titleMedium)
             Button(onClick = onCreateSession) {
                 Text("新建播客")
+            }
+            OutlinedButton(onClick = onImportLocalMedia) {
+                Text("导入音视频")
+            }
+            OutlinedButton(onClick = onImportUrlMedia) {
+                Text("导入 URL")
             }
         }
     }
@@ -262,6 +308,8 @@ fun PodcastSessionCard(
                 CardInfoText("摘要 ${state.summaryLabel}")
             }
 
+            TagRow(tags = state.tagLabels)
+
             ProcessingStagePanel(state.processingStage)
 
             TranscriptPreview(snippets = state.transcriptPreviewSnippets)
@@ -317,6 +365,24 @@ fun PodcastSessionCard(
             state.startSummaryDisabledReason?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagRow(tags: List<String>) {
+    if (tags.isEmpty()) return
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        tags.forEach { tag ->
+            Text(
+                text = "#$tag",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -443,6 +509,48 @@ private fun RenamePodcastDialog(
     )
 }
 
+@Composable
+private fun UrlImportDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var url by remember {
+        mutableStateOf("https://www.xiaoyuzhoufm.com/episode/6a3392764233e62bc54be185")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("导入 URL") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    singleLine = true,
+                    label = { Text("小宇宙单期 / 直链媒体 / RSS") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "优先支持小宇宙单期链接；不支持登录、Cookie 或私有内容。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(url) },
+                enabled = url.isNotBlank()
+            ) {
+                Text("导入")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun PodcastSessionCardPreview() {
@@ -459,6 +567,7 @@ private fun PodcastSessionCardPreview() {
                 TranscriptPreviewSnippet("0:12", "欢迎来到本期播客。"),
                 TranscriptPreviewSnippet("0:28", "我们先聊一下今天的主题。")
             ),
+            tagLabels = listOf("AI", "播客"),
             summaryLabel = "未就绪",
             isRecording = true,
             actionState = RecordingActionState(
@@ -537,6 +646,8 @@ private fun HomeScreenEmptyPreview() {
             )
         ),
         onCreateSession = {},
+        onImportLocalMedia = {},
+        onImportUrlMedia = {},
         onStartInternal = {},
         onStartMicrophone = {},
         onStartInternalSession = {},

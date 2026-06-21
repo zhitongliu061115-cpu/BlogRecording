@@ -66,6 +66,32 @@ class UiNavigationPolicyTest {
         assertNull(updated.error)
     }
 
+    @Test
+    fun topLevelScreensAreHomeAiAndMineOnly() {
+        assertEquals(
+            listOf(AppScreen.HOME, AppScreen.AI, AppScreen.MINE),
+            UiNavigationPolicy.topLevelScreens
+        )
+        assertTrue(UiNavigationPolicy.isTopLevel(AppScreen.AI))
+        assertTrue(UiNavigationPolicy.isTopLevel(AppScreen.MINE))
+        assertTrue(UiNavigationPolicy.isTopLevel(AppScreen.HOME))
+        assertTrue(!UiNavigationPolicy.isTopLevel(AppScreen.HISTORY))
+        assertTrue(!UiNavigationPolicy.isTopLevel(AppScreen.SETTINGS))
+    }
+
+    @Test
+    fun navigateCanOpenAiAndMine() {
+        val ai = UiNavigationPolicy.navigate(
+            AppUiState(error = AppError.Unknown("old error")),
+            AppScreen.AI
+        )
+        val mine = UiNavigationPolicy.navigate(ai, AppScreen.MINE)
+
+        assertEquals(AppScreen.AI, ai.currentScreen)
+        assertNull(ai.error)
+        assertEquals(AppScreen.MINE, mine.currentScreen)
+    }
+
     private fun fakeSession(id: String): RecordingSessionEntity {
         return RecordingSessionEntity(
             id = id,

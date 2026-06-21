@@ -6,8 +6,18 @@ import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
 
 object UiNavigationPolicy {
+    val topLevelScreens: List<AppScreen> = listOf(
+        AppScreen.HOME,
+        AppScreen.AI,
+        AppScreen.MINE
+    )
+
     fun navigate(state: AppUiState, screen: AppScreen): AppUiState {
         return state.copy(currentScreen = screen, error = null)
+    }
+
+    fun isTopLevel(screen: AppScreen): Boolean {
+        return screen in topLevelScreens
     }
 
     fun openDetail(
@@ -29,6 +39,9 @@ object UiNavigationPolicy {
         return state.copy(
             currentScreen = AppScreen.HISTORY,
             currentSession = null,
+            currentPodcastSummary = null,
+            currentTagLabels = emptyList(),
+            currentHighlights = emptyList(),
             currentSegments = emptyList(),
             selectedSessionId = null
         )

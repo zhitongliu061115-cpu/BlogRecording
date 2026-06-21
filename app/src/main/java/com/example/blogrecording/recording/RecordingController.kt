@@ -77,6 +77,9 @@ class RecordingController(
         title: String? = null,
         sourceType: AudioSourceType
     ): AppResult<RecordingControllerState> {
+        if (sourceType == AudioSourceType.LOCAL_MEDIA) {
+            return AppResult.Failure(AppError.LocalMediaImportBlocked)
+        }
         return mutex.withLock {
             activeSegment?.let { return@withLock AppResult.Success(toState(it)) }
             val session = sessionRepository.createSession(title = title, sourceType = sourceType)
@@ -94,6 +97,9 @@ class RecordingController(
         sessionId: String,
         sourceType: AudioSourceType
     ): AppResult<RecordingControllerState> {
+        if (sourceType == AudioSourceType.LOCAL_MEDIA) {
+            return AppResult.Failure(AppError.LocalMediaImportBlocked)
+        }
         return mutex.withLock {
             val active = activeSegment
             if (active?.sessionId == sessionId) {

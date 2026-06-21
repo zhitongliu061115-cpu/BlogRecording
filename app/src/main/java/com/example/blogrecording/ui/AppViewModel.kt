@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjectionManager
 import android.media.projection.MediaProjection
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,7 @@ import com.example.blogrecording.asr.SenseVoiceRecognizer
 import com.example.blogrecording.asr.TranscriptAssembler
 import com.example.blogrecording.audio.AudioCaptureManager
 import com.example.blogrecording.audio.InternalAudioCaptureManager
+import com.example.blogrecording.audio.InternalAudioCapturePolicy
 import com.example.blogrecording.audio.MicAudioCaptureManager
 import com.example.blogrecording.audio.PcmChunk
 import com.example.blogrecording.audio.PcmChunker
@@ -23,18 +25,33 @@ import com.example.blogrecording.common.toUserMessage
 import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.AudioSourceType
 import com.example.blogrecording.data.BundledModelInstaller
+import com.example.blogrecording.data.ImportedContentKind
+import com.example.blogrecording.data.ImportedContentMetadata
+import com.example.blogrecording.data.ImportedContentStatus
 import com.example.blogrecording.data.PodcastSessionStatus
+import com.example.blogrecording.data.RecordingSegmentStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
 import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.ui.state.SummaryStylePickerState
 import com.example.blogrecording.data.Repository
 import com.example.blogrecording.data.SettingsStore
+import com.example.blogrecording.data.SessionQaMessage
 import com.example.blogrecording.data.TranscriptSegmentEntity
 import com.example.blogrecording.data.isInterruptedOnStartup
 import com.example.blogrecording.diarization.SpeakerDiarizationEngine
 import com.example.blogrecording.diarization.SpeakerSegment
 import com.example.blogrecording.diarization.SpeakerProfileManager
+import com.example.blogrecording.importing.DecodedLocalMedia
+import com.example.blogrecording.importing.LocalMediaImporter
+import com.example.blogrecording.importing.UrlImportSourceKind
+import com.example.blogrecording.importing.UrlMediaImportPolicy
+import com.example.blogrecording.importing.UrlMediaImporter
+import com.example.blogrecording.export.SessionExportFormat
+import com.example.blogrecording.export.SessionExportPayload
+import com.example.blogrecording.export.SessionExportRenderer
+import com.example.blogrecording.qa.DeepSeekQaClient
+import com.example.blogrecording.qa.SessionQaUseCase
 import com.example.blogrecording.recording.ActiveRecordingSegment
 import com.example.blogrecording.recording.RecordingController
 import com.example.blogrecording.recording.SegmentRecorder
@@ -44,6 +61,7 @@ import com.example.blogrecording.security.ApiKeyStore
 import com.example.blogrecording.service.CaptureNotificationState
 import com.example.blogrecording.service.CaptureForegroundService
 import com.example.blogrecording.summary.DeepSeekSummaryClient
+import com.example.blogrecording.summary.SessionHighlightGenerator
 import com.example.blogrecording.summary.SessionSummaryUseCase
 import com.example.blogrecording.summary.SummaryRepository
 import com.example.blogrecording.ui.state.AppScreen
@@ -68,14 +86,24 @@ import kotlinx.coroutines.withContext
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsStore = SettingsStore(application)
     private val repository = Repository(application)
+    private val localMediaImporter = LocalMediaImporter(application)
+    private val urlMediaImporter = UrlMediaImporter(application)
     private val apiKeyStore = ApiKeyStore(application)
     private val bundledModelInstaller = BundledModelInstaller(application)
     private val summaryRepository = SummaryRepository(DeepSeekSummaryClient())
+    private val qaClient = DeepSeekQaClient()
     private val sessionSummaryUseCase = SessionSummaryUseCase(
         sessionRepository = repository,
         readApiKey = { apiKeyStore.readApiKey() },
         generateSummary = { apiKey, transcript, settings, overrideStyle ->
             summaryRepository.generateSummary(apiKey, transcript, settings, overrideStyle)
+        }
+    )
+    private val sessionQaUseCase = SessionQaUseCase(
+        sessionRepository = repository,
+        readApiKey = { apiKeyStore.readApiKey() },
+        answerQuestion = { apiKey, model, prompt ->
+            qaClient.answer(apiKey, model, prompt)
         }
     )
     private val transcriptAssembler = TranscriptAssembler()
@@ -115,18 +143,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val podcastDetails = podcastSessions.mapNotNull { session ->
                     repository.observeSessionDetail(session.id).first()
                 }
-                mutableState.value = mutableState.value.copy(
-                    home = HomeUiStateMapper.map(
-                        details = podcastDetails,
-                        renameDialog = mutableState.value.home.renameDialog,
-                        error = mutableState.value.error,
-                        processingStage = mutableState.value.processingStage,
-                        processingSessionId = mutableState.value.processingSessionId,
-                        hasApiKey = apiKeyStore.hasApiKey()
-                    ),
+                val current = mutableState.value
+                val home = HomeUiStateMapper.map(
+                    details = podcastDetails,
+                    renameDialog = current.home.renameDialog,
+                    error = current.error,
+                    processingStage = current.processingStage,
+                    processingSessionId = current.processingSessionId,
+                    hasApiKey = apiKeyStore.hasApiKey()
+                )
+                mutableState.value = current.copy(
+                    home = home,
+                    aiChat = AiChatUiStateMapper.syncFromHome(current.aiChat, home),
                     settings = settings,
                     sessions = sessions,
-                    currentSession = selected ?: mutableState.value.currentSession?.takeUnless {
+                    currentSession = selected ?: current.currentSession?.takeUnless {
                         it.status.isInterruptedOnStartup()
                     },
                     hasApiKey = apiKeyStore.hasApiKey(),
@@ -140,11 +171,224 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         mutableState.value = UiNavigationPolicy.navigate(mutableState.value, screen)
     }
 
+    fun selectAiPodcast(sessionId: String) {
+        viewModelScope.launch {
+            val selected = AiChatUiStateMapper.selectPodcast(mutableState.value.aiChat, sessionId)
+            if (selected.selectedSessionId != sessionId) return@launch
+            val messages = repository.observeSessionDetail(sessionId)
+                .first()
+                ?.session
+                ?.qaHistory
+                ?.messages
+                .orEmpty()
+            mutableState.value = mutableState.value.copy(
+                aiChat = AiChatUiStateMapper.syncQaHistory(
+                    current = selected,
+                    messages = messages,
+                    isAsking = false
+                ),
+                error = null
+            )
+        }
+    }
+
+    fun startNewAiConversation() {
+        mutableState.value = mutableState.value.copy(
+            aiChat = AiChatUiStateMapper.startNewConversation(mutableState.value.aiChat),
+            error = null
+        )
+    }
+
+    fun updateAiDraft(draft: String) {
+        mutableState.value = mutableState.value.copy(
+            aiChat = AiChatUiStateMapper.updateDraft(mutableState.value.aiChat, draft)
+        )
+    }
+
+    fun sendAiDraft() {
+        val sessionId = mutableState.value.aiChat.selectedSessionId ?: return
+        val question = mutableState.value.aiChat.draftQuestion.trim()
+        if (question.isBlank()) return
+        mutableState.value = mutableState.value.copy(
+            aiChat = AiChatUiStateMapper.sendDraft(mutableState.value.aiChat).copy(isAsking = true),
+            error = null
+        )
+        viewModelScope.launch {
+            when (val result = sessionQaUseCase.ask(sessionId, question, mutableState.value.settings)) {
+                is AppResult.Success -> updateAiQaMessages(
+                    sessionId = sessionId,
+                    messages = result.value.qaHistory.messages,
+                    isAsking = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    updateAiQaMessages(
+                        sessionId = sessionId,
+                        messages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAsking = false,
+                        error = result.error
+                    )
+                }
+            }
+        }
+    }
+
+    fun retryAiQuestion(messageId: String) {
+        val sessionId = mutableState.value.aiChat.selectedSessionId ?: return
+        mutableState.value = mutableState.value.copy(
+            aiChat = mutableState.value.aiChat.copy(isAsking = true),
+            error = null
+        )
+        viewModelScope.launch {
+            when (val result = sessionQaUseCase.retry(sessionId, messageId, mutableState.value.settings)) {
+                is AppResult.Success -> updateAiQaMessages(
+                    sessionId = sessionId,
+                    messages = result.value.qaHistory.messages,
+                    isAsking = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    updateAiQaMessages(
+                        sessionId = sessionId,
+                        messages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAsking = false,
+                        error = result.error
+                    )
+                }
+            }
+        }
+    }
+
+    private fun updateAiQaMessages(
+        sessionId: String,
+        messages: List<SessionQaMessage>,
+        isAsking: Boolean,
+        error: AppError?
+    ) {
+        val current = mutableState.value
+        if (current.aiChat.selectedSessionId != sessionId) {
+            mutableState.value = current.copy(error = error)
+            return
+        }
+        mutableState.value = current.copy(
+            aiChat = AiChatUiStateMapper.syncQaHistory(
+                current = current.aiChat,
+                messages = messages,
+                isAsking = isAsking
+            ),
+            error = error
+        )
+    }
+
     fun openDetail(sessionId: String) {
         viewModelScope.launch {
             val session = repository.getSession(sessionId)
             val segments = repository.getSegments(sessionId)
-            mutableState.value = UiNavigationPolicy.openDetail(mutableState.value, sessionId, session, segments)
+            val detail = repository.observeSessionDetail(sessionId).first()
+            mutableState.value = UiNavigationPolicy.openDetail(mutableState.value, sessionId, session, segments).copy(
+                currentPodcastSummary = detail?.session?.summary,
+                currentTagLabels = detail?.session?.tagGeneration?.tags
+                    ?.sortedBy { it.order }
+                    ?.map { it.text }
+                    .orEmpty(),
+                currentHighlights = detail?.session?.highlights?.items.orEmpty(),
+                currentQaMessages = detail?.session?.qaHistory?.messages.orEmpty()
+            )
+        }
+    }
+
+    fun toggleHighlightFavorite(highlightId: String) {
+        val sessionId = mutableState.value.selectedSessionId ?: return
+        viewModelScope.launch {
+            val detail = repository.observeSessionDetail(sessionId).first() ?: return@launch
+            val updatedHighlights = SessionHighlightGenerator.toggleFavorite(
+                highlights = detail.session.highlights,
+                highlightId = highlightId,
+                nowMillis = System.currentTimeMillis()
+            )
+            when (val result = repository.updateHighlights(sessionId, updatedHighlights)) {
+                is AppResult.Success -> mutableState.value = mutableState.value.copy(
+                    currentHighlights = result.value.highlights.items,
+                    error = null
+                )
+                is AppResult.Failure -> mutableState.value = mutableState.value.copy(error = result.error)
+            }
+        }
+    }
+
+    suspend fun buildCurrentSessionExport(format: SessionExportFormat): AppResult<SessionExportPayload> {
+        val sessionId = mutableState.value.selectedSessionId
+            ?: mutableState.value.currentSession?.id
+            ?: return AppResult.Failure(AppError.ExportEmptyContent).also {
+                mutableState.value = mutableState.value.copy(error = it.error)
+            }
+        val detail = repository.observeSessionDetail(sessionId).first()
+            ?: return AppResult.Failure(AppError.ExportEmptyContent).also {
+                mutableState.value = mutableState.value.copy(error = it.error)
+            }
+        return when (val result = SessionExportRenderer.render(detail, format, System.currentTimeMillis())) {
+            is AppResult.Success -> {
+                mutableState.value = mutableState.value.copy(error = null)
+                result
+            }
+            is AppResult.Failure -> {
+                mutableState.value = mutableState.value.copy(error = result.error)
+                result
+            }
+        }
+    }
+
+    fun onExportCanceled() {
+        // User cancellation is neutral and should not surface as an error.
+    }
+
+    fun onExportWriteFailed() {
+        mutableState.value = mutableState.value.copy(error = AppError.ExportWriteFailed)
+    }
+
+    fun askQuestionForCurrentSession(question: String) {
+        val sessionId = mutableState.value.selectedSessionId ?: return
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(isAskingQa = true, error = null)
+            when (val result = sessionQaUseCase.ask(sessionId, question, mutableState.value.settings)) {
+                is AppResult.Success -> mutableState.value = mutableState.value.copy(
+                    currentQaMessages = result.value.qaHistory.messages,
+                    isAskingQa = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    mutableState.value = mutableState.value.copy(
+                        currentQaMessages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAskingQa = false,
+                        error = result.error
+                    )
+                }
+            }
+        }
+    }
+
+    fun retryQaForCurrentSession(messageId: String) {
+        val sessionId = mutableState.value.selectedSessionId ?: return
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(isAskingQa = true, error = null)
+            when (val result = sessionQaUseCase.retry(sessionId, messageId, mutableState.value.settings)) {
+                is AppResult.Success -> mutableState.value = mutableState.value.copy(
+                    currentQaMessages = result.value.qaHistory.messages,
+                    isAskingQa = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    mutableState.value = mutableState.value.copy(
+                        currentQaMessages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAskingQa = false,
+                        error = result.error
+                    )
+                }
+            }
         }
     }
 
@@ -206,8 +450,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         mutableState.value = mutableState.value.copy(
             recordingStatus = RecordingStatus.ERROR,
             audioSourceType = AudioSourceType.INTERNAL_AUDIO,
-            vadLabel = "需要 MediaProjection 授权",
-            processingStage = ProcessingStageUiState.error("未授予系统内录权限"),
+            vadLabel = "需要允许屏幕和音频捕获",
+            processingStage = ProcessingStageUiState.mediaProjectionDenied(),
             error = AppError.MediaProjectionDenied
         )
     }
@@ -225,6 +469,40 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun createPodcastSession() {
         viewModelScope.launch {
             repository.createSession(title = null, sourceType = AudioSourceType.MICROPHONE)
+        }
+    }
+
+    fun onLocalMediaImportCanceled() {
+        mutableState.value = mutableState.value.copy(
+            processingStage = ProcessingStageUiState.idle(),
+            processingSessionId = null,
+            error = null
+        )
+    }
+
+    fun importLocalMedia(uri: Uri) {
+        if (recordingController.currentState().isRecording) {
+            mutableState.value = mutableState.value.copy(
+                processingStage = ProcessingStageUiState.error(AppError.LocalMediaImportBlocked.toUserMessage()),
+                error = AppError.LocalMediaImportBlocked
+            )
+            return
+        }
+        viewModelScope.launch(captureDispatcher) {
+            runLocalMediaImport(uri)
+        }
+    }
+
+    fun importUrlMedia(url: String) {
+        if (recordingController.currentState().isRecording) {
+            mutableState.value = mutableState.value.copy(
+                processingStage = ProcessingStageUiState.error(AppError.LocalMediaImportBlocked.toUserMessage()),
+                error = AppError.LocalMediaImportBlocked
+            )
+            return
+        }
+        viewModelScope.launch(captureDispatcher) {
+            runUrlMediaImport(url)
         }
     }
 
@@ -318,7 +596,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 mutableState.value = mutableState.value.copy(
                     recordingStatus = RecordingStatus.ERROR,
                     audioSourceType = AudioSourceType.INTERNAL_AUDIO,
-                    processingStage = ProcessingStageUiState.error(AppError.MediaProjectionDenied.toUserMessage()),
+                    vadLabel = "需要允许屏幕和音频捕获",
+                    processingStage = ProcessingStageUiState.mediaProjectionDenied(),
                     error = AppError.MediaProjectionDenied
                 )
                 context.stopService(Intent(context, CaptureForegroundService::class.java))
@@ -418,12 +697,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 is AppResult.Success -> {
                     val updated = repository.getSession(sessionId)
                     val segments = repository.getSegments(sessionId)
+                    val detail = repository.observeSessionDetail(sessionId).first()
                     mutableState.value = mutableState.value.copy(
                         isGeneratingSummary = false,
                         recordingStatus = updated?.status ?: RecordingStatus.COMPLETED,
                         processingStage = ProcessingStageUiState.completed("总结已生成"),
                         processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
+                        currentPodcastSummary = detail?.session?.summary,
+                        currentTagLabels = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.tagGeneration?.tags
+                                ?.sortedBy { it.order }
+                                ?.map { it.text }
+                                .orEmpty()
+                        } else {
+                            mutableState.value.currentTagLabels
+                        },
+                        currentHighlights = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.highlights?.items.orEmpty()
+                        } else {
+                            mutableState.value.currentHighlights
+                        },
+                        currentQaMessages = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.qaHistory?.messages.orEmpty()
+                        } else {
+                            mutableState.value.currentQaMessages
+                        },
                         currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
                             segments
                         } else {
@@ -434,12 +733,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 is AppResult.Failure -> {
                     val updated = repository.getSession(sessionId)
+                    val detail = repository.observeSessionDetail(sessionId).first()
                     mutableState.value = mutableState.value.copy(
                         isGeneratingSummary = false,
                         recordingStatus = updated?.status ?: mutableState.value.recordingStatus,
                         processingStage = ProcessingStageUiState.error(result.error.toUserMessage()),
                         processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
+                        currentPodcastSummary = detail?.session?.summary,
+                        currentTagLabels = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.tagGeneration?.tags
+                                ?.sortedBy { it.order }
+                                ?.map { it.text }
+                                .orEmpty()
+                        } else {
+                            mutableState.value.currentTagLabels
+                        },
+                        currentHighlights = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.highlights?.items.orEmpty()
+                        } else {
+                            mutableState.value.currentHighlights
+                        },
+                        currentQaMessages = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.qaHistory?.messages.orEmpty()
+                        } else {
+                            mutableState.value.currentQaMessages
+                        },
                         error = result.error
                     )
                 }
@@ -566,7 +885,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }.onSuccess {
                 Log.i(TAG, "capture_job_completed source=$sourceType session=${capturing.id.take(8)}")
-                activeCaptureManager = null
+                if (activeCaptureManager === captureManager) {
+                    activeCaptureManager = null
+                }
             }
         }
         Log.i(TAG, "capture_job_scheduled source=$sourceType session=${capturing.id.take(8)}")
@@ -604,7 +925,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
-
         try {
             captureManager.start().collect { captureResult ->
                 when (captureResult) {
@@ -667,7 +987,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         recordingSegmentId: String? = null
     ) {
         val chunkEnergy = silenceDetector.averageAmplitude(chunk.samples)
-        val recognizerSegments = TranscriptionChunkPolicy.recognizerSegments(chunk, ::hasMeaningfulAudio)
+        val recognizerSegments = TranscriptionChunkPolicy.recognizerSegments(
+            chunk = chunk,
+            sourceType = session.sourceType,
+            hasMeaningfulAudio = ::hasMeaningfulAudio
+        )
         Log.i(
             TAG,
             "chunk_prepare chunk=${chunk.sequence} avgAmp=${chunkEnergy.toInt()} recognizerSegments=${recognizerSegments.size}"
@@ -696,7 +1020,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         var wroteAnySegment = false
         recognizerSegments.forEachIndexed { index, segment ->
-            val segmentEnergy = silenceDetector.averageAmplitude(segment.samples)
+            val recognizerSegment = segment.prepareForRecognition(session.sourceType)
+            val segmentEnergy = silenceDetector.averageAmplitude(recognizerSegment.samples)
             Log.i(
                 TAG,
                 "asr_attempt chunk=${chunk.sequence} segment=${index + 1}/${recognizerSegments.size} avgAmp=${segmentEnergy.toInt()}"
@@ -713,7 +1038,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 processingSessionId = session.id
             )
 
-            val asr = recognizer.recognize(segment)
+            val asr = recognizer.recognize(recognizerSegment)
             if (asr is AppResult.Failure) {
                 Log.w(
                     TAG,
@@ -808,6 +1133,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return !silenceDetector.isSilent(stream)
     }
 
+    private fun VadSegment.prepareForRecognition(sourceType: AudioSourceType): VadSegment {
+        if (sourceType != AudioSourceType.INTERNAL_AUDIO) return this
+        val peak = samples.maxOfOrNull { kotlin.math.abs(it.toInt()) } ?: 0
+        if (peak <= 0 || peak >= INTERNAL_AUDIO_TARGET_PEAK) return this
+        val gain = (INTERNAL_AUDIO_TARGET_PEAK.toFloat() / peak)
+            .coerceAtMost(INTERNAL_AUDIO_MAX_GAIN)
+        if (gain <= 1.0f) return this
+        return copy(
+            samples = ShortArray(samples.size) { index ->
+                (samples[index] * gain)
+                    .toInt()
+                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    .toShort()
+            }
+        )
+    }
+
     private suspend fun labelSpeaker(
         diarization: SpeakerDiarizationEngine,
         segment: VadSegment
@@ -839,7 +1181,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         Log.w(TAG, "start_segment_internal_missing_projection session=${request.sessionId.take(8)}")
                     }
                 pendingInternalAudioProjection = null
-                val manager = InternalAudioCaptureManager(projection)
+                val preferredCaptureUids = preferredInternalCaptureUids()
+                Log.i(
+                    TAG,
+                    "preferred_internal_capture_uids=${preferredCaptureUids.joinToString(",")}"
+                )
+                val manager = InternalAudioCaptureManager(
+                    mediaProjection = projection,
+                    context = getApplication(),
+                    preferredCaptureUids = preferredCaptureUids
+                )
                 val result = startRecording(
                     sourceType = AudioSourceType.INTERNAL_AUDIO,
                     captureManager = manager,
@@ -854,7 +1205,352 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 result
             }
+            AudioSourceType.LOCAL_MEDIA -> AppResult.Failure(AppError.LocalMediaImportBlocked)
         }
+    }
+
+    private suspend fun runLocalMediaImport(uri: Uri) {
+        val settings = mutableState.value.settings
+        val gateError = modelGateError(settings)
+        if (gateError != null) {
+            withContext(Dispatchers.Main.immediate) {
+                mutableState.value = mutableState.value.copy(
+                    processingStage = ProcessingStageUiState.error(gateError.toUserMessage()),
+                    error = gateError
+                )
+            }
+            return
+        }
+
+        val source = when (val sourceResult = localMediaImporter.readSource(uri)) {
+            is AppResult.Success -> sourceResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = sourceResult.error)
+                return
+            }
+        }
+        val now = System.currentTimeMillis()
+        val initialMetadata = ImportedContentMetadata(
+            kind = ImportedContentKind.LOCAL_MEDIA,
+            displayName = source.displayName,
+            mimeType = source.mimeType,
+            sizeBytes = source.sizeBytes,
+            durationMs = null,
+            status = ImportedContentStatus.COPYING,
+            errorMessage = null,
+            importedAt = now,
+            updatedAt = now
+        )
+        val session = when (val created = repository.createImportedSession(
+            title = source.displayName,
+            metadata = initialMetadata
+        )) {
+            is AppResult.Success -> created.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = created.error)
+                return
+            }
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                selectedSessionId = session.id,
+                currentSession = repository.getSession(session.id),
+                currentSegments = emptyList(),
+                audioSourceType = AudioSourceType.LOCAL_MEDIA,
+                recordingStatus = RecordingStatus.TRANSCRIBING,
+                processingStage = ProcessingStageUiState.importing("正在读取所选音视频"),
+                processingSessionId = session.id,
+                error = null
+            )
+        }
+
+        localMediaImporter.decode(uri).collect { result ->
+            when (result) {
+                is AppResult.Failure -> updateLocalImportError(session.id, result.error, initialMetadata)
+                is AppResult.Success -> processDecodedLocalMedia(
+                    sessionId = session.id,
+                    metadata = initialMetadata,
+                    decoded = result.value,
+                    settings = settings
+                )
+            }
+        }
+    }
+
+    private suspend fun runUrlMediaImport(url: String) {
+        val settings = mutableState.value.settings
+        val gateError = modelGateError(settings)
+        if (gateError != null) {
+            withContext(Dispatchers.Main.immediate) {
+                mutableState.value = mutableState.value.copy(
+                    processingStage = ProcessingStageUiState.error(gateError.toUserMessage()),
+                    error = gateError
+                )
+            }
+            return
+        }
+        val source = when (val validation = UrlMediaImportPolicy.validate(url)) {
+            is AppResult.Success -> validation.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = validation.error)
+                return
+            }
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                audioSourceType = AudioSourceType.LOCAL_MEDIA,
+                recordingStatus = RecordingStatus.TRANSCRIBING,
+                processingStage = ProcessingStageUiState.importing(
+                    message = "正在解析 ${source.kind.toUserLabel()} 链接"
+                ),
+                processingSessionId = null,
+                error = null
+            )
+        }
+        val now = System.currentTimeMillis()
+        val initialMetadata = ImportedContentMetadata(
+            kind = ImportedContentKind.URL_MEDIA,
+            displayName = source.displayName,
+            mimeType = null,
+            sizeBytes = null,
+            durationMs = null,
+            status = ImportedContentStatus.RESOLVING,
+            errorMessage = null,
+            importedAt = now,
+            updatedAt = now,
+            sourceUrl = source.sanitizedUrl,
+            sourceHost = source.host
+        )
+        val session = when (val created = repository.createImportedSession(
+            title = source.displayName,
+            metadata = initialMetadata
+        )) {
+            is AppResult.Success -> created.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = created.error)
+                return
+            }
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                selectedSessionId = session.id,
+                currentSession = repository.getSession(session.id),
+                currentSegments = emptyList(),
+                processingStage = ProcessingStageUiState.importing("正在解析链接媒体"),
+                processingSessionId = session.id,
+                error = null
+            )
+        }
+        val resolved = when (val resolvedResult = urlMediaImporter.resolve(source)) {
+            is AppResult.Success -> resolvedResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(session.id, resolvedResult.error, initialMetadata)
+                return
+            }
+        }
+        val downloadingMetadata = initialMetadata.copy(
+            displayName = resolved.displayName,
+            mimeType = resolved.mimeType,
+            sizeBytes = resolved.sizeBytes,
+            status = ImportedContentStatus.DOWNLOADING,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.updateImportedContent(
+            sessionId = session.id,
+            metadata = downloadingMetadata,
+            status = PodcastSessionStatus.PROCESSING
+        )
+        updateRecordingState(
+            currentSession = repository.getSession(session.id),
+            currentSegments = emptyList(),
+            recordingStatus = RecordingStatus.TRANSCRIBING,
+            vadLabel = "正在下载远程媒体",
+            processingStage = ProcessingStageUiState.importing("正在下载远程音视频"),
+            processingSessionId = session.id,
+            error = null
+        )
+        val downloaded = when (val downloadResult = urlMediaImporter.download(source, resolved)) {
+            is AppResult.Success -> downloadResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(session.id, downloadResult.error, downloadingMetadata)
+                return
+            }
+        }
+        val downloadedMetadata = downloadingMetadata.copy(
+            displayName = downloaded.displayName,
+            mimeType = downloaded.mimeType ?: downloadingMetadata.mimeType,
+            sizeBytes = downloaded.sizeBytes,
+            status = ImportedContentStatus.COPYING,
+            updatedAt = System.currentTimeMillis()
+        )
+        localMediaImporter.decodeCachedFile(downloaded.file).collect { result ->
+            when (result) {
+                is AppResult.Failure -> updateLocalImportError(session.id, result.error, downloadedMetadata)
+                is AppResult.Success -> processDecodedLocalMedia(
+                    sessionId = session.id,
+                    metadata = downloadedMetadata,
+                    decoded = result.value,
+                    settings = settings
+                )
+            }
+        }
+    }
+
+    private suspend fun processDecodedLocalMedia(
+        sessionId: String,
+        metadata: ImportedContentMetadata,
+        decoded: DecodedLocalMedia,
+        settings: AppSettings
+    ) {
+        val decodingMetadata = metadata.copy(
+            durationMs = decoded.durationMs,
+            status = ImportedContentStatus.DECODING,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.updateImportedContent(
+            sessionId = sessionId,
+            metadata = decodingMetadata,
+            status = PodcastSessionStatus.PROCESSING
+        )
+        updateRecordingState(
+            recordingStatus = RecordingStatus.TRANSCRIBING,
+            vadLabel = "正在解码并准备转写本地音视频",
+            processingStage = ProcessingStageUiState.importing(
+                message = "已读取音轨，准备转文字",
+                progressLabel = decoded.durationMs?.let { "${(it / 1000).coerceAtLeast(1)} 秒" }
+            ),
+            processingSessionId = sessionId,
+            error = null
+        )
+        val segment = when (val segmentResult = repository.appendImportedSegment(
+            sessionId = sessionId,
+            startedAt = System.currentTimeMillis(),
+            durationMs = decoded.durationMs ?: decoded.streams.durationMs(),
+            sampleRate = decoded.sampleRate,
+            channelCount = decoded.channelCount
+        )) {
+            is AppResult.Success -> segmentResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId, segmentResult.error, decodingMetadata)
+                return
+            }
+        }
+        val legacySession = repository.getSession(sessionId)
+            ?: RecordingSessionEntity(
+                id = sessionId,
+                title = metadata.displayName,
+                createdAt = metadata.importedAt,
+                updatedAt = System.currentTimeMillis(),
+                sourceType = AudioSourceType.LOCAL_MEDIA,
+                status = RecordingStatus.TRANSCRIBING,
+                transcript = "",
+                summary = null,
+                asrModelName = "SenseVoice sherpa-onnx",
+                vadModelName = "Silero VAD sherpa-onnx",
+                diarizationModelName = "sherpa-onnx speaker diarization",
+                summaryModelName = settings.deepSeekModel,
+                summaryStyle = settings.summaryStyle,
+                summaryLanguage = settings.summaryLanguage,
+                detectedSpeakerCount = 0,
+                segmentCount = 0,
+                errorMessage = null
+            )
+        val chunker = PcmChunker(settings.transcriptionChunkDurationMs.coerceIn(10_000L, 600_000L))
+        val recognizer = SenseVoiceRecognizer(settings.senseVoiceModelPath)
+        val diarization = SpeakerDiarizationEngine(
+            modelPath = settings.diarizationModelPath,
+            enabled = settings.enableSpeakerDiarization,
+            maxSpeakerCount = settings.maxSpeakerCount
+        )
+        decoded.streams.forEach { stream ->
+            chunker.offer(stream).forEach { chunk ->
+                processChunk(
+                    session = legacySession.copy(status = RecordingStatus.TRANSCRIBING),
+                    chunk = chunk,
+                    recognizer = recognizer,
+                    diarization = diarization,
+                    recordingSegmentId = segment.id
+                )
+            }
+        }
+        chunker.flush()?.let { chunk ->
+            processChunk(
+                session = legacySession.copy(status = RecordingStatus.TRANSCRIBING),
+                chunk = chunk,
+                recognizer = recognizer,
+                diarization = diarization,
+                recordingSegmentId = segment.id
+            )
+        }
+        val completedMetadata = decodingMetadata.copy(
+            status = ImportedContentStatus.COMPLETED,
+            errorMessage = null,
+            updatedAt = System.currentTimeMillis()
+        )
+        val transcriptSegments = repository.getSegments(sessionId)
+        repository.updateImportedContent(
+            sessionId = sessionId,
+            metadata = completedMetadata,
+            status = if (transcriptSegments.isEmpty()) PodcastSessionStatus.PAUSED else PodcastSessionStatus.READY_FOR_SUMMARY
+        )
+        val updated = repository.getSession(sessionId)
+        val stage = if (transcriptSegments.isEmpty()) {
+            ProcessingStageUiState.internalAudioUnavailable()
+        } else {
+            ProcessingStageUiState.completed("本地音视频导入完成，可生成总结")
+        }
+        updateRecordingState(
+            currentSession = updated,
+            currentSegments = transcriptSegments,
+            recordingStatus = if (transcriptSegments.isEmpty()) RecordingStatus.ERROR else RecordingStatus.COMPLETED,
+            vadLabel = if (transcriptSegments.isEmpty()) "未识别到可转写声音" else "导入完成，已写入 ${transcriptSegments.size} 段转写",
+            processingStage = stage,
+            processingSessionId = sessionId,
+            error = null
+        )
+    }
+
+    private suspend fun updateLocalImportError(
+        sessionId: String?,
+        error: AppError,
+        metadata: ImportedContentMetadata? = null
+    ) {
+        val message = error.toUserMessage()
+        if (sessionId != null && metadata != null) {
+            repository.updateImportedContent(
+                sessionId = sessionId,
+                metadata = metadata.copy(
+                    status = ImportedContentStatus.FAILED,
+                    errorMessage = message,
+                    updatedAt = System.currentTimeMillis()
+                ),
+                status = PodcastSessionStatus.ERROR
+            )
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                recordingStatus = RecordingStatus.ERROR,
+                processingStage = ProcessingStageUiState.error(message),
+                processingSessionId = sessionId,
+                error = error
+            )
+        }
+    }
+
+    private fun preferredInternalCaptureUids(): List<Int> {
+        val packageManager = getApplication<Application>().packageManager
+        return InternalAudioCapturePolicy.preferredCapturePackages.mapNotNull { packageName ->
+            runCatching {
+                packageManager.getApplicationInfo(packageName, 0).uid.also { uid ->
+                    Log.i(TAG, "preferred_internal_capture_package package=$packageName uid=$uid")
+                }
+            }.onFailure {
+                Log.w(
+                    TAG,
+                    "preferred_internal_capture_package_failed package=$packageName error=${it.javaClass.simpleName}"
+                )
+            }.getOrNull()
+        }.distinct()
     }
 
     private suspend fun stopSegmentRecording(
@@ -1011,6 +1707,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val foregroundServiceType = when (source) {
             AudioSourceType.INTERNAL_AUDIO -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             AudioSourceType.MICROPHONE -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            AudioSourceType.LOCAL_MEDIA -> return
         }
         val intent = CaptureForegroundService.buildStartIntent(
             context = context,
@@ -1034,6 +1731,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return when (this) {
             AudioSourceType.INTERNAL_AUDIO -> "系统内录"
             AudioSourceType.MICROPHONE -> "麦克风"
+            AudioSourceType.LOCAL_MEDIA -> "本地导入"
         }
     }
 
@@ -1041,6 +1739,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return when (this) {
             AudioSourceType.INTERNAL_AUDIO -> CaptureNotificationState.SOURCE_SYSTEM_AUDIO
             AudioSourceType.MICROPHONE -> CaptureNotificationState.SOURCE_MICROPHONE
+            AudioSourceType.LOCAL_MEDIA -> CaptureNotificationState.SOURCE_AUDIO
+        }
+    }
+
+    private fun UrlImportSourceKind.toUserLabel(): String {
+        return when (this) {
+            UrlImportSourceKind.XIAOYUZHOU_EPISODE -> "小宇宙单期"
+            UrlImportSourceKind.DIRECT_MEDIA -> "直链媒体"
+            UrlImportSourceKind.RSS_ENCLOSURE -> "RSS enclosure"
+            UrlImportSourceKind.UNSUPPORTED -> "URL"
         }
     }
 
@@ -1057,6 +1765,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun List<PcmAudioStream>.durationMs(): Long {
+        return sumOf { stream ->
+            val samplesPerSecond = stream.sampleRate.toLong() * stream.channelCount.coerceAtLeast(1)
+            if (samplesPerSecond <= 0L) 0L else (stream.samples.size.toLong() * 1000L) / samplesPerSecond
+        }
+    }
+
     private fun stopForegroundService() {
         val context = getApplication<Application>()
         context.stopService(Intent(context, CaptureForegroundService::class.java))
@@ -1070,5 +1785,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val TAG = "BlogRecordingPipeline"
+        const val INTERNAL_AUDIO_TARGET_PEAK = 12_000
+        const val INTERNAL_AUDIO_MAX_GAIN = 12.0f
     }
 }

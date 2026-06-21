@@ -18,6 +18,7 @@ data class PodcastCardUiState(
     val transcriptionLabel: String,
     val processingStage: ProcessingStageUiState = ProcessingStageUiState.idle(),
     val transcriptPreviewSnippets: List<TranscriptPreviewSnippet>,
+    val tagLabels: List<String> = emptyList(),
     val summaryLabel: String,
     val isRecording: Boolean,
     val actionState: RecordingActionState,

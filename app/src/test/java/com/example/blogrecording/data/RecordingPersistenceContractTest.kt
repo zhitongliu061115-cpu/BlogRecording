@@ -9,7 +9,7 @@ class RecordingPersistenceContractTest {
     fun contractKeepsDatastoreAndKeyFamilies() {
         assertEquals("podcast_recap_records", RecordingPersistenceContract.DATASTORE_NAME)
         assertEquals("schema_version", RecordingPersistenceContract.SCHEMA_VERSION_KEY)
-        assertEquals(2, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
+        assertEquals(5, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
         assertEquals("session_order", RecordingPersistenceContract.SESSION_ORDER_KEY)
         assertEquals("session_abc", RecordingPersistenceContract.sessionKey("abc"))
         assertEquals("segments_abc", RecordingPersistenceContract.segmentsKey("abc"))
@@ -24,6 +24,7 @@ class RecordingPersistenceContractTest {
         assertTrue("summaryLanguage" in RecordingPersistenceContract.SESSION_FIELDS)
         assertEquals("INTERNAL_AUDIO", AudioSourceType.INTERNAL_AUDIO.name)
         assertEquals("MICROPHONE", AudioSourceType.MICROPHONE.name)
+        assertEquals("LOCAL_MEDIA", AudioSourceType.LOCAL_MEDIA.name)
         assertEquals("CAPTURING_AUDIO", RecordingStatus.CAPTURING_AUDIO.name)
         assertEquals("VAD_DETECTING", RecordingStatus.VAD_DETECTING.name)
         assertEquals("DIARIZING", RecordingStatus.DIARIZING.name)
@@ -45,14 +46,47 @@ class RecordingPersistenceContractTest {
 
     @Test
     fun contractDefinesPodcastSessionAndRecordingSegmentJsonFields() {
-        assertEquals(21, RecordingPersistenceContract.PODCAST_SESSION_FIELDS.size)
+        assertEquals(24, RecordingPersistenceContract.PODCAST_SESSION_FIELDS.size)
         assertTrue("activeSegmentId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("legacyRecordingSessionId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("summary" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("importedContent" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("tagGeneration" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("highlights" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
 
-        assertEquals(6, RecordingPersistenceContract.SESSION_SUMMARY_FIELDS.size)
+        assertEquals(11, RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS.size)
+        assertTrue("displayName" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("mimeType" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("status" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("sourceUrl" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("sourceHost" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertEquals("URL_MEDIA", ImportedContentKind.URL_MEDIA.name)
+
+        assertEquals(7, RecordingPersistenceContract.SESSION_SUMMARY_FIELDS.size)
         assertTrue("generatedAt" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
         assertTrue("errorMessage" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
+        assertTrue("structured" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
+
+        assertEquals(7, RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS.size)
+        assertTrue("overview" in RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS)
+        assertTrue("keyPoints" in RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS)
+        assertTrue("quoteCandidates" in RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS)
+        assertTrue("timelineChapters" in RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS)
+        assertEquals("FALLBACK_TEXT", StructuredSummaryParseStatus.FALLBACK_TEXT.name)
+
+        assertEquals(6, RecordingPersistenceContract.TIMELINE_CHAPTER_FIELDS.size)
+        assertTrue("title" in RecordingPersistenceContract.TIMELINE_CHAPTER_FIELDS)
+        assertTrue("startMs" in RecordingPersistenceContract.TIMELINE_CHAPTER_FIELDS)
+        assertTrue("sourceEndMs" in RecordingPersistenceContract.TIMELINE_CHAPTER_FIELDS)
+
+        assertEquals(3, RecordingPersistenceContract.SESSION_HIGHLIGHTS_FIELDS.size)
+        assertTrue("items" in RecordingPersistenceContract.SESSION_HIGHLIGHTS_FIELDS)
+        assertTrue("updatedAt" in RecordingPersistenceContract.SESSION_HIGHLIGHTS_FIELDS)
+
+        assertEquals(11, RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS.size)
+        assertTrue("normalizedKey" in RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS)
+        assertTrue("transcriptSegmentIds" in RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS)
+        assertTrue("isFavorite" in RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS)
 
         assertEquals(16, RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS.size)
         assertTrue("transcriptSegmentIds" in RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS)

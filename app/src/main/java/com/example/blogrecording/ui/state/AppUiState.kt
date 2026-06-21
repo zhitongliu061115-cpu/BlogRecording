@@ -7,11 +7,16 @@ import com.example.blogrecording.data.ModelLoadStatus
 import com.example.blogrecording.data.ModelStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
+import com.example.blogrecording.data.SessionHighlight
+import com.example.blogrecording.data.SessionQaMessage
+import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.data.TranscriptSegmentEntity
 
 enum class AppScreen {
     HOME,
+    AI,
+    MINE,
     SETTINGS,
     HISTORY,
     DETAIL
@@ -20,9 +25,14 @@ enum class AppScreen {
 data class AppUiState(
     val currentScreen: AppScreen = AppScreen.HOME,
     val home: HomeUiState = HomeUiState(),
+    val aiChat: AiChatUiState = AiChatUiState(),
     val settings: AppSettings = AppSettings(),
     val hasApiKey: Boolean = false,
     val currentSession: RecordingSessionEntity? = null,
+    val currentPodcastSummary: SessionSummary? = null,
+    val currentTagLabels: List<String> = emptyList(),
+    val currentHighlights: List<SessionHighlight> = emptyList(),
+    val currentQaMessages: List<SessionQaMessage> = emptyList(),
     val sessions: List<RecordingSessionEntity> = emptyList(),
     val currentSegments: List<TranscriptSegmentEntity> = emptyList(),
     val selectedSessionId: String? = null,
@@ -40,6 +50,7 @@ data class AppUiState(
     ),
     val isGeneratingSummary: Boolean = false,
     val summaryStylePicker: SummaryStylePickerState? = null,
+    val isAskingQa: Boolean = false,
     val error: AppError? = null
 )
 

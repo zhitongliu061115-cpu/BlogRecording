@@ -56,6 +56,7 @@ interface SessionRepository {
         modelName: String,
         summaryText: String? = null,
         generatedAt: Long? = null,
+        structuredSummary: StructuredSummary? = null,
         errorMessage: String? = null
     ): AppResult<PodcastSession> {
         return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("summary lifecycle unsupported"))

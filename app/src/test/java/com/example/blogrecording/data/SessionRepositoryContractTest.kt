@@ -335,6 +335,7 @@ class SessionRepositoryContractTest {
             modelName: String,
             summaryText: String?,
             generatedAt: Long?,
+            structuredSummary: StructuredSummary?,
             errorMessage: String?
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return missing()
@@ -358,7 +359,14 @@ class SessionRepositoryContractTest {
                     SummaryStatus.FAILED -> existing?.generatedAt
                 },
                 updatedAt = 999L,
-                errorMessage = if (status == SummaryStatus.FAILED) boundedError else null
+                errorMessage = if (status == SummaryStatus.FAILED) boundedError else null,
+                structured = when (status) {
+                    SummaryStatus.SUMMARIZED -> structuredSummary
+                    SummaryStatus.NOT_READY,
+                    SummaryStatus.READY,
+                    SummaryStatus.SUMMARIZING,
+                    SummaryStatus.FAILED -> existing?.structured
+                }
             )
             val sessionStatus = when (status) {
                 SummaryStatus.NOT_READY -> detail.session.status

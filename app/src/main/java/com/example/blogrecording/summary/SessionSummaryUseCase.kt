@@ -11,7 +11,11 @@ import kotlinx.coroutines.flow.first
 class SessionSummaryUseCase(
     private val sessionRepository: SessionRepository,
     private val readApiKey: suspend () -> AppResult<String>,
-    private val generateSummary: suspend (apiKey: String, transcript: String, settings: AppSettings) -> AppResult<String>,
+    private val generateSummary: suspend (
+        apiKey: String,
+        transcript: String,
+        settings: AppSettings
+    ) -> AppResult<SummaryGenerationResult>,
     private val nowMillis: () -> Long = System::currentTimeMillis
 ) {
     suspend fun start(
@@ -48,8 +52,9 @@ class SessionSummaryUseCase(
                 sessionId = sessionId,
                 status = SummaryStatus.SUMMARIZED,
                 modelName = settings.deepSeekModel,
-                summaryText = result.value,
-                generatedAt = nowMillis()
+                summaryText = result.value.text,
+                generatedAt = nowMillis(),
+                structuredSummary = result.value.structured
             )
             is AppResult.Failure -> {
                 markFailed(sessionId, settings, result.error)

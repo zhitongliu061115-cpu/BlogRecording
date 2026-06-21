@@ -11,6 +11,8 @@ import com.example.blogrecording.data.RecordingSegment
 import com.example.blogrecording.data.RecordingSegmentStatus
 import com.example.blogrecording.data.SessionRepository
 import com.example.blogrecording.data.SessionSummary
+import com.example.blogrecording.data.StructuredSummary
+import com.example.blogrecording.data.StructuredSummaryParseStatus
 import com.example.blogrecording.data.SummaryLanguage
 import com.example.blogrecording.data.SummaryStatus
 import com.example.blogrecording.data.SummaryStyle
@@ -42,7 +44,7 @@ class SessionSummaryUseCaseTest {
             repository = repository,
             generateSummary = { _, transcript, _ ->
                 capturedTranscript = transcript
-                AppResult.Success("session summary")
+                AppResult.Success(summaryResult("session summary"))
             }
         )
 
@@ -52,6 +54,7 @@ class SessionSummaryUseCaseTest {
         assertEquals(PodcastSessionStatus.SUMMARIZED, session.status)
         assertEquals(SummaryStatus.SUMMARIZED, session.summary?.status)
         assertEquals("session summary", session.summary?.text)
+        assertEquals("session summary", session.summary?.structured?.overview)
         assertOrdered(capturedTranscript, "first segment", "second segment")
     }
 
@@ -65,7 +68,7 @@ class SessionSummaryUseCaseTest {
             readApiKey = { AppResult.Failure(AppError.DeepSeekApiKeyMissing) },
             generateSummary = { _, _, _ ->
                 generateCalls += 1
-                AppResult.Success("should not happen")
+                AppResult.Success(summaryResult("should not happen"))
             }
         )
 
@@ -108,6 +111,7 @@ class SessionSummaryUseCaseTest {
         assertEquals(PodcastSessionStatus.READY_FOR_SUMMARY, latest.status)
         assertEquals(SummaryStatus.FAILED, latest.summary?.status)
         assertEquals("previous summary", latest.summary?.text)
+        assertEquals("previous summary", latest.summary?.structured?.overview)
         assertEquals(500L, latest.summary?.generatedAt)
         assertEquals("DeepSeek summary request failed", latest.summary?.errorMessage)
         assertFalse(latest.summary?.errorMessage.orEmpty().contains("ready"))
@@ -149,8 +153,8 @@ class SessionSummaryUseCaseTest {
     private fun useCase(
         repository: FakeSessionRepository,
         readApiKey: suspend () -> AppResult<String> = { AppResult.Success("api-key") },
-        generateSummary: suspend (String, String, AppSettings) -> AppResult<String> = { _, _, _ ->
-            AppResult.Success("summary")
+        generateSummary: suspend (String, String, AppSettings) -> AppResult<SummaryGenerationResult> = { _, _, _ ->
+            AppResult.Success(summaryResult("summary"))
         }
     ): SessionSummaryUseCase {
         return SessionSummaryUseCase(
@@ -216,6 +220,7 @@ class SessionSummaryUseCaseTest {
             modelName: String,
             summaryText: String?,
             generatedAt: Long?,
+            structuredSummary: StructuredSummary?,
             errorMessage: String?
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
@@ -238,7 +243,14 @@ class SessionSummaryUseCaseTest {
                     SummaryStatus.FAILED -> existing?.generatedAt
                 },
                 updatedAt = 1_000L,
-                errorMessage = if (status == SummaryStatus.FAILED) errorMessage?.take(160) else null
+                errorMessage = if (status == SummaryStatus.FAILED) errorMessage?.take(160) else null,
+                structured = when (status) {
+                    SummaryStatus.SUMMARIZED -> structuredSummary
+                    SummaryStatus.NOT_READY,
+                    SummaryStatus.READY,
+                    SummaryStatus.SUMMARIZING,
+                    SummaryStatus.FAILED -> existing?.structured
+                }
             )
             val sessionStatus = when (status) {
                 SummaryStatus.NOT_READY -> detail.session.status
@@ -374,7 +386,29 @@ class SessionSummaryUseCaseTest {
                 modelName = "deepseek-chat",
                 generatedAt = generatedAt,
                 updatedAt = generatedAt ?: 1L,
-                errorMessage = null
+                errorMessage = null,
+                structured = StructuredSummary(
+                    overview = text,
+                    keyPoints = emptyList(),
+                    actionItems = emptyList(),
+                    openQuestions = emptyList(),
+                    quoteCandidates = emptyList(),
+                    parseStatus = StructuredSummaryParseStatus.FALLBACK_TEXT
+                )
+            )
+        }
+
+        fun summaryResult(text: String): SummaryGenerationResult {
+            return SummaryGenerationResult(
+                text = text,
+                structured = StructuredSummary(
+                    overview = text,
+                    keyPoints = emptyList(),
+                    actionItems = emptyList(),
+                    openQuestions = emptyList(),
+                    quoteCandidates = emptyList(),
+                    parseStatus = StructuredSummaryParseStatus.FALLBACK_TEXT
+                )
             )
         }
     }

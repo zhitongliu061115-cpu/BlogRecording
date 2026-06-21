@@ -19,4 +19,19 @@ class SummaryPromptBuilderTest {
         assertTrue(prompt.contains("用中文输出"))
         assertTrue(prompt.contains("[00:00:01 - 00:00:03] Speaker 1"))
     }
+    @Test
+    fun promptRequestsStructuredJsonFields() {
+        val prompt = SummaryPromptBuilder().buildChunkPrompt(
+            transcript = "content",
+            language = SummaryLanguage.CHINESE,
+            style = SummaryStyle.POINTS_QUOTES_ACTIONS
+        )
+
+        assertTrue(prompt.contains("JSON"))
+        assertTrue(prompt.contains("overview"))
+        assertTrue(prompt.contains("keyPoints"))
+        assertTrue(prompt.contains("actionItems"))
+        assertTrue(prompt.contains("openQuestions"))
+        assertTrue(prompt.contains("quoteCandidates"))
+    }
 }

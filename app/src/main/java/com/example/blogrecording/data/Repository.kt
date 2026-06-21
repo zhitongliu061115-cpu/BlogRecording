@@ -411,6 +411,7 @@ class Repository(private val context: Context) : SessionRepository {
         modelName: String,
         summaryText: String?,
         generatedAt: Long?,
+        structuredSummary: StructuredSummary?,
         errorMessage: String?
     ): AppResult<PodcastSession> {
         val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
@@ -426,6 +427,13 @@ class Repository(private val context: Context) : SessionRepository {
                 SummaryStatus.READY,
                 SummaryStatus.SUMMARIZING,
                 SummaryStatus.FAILED -> existing?.text.orEmpty()
+            },
+            structured = when (status) {
+                SummaryStatus.SUMMARIZED -> structuredSummary
+                SummaryStatus.NOT_READY,
+                SummaryStatus.READY,
+                SummaryStatus.SUMMARIZING,
+                SummaryStatus.FAILED -> existing?.structured
             },
             status = status,
             modelName = modelName.takeIf { it.isNotBlank() }

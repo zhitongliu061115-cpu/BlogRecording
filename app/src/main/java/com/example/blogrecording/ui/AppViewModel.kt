@@ -140,18 +140,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val podcastDetails = podcastSessions.mapNotNull { session ->
                     repository.observeSessionDetail(session.id).first()
                 }
-                mutableState.value = mutableState.value.copy(
-                    home = HomeUiStateMapper.map(
-                        details = podcastDetails,
-                        renameDialog = mutableState.value.home.renameDialog,
-                        error = mutableState.value.error,
-                        processingStage = mutableState.value.processingStage,
-                        processingSessionId = mutableState.value.processingSessionId,
-                        hasApiKey = apiKeyStore.hasApiKey()
-                    ),
+                val current = mutableState.value
+                val home = HomeUiStateMapper.map(
+                    details = podcastDetails,
+                    renameDialog = current.home.renameDialog,
+                    error = current.error,
+                    processingStage = current.processingStage,
+                    processingSessionId = current.processingSessionId,
+                    hasApiKey = apiKeyStore.hasApiKey()
+                )
+                mutableState.value = current.copy(
+                    home = home,
+                    aiChat = AiChatUiStateMapper.syncFromHome(current.aiChat, home),
                     settings = settings,
                     sessions = sessions,
-                    currentSession = selected ?: mutableState.value.currentSession?.takeUnless {
+                    currentSession = selected ?: current.currentSession?.takeUnless {
                         it.status.isInterruptedOnStartup()
                     },
                     hasApiKey = apiKeyStore.hasApiKey(),
@@ -163,6 +166,35 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun navigate(screen: AppScreen) {
         mutableState.value = UiNavigationPolicy.navigate(mutableState.value, screen)
+    }
+
+    fun selectAiPodcast(sessionId: String) {
+        val now = System.currentTimeMillis()
+        mutableState.value = mutableState.value.copy(
+            aiChat = AiChatUiStateMapper.selectPodcast(mutableState.value.aiChat, sessionId, now),
+            error = null
+        )
+    }
+
+    fun startNewAiConversation() {
+        mutableState.value = mutableState.value.copy(
+            aiChat = AiChatUiStateMapper.startNewConversation(mutableState.value.aiChat),
+            error = null
+        )
+    }
+
+    fun updateAiDraft(draft: String) {
+        mutableState.value = mutableState.value.copy(
+            aiChat = AiChatUiStateMapper.updateDraft(mutableState.value.aiChat, draft)
+        )
+    }
+
+    fun sendAiDraft() {
+        val now = System.currentTimeMillis()
+        mutableState.value = mutableState.value.copy(
+            aiChat = AiChatUiStateMapper.sendDraft(mutableState.value.aiChat, now),
+            error = null
+        )
     }
 
     fun openDetail(sessionId: String) {

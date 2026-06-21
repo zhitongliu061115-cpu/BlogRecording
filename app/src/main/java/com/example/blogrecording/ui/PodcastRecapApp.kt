@@ -68,7 +68,13 @@ fun PodcastRecapApp(
                         onOpenDetail = viewModel::openDetail,
                         onNavigate = viewModel::navigate
                     )
-                    AppScreen.AI -> Text("AI 助手")
+                    AppScreen.AI -> AiChatScreen(
+                        state = state.aiChat,
+                        onSelectPodcast = viewModel::selectAiPodcast,
+                        onNewConversation = viewModel::startNewAiConversation,
+                        onDraftChange = viewModel::updateAiDraft,
+                        onSend = viewModel::sendAiDraft
+                    )
                     AppScreen.MINE -> MineScreen(
                         state = state,
                         onNavigate = viewModel::navigate

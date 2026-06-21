@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.example.blogrecording.common.toUserMessage
 import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.StructuredSummary
+import com.example.blogrecording.data.TimelineChapter
 import com.example.blogrecording.data.toTranscriptText
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.state.ProcessingStageUiState
@@ -112,10 +113,27 @@ private fun StructuredSummaryContent(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(structured.overview.ifBlank { fallbackText.ifBlank { "暂无总结。" } })
+        TimelineChapterSection(structured.timelineChapters)
         SummarySection("关键要点", structured.keyPoints)
         SummarySection("行动项", structured.actionItems)
         SummarySection("开放问题", structured.openQuestions)
         SummarySection("金句候选", structured.quoteCandidates)
+    }
+}
+
+@Composable
+private fun TimelineChapterSection(chapters: List<TimelineChapter>) {
+    if (chapters.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("章节时间线", style = MaterialTheme.typography.titleSmall)
+        chapters.forEach { chapter ->
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("${chapter.timeLabel()} ${chapter.title}".trim())
+                chapter.keyPoints.forEach { point ->
+                    Text("- $point", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
     }
 }
 
@@ -128,6 +146,23 @@ private fun SummarySection(title: String, items: List<String>) {
             Text("- $item")
         }
     }
+}
+
+private fun TimelineChapter.timeLabel(): String {
+    val start = startMs?.formatTimelineMs()
+    val end = endMs?.formatTimelineMs()
+    return when {
+        start != null && end != null -> "$start-$end"
+        start != null -> start
+        else -> ""
+    }
+}
+
+private fun Long.formatTimelineMs(): String {
+    val totalSeconds = this / 1000L
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return "%02d:%02d".format(minutes, seconds)
 }
 
 @Composable

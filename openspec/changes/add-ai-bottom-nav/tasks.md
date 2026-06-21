@@ -9,7 +9,7 @@
 
 ## 3. AI Page
 
-- [ ] 3.1 Add AI chat UI state and mapper from existing Home podcast cards; verify first-entry chooser and new-conversation behavior with unit tests.
+- [x] 3.1 Add AI chat UI state and mapper from existing Home podcast cards; verify first-entry chooser and new-conversation behavior with unit tests.
 - [ ] 3.2 Implement the AI chat screen with horizontal podcast cards, WeChat-like message bubbles, input row, and top-right new conversation action; verify with compile.
 
 ## 4. Mine Page

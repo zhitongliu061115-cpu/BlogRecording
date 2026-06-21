@@ -80,7 +80,7 @@ object SessionTagGenerator {
     }
 
     private fun extractModelTags(raw: String): List<String> {
-        val jsonText = extractJsonObject(raw) ?: return emptyList()
+        val jsonText = SummaryJsonExtractor.extractObject(raw) ?: return emptyList()
         val json = try {
             JSONObject(jsonText)
         } catch (_: JSONException) {
@@ -126,18 +126,6 @@ object SessionTagGenerator {
             }
         }
         return emptyList()
-    }
-
-    private fun extractJsonObject(raw: String): String? {
-        val fenced = Regex(
-            "```(?:json)?\\s*(\\{.*?})\\s*```",
-            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
-        ).find(raw)?.groupValues?.getOrNull(1)
-        if (!fenced.isNullOrBlank()) return fenced
-        val start = raw.indexOf('{')
-        val end = raw.lastIndexOf('}')
-        if (start < 0 || end <= start) return null
-        return raw.substring(start, end + 1)
     }
 
     private fun String.cleanTagText(): String {

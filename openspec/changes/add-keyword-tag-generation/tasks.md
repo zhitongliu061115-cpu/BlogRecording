@@ -17,8 +17,8 @@
 ## 4. Tests And Harness
 
 - [x] 4.1 Add unit tests for tag parsing, normalization, duplicate removal, compatibility, blocked states, and UI state mapping.
-- [ ] 4.2 Run `openspec.cmd validate add-keyword-tag-generation`.
-- [ ] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 4.2 Run `openspec.cmd validate add-keyword-tag-generation`.
+- [x] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 4.4 Manually verify Chinese content, English content, short content, duplicate tags, and failed retry.
 
 ## Suggested Commits

@@ -22,8 +22,8 @@
 ## 5. Tests And Harness
 
 - [x] 5.1 Add unit tests for prompt output, parser success, parser fallback, old data compatibility, and UI state mapping.
-- [ ] 5.2 Run `openspec.cmd validate add-structured-session-summary`.
-- [ ] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 5.2 Run `openspec.cmd validate add-structured-session-summary`.
+- [x] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 5.4 Manually verify configured API key, missing API key, empty transcript, malformed model response, and retry failure.
 
 ## Suggested Commits

@@ -27,13 +27,12 @@ class SummaryPromptBuilderTest {
             style = SummaryStyle.BULLET_SUMMARY
         )
 
-        assertTrue(prompt.contains("JSON"))
-        assertTrue(prompt.contains("overview"))
-        assertTrue(prompt.contains("keyPoints"))
-        assertTrue(prompt.contains("actionItems"))
-        assertTrue(prompt.contains("openQuestions"))
-        assertTrue(prompt.contains("quoteCandidates"))
-        assertTrue(prompt.contains("timelineChapters"))
-        assertTrue(prompt.contains("tags"))
+        assertTrue(prompt.contains("要点列表"))
+        assertTrue(prompt.contains("Markdown 分级列表"))
+        assertTrue(prompt.contains("核心主题"))
+        assertTrue(prompt.contains("关键要点"))
+        assertTrue(prompt.contains("重要数据/事实"))
+        assertTrue(prompt.contains("争议或未决话题"))
+        assertTrue(prompt.contains("500 字"))
     }
 }

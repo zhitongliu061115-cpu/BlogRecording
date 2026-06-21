@@ -17,8 +17,8 @@
 ## 4. Tests And Harness
 
 - [x] 4.1 Add unit tests for source mapping, favorite toggling, deduplication, regeneration preservation, and compatibility.
-- [ ] 4.2 Run `openspec.cmd validate add-session-highlights`.
-- [ ] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 4.2 Run `openspec.cmd validate add-session-highlights`.
+- [x] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 4.4 Manually verify favorite, unfavorite, regeneration, missing source time, and duplicate candidate behavior.
 
 ## Suggested Commits

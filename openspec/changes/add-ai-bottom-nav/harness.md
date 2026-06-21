@@ -17,6 +17,15 @@
 
 ## Results
 
+- 2026-06-21 DeepSeek QA reuse update:
+  - `openspec.cmd validate add-ai-bottom-nav`: passed.
+  - `git diff --check`: passed.
+  - `.\gradlew.bat testDebugUnitTest --tests "com.example.blogrecording.ui.AiChatUiStateMapperTest" --tests "com.example.blogrecording.ui.UiNavigationPolicyTest" --tests "com.example.blogrecording.qa.SessionQaUseCaseTest"`: passed.
+  - `.\gradlew.bat compileDebugAndroidTestKotlin`: passed.
+  - `.\gradlew.bat testDebugUnitTest`: passed.
+  - `.\gradlew.bat assembleDebug`: passed.
+  - Manual device inspection: not run because no connected adb device or emulator was available.
+
 - `openspec.cmd validate add-ai-bottom-nav`: passed.
 - `git diff --check`: passed.
 - `.\gradlew.bat testDebugUnitTest --tests "com.example.blogrecording.ui.UiNavigationPolicyTest" --tests "com.example.blogrecording.ui.AiChatUiStateMapperTest"`: passed.

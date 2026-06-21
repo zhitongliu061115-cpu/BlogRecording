@@ -18,8 +18,8 @@
 ## 4. Tests And Harness
 
 - [x] 4.1 Add unit tests for Markdown, TXT, JSON, escaping, empty fields, filename sanitization, and format versioning.
-- [ ] 4.2 Run `openspec.cmd validate add-session-export`.
-- [ ] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 4.2 Run `openspec.cmd validate add-session-export`.
+- [x] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 4.4 Run `.\gradlew.bat connectedDebugAndroidTest` when a device or emulator is available.
 - [ ] 4.5 Manually verify save, share, cancellation, write failure, and missing optional sections.
 

@@ -24,7 +24,7 @@ class SummaryPromptBuilderTest {
         val prompt = SummaryPromptBuilder().buildChunkPrompt(
             transcript = "content",
             language = SummaryLanguage.CHINESE,
-            style = SummaryStyle.POINTS_QUOTES_ACTIONS
+            style = SummaryStyle.BULLET_SUMMARY
         )
 
         assertTrue(prompt.contains("JSON"))

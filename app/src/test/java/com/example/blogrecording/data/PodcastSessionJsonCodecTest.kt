@@ -334,7 +334,7 @@ class PodcastSessionJsonCodecTest {
             lastCompletedSegmentId = "segment-2",
             transcript = "transcript",
             summary = summary,
-            summaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
+            summaryStyle = SummaryStyle.BULLET_SUMMARY,
             summaryLanguage = SummaryLanguage.CHINESE,
             summaryModelName = "deepseek-chat",
             asrModelName = "SenseVoice sherpa-onnx",

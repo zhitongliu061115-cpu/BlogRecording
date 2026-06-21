@@ -45,8 +45,7 @@ internal object PodcastSessionJsonCodec {
             lastCompletedSegmentId = json.nullableString("lastCompletedSegmentId"),
             transcript = json.optString("transcript"),
             summary = json.optJSONObject("summary")?.let(::decodeSummary),
-            summaryStyle = json.optString("summaryStyle", SummaryStyle.POINTS_QUOTES_ACTIONS.name)
-                .toEnumOrDefault(SummaryStyle.POINTS_QUOTES_ACTIONS),
+            summaryStyle = SummaryStyle.fromLegacyName(json.optString("summaryStyle", SummaryStyle.BULLET_SUMMARY.name)),
             summaryLanguage = json.optString("summaryLanguage", SummaryLanguage.CHINESE.name)
                 .toEnumOrDefault(SummaryLanguage.CHINESE),
             summaryModelName = json.optString("summaryModelName", "deepseek-chat"),

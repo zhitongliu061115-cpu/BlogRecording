@@ -20,7 +20,7 @@ class RecordingEntityCompatibilityTest {
             vadModelName = "Silero VAD sherpa-onnx",
             diarizationModelName = "sherpa-onnx speaker diarization",
             summaryModelName = "deepseek-chat",
-            summaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
+            summaryStyle = SummaryStyle.BULLET_SUMMARY,
             summaryLanguage = SummaryLanguage.CHINESE,
             detectedSpeakerCount = 2,
             segmentCount = 3,
@@ -36,7 +36,7 @@ class RecordingEntityCompatibilityTest {
         assertEquals("Speaker 1: hello", session.transcript)
         assertNull(session.summary)
         assertEquals("deepseek-chat", session.summaryModelName)
-        assertEquals(SummaryStyle.POINTS_QUOTES_ACTIONS, session.summaryStyle)
+        assertEquals(SummaryStyle.BULLET_SUMMARY, session.summaryStyle)
         assertEquals(SummaryLanguage.CHINESE, session.summaryLanguage)
         assertEquals(2, session.detectedSpeakerCount)
         assertEquals(3, session.segmentCount)

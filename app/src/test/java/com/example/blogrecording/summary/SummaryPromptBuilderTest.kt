@@ -11,7 +11,7 @@ class SummaryPromptBuilderTest {
         val prompt = SummaryPromptBuilder().buildChunkPrompt(
             transcript = "[00:00:01 - 00:00:03] Speaker 1：内容",
             language = SummaryLanguage.CHINESE,
-            style = SummaryStyle.POINTS_QUOTES_ACTIONS
+            style = SummaryStyle.BULLET_SUMMARY
         )
 
         assertTrue(prompt.contains("不要编造"))
@@ -24,16 +24,15 @@ class SummaryPromptBuilderTest {
         val prompt = SummaryPromptBuilder().buildChunkPrompt(
             transcript = "content",
             language = SummaryLanguage.CHINESE,
-            style = SummaryStyle.POINTS_QUOTES_ACTIONS
+            style = SummaryStyle.BULLET_SUMMARY
         )
 
-        assertTrue(prompt.contains("JSON"))
-        assertTrue(prompt.contains("overview"))
-        assertTrue(prompt.contains("keyPoints"))
-        assertTrue(prompt.contains("actionItems"))
-        assertTrue(prompt.contains("openQuestions"))
-        assertTrue(prompt.contains("quoteCandidates"))
-        assertTrue(prompt.contains("timelineChapters"))
-        assertTrue(prompt.contains("tags"))
+        assertTrue(prompt.contains("要点列表"))
+        assertTrue(prompt.contains("Markdown 分级列表"))
+        assertTrue(prompt.contains("核心主题"))
+        assertTrue(prompt.contains("关键要点"))
+        assertTrue(prompt.contains("重要数据/事实"))
+        assertTrue(prompt.contains("争议或未决话题"))
+        assertTrue(prompt.contains("500 字"))
     }
 }

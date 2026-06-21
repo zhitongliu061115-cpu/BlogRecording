@@ -64,11 +64,24 @@ enum class SummaryLanguage {
     FOLLOW_PODCAST
 }
 
-enum class SummaryStyle {
-    BRIEF,
-    DEEP_RECAP,
-    TIMELINE_NOTES,
-    POINTS_QUOTES_ACTIONS
+enum class SummaryStyle(val displayName: String, val description: String) {
+    QUICK_OVERVIEW("快速概览", "一段轻松概括，快速抓住核心"),
+    BULLET_SUMMARY("要点列表", "结构化分级列表，清晰有层次"),
+    DEEP_ANALYSIS("深度复盘", "多章节严谨分析，全面深入"),
+    TIMELINE_NOTES("时间线笔记", "按时间顺序记录，带时间戳"),
+    ACTION_ITEMS("行动清单", "只提取可执行的待办事项"),
+    GOLDEN_QUOTES("金句收录", "摘录原文金句，附语境说明");
+
+    companion object {
+        fun fromLegacyName(name: String): SummaryStyle {
+            return when (name) {
+                "BRIEF" -> QUICK_OVERVIEW
+                "DEEP_RECAP" -> DEEP_ANALYSIS
+                "POINTS_QUOTES_ACTIONS" -> BULLET_SUMMARY
+                else -> enumValues<SummaryStyle>().firstOrNull { it.name == name } ?: BULLET_SUMMARY
+            }
+        }
+    }
 }
 
 enum class ModelLoadStatus {
@@ -487,7 +500,7 @@ object PodcastSessionStateMachine {
 data class AppSettings(
     val deepSeekModel: String = "deepseek-chat",
     val summaryLanguage: SummaryLanguage = SummaryLanguage.CHINESE,
-    val summaryStyle: SummaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
+    val summaryStyle: SummaryStyle = SummaryStyle.BULLET_SUMMARY,
     val sherpaModelRootPath: String = "",
     val senseVoiceModelPath: String = "",
     val vadModelPath: String = "",

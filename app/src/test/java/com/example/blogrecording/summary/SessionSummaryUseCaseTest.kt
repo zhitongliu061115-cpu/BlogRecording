@@ -46,7 +46,7 @@ class SessionSummaryUseCaseTest {
         var capturedTranscript = ""
         val useCase = useCase(
             repository = repository,
-            generateSummary = { _, transcript, _ ->
+            generateSummary = { _, transcript, _, _ ->
                 capturedTranscript = transcript
                 AppResult.Success(summaryResult("session summary"))
             }
@@ -74,7 +74,7 @@ class SessionSummaryUseCaseTest {
         val useCase = useCase(
             repository = repository,
             readApiKey = { AppResult.Failure(AppError.DeepSeekApiKeyMissing) },
-            generateSummary = { _, _, _ ->
+            generateSummary = { _, _, _, _ ->
                 generateCalls += 1
                 AppResult.Success(summaryResult("should not happen"))
             }
@@ -108,7 +108,7 @@ class SessionSummaryUseCaseTest {
         )
         val useCase = useCase(
             repository = repository,
-            generateSummary = { _, _, _ ->
+            generateSummary = { _, _, _, _ ->
                 AppResult.Failure(AppError.NetworkFailed("provider raw payload with transcript ready"))
             }
         )
@@ -164,7 +164,7 @@ class SessionSummaryUseCaseTest {
     private fun useCase(
         repository: FakeSessionRepository,
         readApiKey: suspend () -> AppResult<String> = { AppResult.Success("api-key") },
-        generateSummary: suspend (String, String, AppSettings) -> AppResult<SummaryGenerationResult> = { _, _, _ ->
+        generateSummary: suspend (String, String, AppSettings, SummaryStyle?) -> AppResult<SummaryGenerationResult> = { _, _, _, _ ->
             AppResult.Success(summaryResult("summary"))
         }
     ): SessionSummaryUseCase {
@@ -366,7 +366,7 @@ class SessionSummaryUseCaseTest {
                 lastCompletedSegmentId = null,
                 transcript = "",
                 summary = summary,
-                summaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
+                summaryStyle = SummaryStyle.BULLET_SUMMARY,
                 summaryLanguage = SummaryLanguage.CHINESE,
                 summaryModelName = "deepseek-chat",
                 asrModelName = "SenseVoice sherpa-onnx",

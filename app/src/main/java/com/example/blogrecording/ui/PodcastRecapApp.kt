@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
+import com.example.blogrecording.data.SummaryStyle
 import com.example.blogrecording.export.SessionExportFormat
 import com.example.blogrecording.ui.components.PrivacyNoticeDialog
 import com.example.blogrecording.ui.state.AppScreen
@@ -64,7 +65,9 @@ fun PodcastRecapApp(
                         onRequestRename = viewModel::requestRenamePodcastSession,
                         onRenameSession = viewModel::renamePodcastSession,
                         onDismissRename = viewModel::dismissRenamePodcastSession,
-                        onStartSummary = viewModel::startSummaryForPodcastSession,
+                        onStartSummary = viewModel::requestSummaryStylePick,
+                        onStartSummaryWithStyle = viewModel::startSummaryWithStyle,
+                        onDismissStylePicker = viewModel::dismissSummaryStylePicker,
                         onOpenDetail = viewModel::openDetail,
                         onNavigate = viewModel::navigate
                     )

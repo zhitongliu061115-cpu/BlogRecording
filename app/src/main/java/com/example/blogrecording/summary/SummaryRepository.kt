@@ -7,6 +7,7 @@ import com.example.blogrecording.data.SessionTagGeneration
 import com.example.blogrecording.data.SessionHighlights
 import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.StructuredSummaryParseStatus
+import com.example.blogrecording.data.SummaryStyle
 
 data class SummaryGenerationResult(
     val text: String,
@@ -24,7 +25,8 @@ class SummaryRepository(
     suspend fun generateSummary(
         apiKey: String,
         transcript: String,
-        settings: AppSettings
+        settings: AppSettings,
+        overrideStyle: SummaryStyle? = null
     ): AppResult<SummaryGenerationResult> {
         when (val validation = SummaryGenerationPolicy.validateInputs(apiKey, transcript)) {
             is AppResult.Failure -> return validation
@@ -33,9 +35,11 @@ class SummaryRepository(
         val chunks = chunker.chunk(transcript)
         if (chunks.isEmpty()) return AppResult.Failure(AppError.Unknown("转写为空"))
 
+        val effectiveStyle = overrideStyle ?: settings.summaryStyle
+
         val partials = mutableListOf<String>()
         for (chunk in chunks) {
-            val prompt = promptBuilder.buildChunkPrompt(chunk, settings.summaryLanguage, settings.summaryStyle)
+            val prompt = promptBuilder.buildChunkPrompt(chunk, settings.summaryLanguage, effectiveStyle)
             when (val result = client.summarize(apiKey, settings.deepSeekModel, prompt)) {
                 is AppResult.Success -> partials += result.value
                 is AppResult.Failure -> return result
@@ -45,7 +49,7 @@ class SummaryRepository(
         val rawSummary = if (partials.size == 1) {
             partials.first()
         } else {
-            val finalPrompt = promptBuilder.buildFinalPrompt(partials, settings.summaryLanguage, settings.summaryStyle)
+            val finalPrompt = promptBuilder.buildFinalPrompt(partials, settings.summaryLanguage, effectiveStyle)
             when (val final = client.summarize(apiKey, settings.deepSeekModel, finalPrompt)) {
                 is AppResult.Success -> final.value
                 is AppResult.Failure -> return final

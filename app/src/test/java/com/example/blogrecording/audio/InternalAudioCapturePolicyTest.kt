@@ -2,6 +2,7 @@ package com.example.blogrecording.audio
 
 import android.media.AudioAttributes
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class InternalAudioCapturePolicyTest {
@@ -10,5 +11,15 @@ class InternalAudioCapturePolicyTest {
         assertTrue(InternalAudioCapturePolicy.matchingUsages.contains(AudioAttributes.USAGE_MEDIA))
         assertTrue(InternalAudioCapturePolicy.matchingUsages.contains(AudioAttributes.USAGE_GAME))
         assertTrue(InternalAudioCapturePolicy.matchingUsages.contains(AudioAttributes.USAGE_UNKNOWN))
+    }
+
+    @Test
+    fun defaultInternalCaptureDoesNotTargetInstalledPodcastPackageUid() {
+        assertTrue(InternalAudioCapturePolicy.preferredCapturePackages.isEmpty())
+        assertFalse(
+            InternalAudioCapturePolicy.preferredCapturePackages.contains(
+                InternalAudioCapturePolicy.COSMOS_PACKAGE_NAME
+            )
+        )
     }
 }

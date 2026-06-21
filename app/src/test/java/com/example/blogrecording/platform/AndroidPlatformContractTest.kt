@@ -1,6 +1,7 @@
 package com.example.blogrecording.platform
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,5 +41,12 @@ class AndroidPlatformContractTest {
             "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" in
                 AndroidPlatformContract.REQUIRED_PERMISSIONS
         )
+    }
+
+    @Test
+    fun internalAudioMvpDoesNotRequirePrivilegedSystemCapturePermissions() {
+        assertFalse("android.permission.CAPTURE_AUDIO_OUTPUT" in AndroidPlatformContract.REQUIRED_PERMISSIONS)
+        assertFalse("android.permission.CAPTURE_MEDIA_OUTPUT" in AndroidPlatformContract.REQUIRED_PERMISSIONS)
+        assertFalse("android.permission.CAPTURE_AUDIO_HOTWORD" in AndroidPlatformContract.REQUIRED_PERMISSIONS)
     }
 }

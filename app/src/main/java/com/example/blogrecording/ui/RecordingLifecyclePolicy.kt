@@ -25,7 +25,7 @@ internal object RecordingLifecyclePolicy {
         return if (error == AppError.InternalAudioSilent) {
             RecordingLifecycleState(
                 recordingStatus = RecordingStatus.CAPTURING_AUDIO,
-                vadLabel = "等待可捕获的系统声音",
+                vadLabel = "源 App 可能禁止系统内录或当前音频为空；请换可捕获音源、切扬声器，或使用麦克风录音",
                 error = null,
                 persistFailure = false
             )

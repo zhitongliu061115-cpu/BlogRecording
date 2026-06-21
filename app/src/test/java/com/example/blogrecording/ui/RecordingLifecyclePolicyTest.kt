@@ -61,7 +61,9 @@ class RecordingLifecyclePolicyTest {
         assertEquals(RecordingStatus.CAPTURING_AUDIO, state.recordingStatus)
         assertFalse(state.persistFailure)
         assertNull(state.error)
-        assertTrue(state.vadLabel!!.contains("系统声音"))
+        assertTrue(state.vadLabel!!.contains("源 App"))
+        assertTrue(state.vadLabel.contains("扬声器"))
+        assertTrue(state.vadLabel.contains("麦克风"))
     }
 
     @Test

@@ -31,6 +31,13 @@ data class ProcessingStageUiState(
             isActive = true
         )
 
+        fun mediaProjectionDenied(): ProcessingStageUiState = ProcessingStageUiState(
+            stage = ProcessingStage.ERROR,
+            title = "需要允许屏幕和音频捕获",
+            message = "未允许屏幕/音频捕获，系统内录无法开始；请重新开始并允许授权，或使用麦克风录音。",
+            isWarning = true
+        )
+
         fun capturing(sourceLabel: String): ProcessingStageUiState = ProcessingStageUiState(
             stage = ProcessingStage.CAPTURING,
             title = "${sourceLabel}录制中",
@@ -73,7 +80,7 @@ data class ProcessingStageUiState(
         fun silentInternalAudio(): ProcessingStageUiState = ProcessingStageUiState(
             stage = ProcessingStage.SILENCE,
             title = "未捕获到可转写声音",
-            message = "当前 App 可能不允许系统内录，或正在播放静音",
+            message = "当前 App 可能不允许系统内录，或正在播放静音；可换可捕获音源、切扬声器，或用麦克风录音。",
             isActive = true,
             isWarning = true
         )

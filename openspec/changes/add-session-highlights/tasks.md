@@ -10,9 +10,9 @@
 
 ## 3. User Actions And UI
 
-- [ ] 3.1 Support favorite and unfavorite actions with persistent state.
+- [x] 3.1 Support favorite and unfavorite actions with persistent state.
 - [x] 3.2 Preserve user-favorited highlights when summary/highlight generation is retried.
-- [ ] 3.3 Display highlights and favorite state on the detail screen.
+- [x] 3.3 Display highlights and favorite state on the detail screen.
 
 ## 4. Tests And Harness
 

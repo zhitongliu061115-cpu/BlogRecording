@@ -58,6 +58,7 @@ fun PodcastRecapApp(
                 state = state,
                 onBack = { viewModel.navigate(AppScreen.HISTORY) },
                 onGenerateSummary = viewModel::generateSummaryForCurrent,
+                onToggleHighlightFavorite = viewModel::toggleHighlightFavorite,
                 onDelete = viewModel::deleteCurrentSession
             )
         }

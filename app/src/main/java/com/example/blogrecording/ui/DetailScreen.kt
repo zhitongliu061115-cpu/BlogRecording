@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.example.blogrecording.common.toUserMessage
+import com.example.blogrecording.data.SessionHighlight
 import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.TimelineChapter
@@ -33,6 +34,7 @@ fun DetailScreen(
     state: AppUiState,
     onBack: () -> Unit,
     onGenerateSummary: () -> Unit,
+    onToggleHighlightFavorite: (String) -> Unit,
     onDelete: () -> Unit
 ) {
     val clipboard = LocalClipboardManager.current
@@ -84,10 +86,40 @@ fun DetailScreen(
             }
         }
         TagSection(state.currentTagLabels)
+        HighlightSection(
+            highlights = state.currentHighlights,
+            onToggleFavorite = onToggleHighlightFavorite
+        )
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("说话人说明", style = MaterialTheme.typography.titleMedium)
                 Text("Speaker 1、Speaker 2 是自动分离标签，不代表真实身份。多人同时说话、背景音乐和麦克风外放录音会降低准确性。")
+            }
+        }
+    }
+}
+
+@Composable
+private fun HighlightSection(
+    highlights: List<SessionHighlight>,
+    onToggleFavorite: (String) -> Unit
+) {
+    if (highlights.isEmpty()) return
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("高光 / 金句", style = MaterialTheme.typography.titleMedium)
+            highlights.forEach { highlight ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(highlight.text)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        highlight.timeLabel()?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall)
+                        }
+                        OutlinedButton(onClick = { onToggleFavorite(highlight.id) }) {
+                            Text(if (highlight.isFavorite) "取消收藏" else "收藏")
+                        }
+                    }
+                }
             }
         }
     }
@@ -189,6 +221,16 @@ private fun Long.formatTimelineMs(): String {
     val minutes = totalSeconds / 60L
     val seconds = totalSeconds % 60L
     return "%02d:%02d".format(minutes, seconds)
+}
+
+private fun SessionHighlight.timeLabel(): String? {
+    val start = sourceStartMs?.formatTimelineMs()
+    val end = sourceEndMs?.formatTimelineMs()
+    return when {
+        start != null && end != null -> "$start-$end"
+        start != null -> start
+        else -> null
+    }
 }
 
 @Composable

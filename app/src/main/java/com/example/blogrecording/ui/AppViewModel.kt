@@ -53,6 +53,7 @@ import com.example.blogrecording.security.ApiKeyStore
 import com.example.blogrecording.service.CaptureNotificationState
 import com.example.blogrecording.service.CaptureForegroundService
 import com.example.blogrecording.summary.DeepSeekSummaryClient
+import com.example.blogrecording.summary.SessionHighlightGenerator
 import com.example.blogrecording.summary.SessionSummaryUseCase
 import com.example.blogrecording.summary.SummaryRepository
 import com.example.blogrecording.ui.state.AppScreen
@@ -161,8 +162,28 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 currentTagLabels = detail?.session?.tagGeneration?.tags
                     ?.sortedBy { it.order }
                     ?.map { it.text }
-                    .orEmpty()
+                    .orEmpty(),
+                currentHighlights = detail?.session?.highlights?.items.orEmpty()
             )
+        }
+    }
+
+    fun toggleHighlightFavorite(highlightId: String) {
+        val sessionId = mutableState.value.selectedSessionId ?: return
+        viewModelScope.launch {
+            val detail = repository.observeSessionDetail(sessionId).first() ?: return@launch
+            val updatedHighlights = SessionHighlightGenerator.toggleFavorite(
+                highlights = detail.session.highlights,
+                highlightId = highlightId,
+                nowMillis = System.currentTimeMillis()
+            )
+            when (val result = repository.updateHighlights(sessionId, updatedHighlights)) {
+                is AppResult.Success -> mutableState.value = mutableState.value.copy(
+                    currentHighlights = result.value.highlights.items,
+                    error = null
+                )
+                is AppResult.Failure -> mutableState.value = mutableState.value.copy(error = result.error)
+            }
         }
     }
 
@@ -472,6 +493,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         } else {
                             mutableState.value.currentTagLabels
                         },
+                        currentHighlights = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.highlights?.items.orEmpty()
+                        } else {
+                            mutableState.value.currentHighlights
+                        },
                         currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
                             segments
                         } else {
@@ -497,6 +523,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                                 .orEmpty()
                         } else {
                             mutableState.value.currentTagLabels
+                        },
+                        currentHighlights = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.highlights?.items.orEmpty()
+                        } else {
+                            mutableState.value.currentHighlights
                         },
                         error = result.error
                     )

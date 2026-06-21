@@ -181,14 +181,14 @@ class InternalAudioCaptureManager(
         val matchingUids = preferredCaptureUids()
         if (matchingUids.isNotEmpty()) {
             matchingUids.forEach { uid -> builder.addMatchingUid(uid) }
-            Log.i(TAG, "capture_config matchingUids=${matchingUids.joinToString(",")}")
+            Log.i(TAG, "capture_config mode=matching_uids matchingUids=${matchingUids.joinToString(",")}")
             return builder.build()
         }
 
         InternalAudioCapturePolicy.matchingUsages.forEach { usage ->
             builder.addMatchingUsage(usage)
         }
-        Log.i(TAG, "capture_config fallback_to_usages=${InternalAudioCapturePolicy.matchingUsages.joinToString(",")}")
+        Log.i(TAG, "capture_config mode=usages usages=${InternalAudioCapturePolicy.matchingUsages.joinToString(",")}")
         return builder.build()
     }
 

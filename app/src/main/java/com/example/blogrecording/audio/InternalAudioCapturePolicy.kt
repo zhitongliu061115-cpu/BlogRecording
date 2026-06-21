@@ -11,5 +11,5 @@ internal object InternalAudioCapturePolicy {
         AudioAttributes.USAGE_UNKNOWN
     )
 
-    val preferredCapturePackages = listOf(COSMOS_PACKAGE_NAME)
+    val preferredCapturePackages = emptyList<String>()
 }

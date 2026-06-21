@@ -33,5 +33,6 @@ class SummaryPromptBuilderTest {
         assertTrue(prompt.contains("actionItems"))
         assertTrue(prompt.contains("openQuestions"))
         assertTrue(prompt.contains("quoteCandidates"))
+        assertTrue(prompt.contains("timelineChapters"))
     }
 }

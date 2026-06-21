@@ -118,7 +118,17 @@ internal object RecordingPersistenceContract {
         "actionItems",
         "openQuestions",
         "quoteCandidates",
+        "timelineChapters",
         "parseStatus"
+    )
+
+    val TIMELINE_CHAPTER_FIELDS = setOf(
+        "title",
+        "startMs",
+        "endMs",
+        "keyPoints",
+        "sourceStartMs",
+        "sourceEndMs"
     )
 
     val RECORDING_SEGMENT_FIELDS = setOf(

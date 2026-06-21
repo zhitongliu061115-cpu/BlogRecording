@@ -80,6 +80,16 @@ class PodcastSessionJsonCodecTest {
                 actionItems = listOf("action"),
                 openQuestions = listOf("question"),
                 quoteCandidates = listOf("quote"),
+                timelineChapters = listOf(
+                    TimelineChapter(
+                        title = "Intro",
+                        startMs = 0L,
+                        endMs = 10_000L,
+                        keyPoints = listOf("hello"),
+                        sourceStartMs = 0L,
+                        sourceEndMs = 10_000L
+                    )
+                ),
                 parseStatus = StructuredSummaryParseStatus.STRUCTURED
             )
         )

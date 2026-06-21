@@ -122,6 +122,7 @@ internal object PodcastSessionJsonCodec {
             .put("actionItems", JSONArray(summary.actionItems))
             .put("openQuestions", JSONArray(summary.openQuestions))
             .put("quoteCandidates", JSONArray(summary.quoteCandidates))
+            .put("timelineChapters", encodeTimelineChapters(summary.timelineChapters))
             .put("parseStatus", summary.parseStatus.name)
     }
 
@@ -132,8 +133,40 @@ internal object PodcastSessionJsonCodec {
             actionItems = json.stringList("actionItems"),
             openQuestions = json.stringList("openQuestions"),
             quoteCandidates = json.stringList("quoteCandidates"),
+            timelineChapters = json.optJSONArray("timelineChapters")?.let(::decodeTimelineChapters).orEmpty(),
             parseStatus = json.optString("parseStatus", StructuredSummaryParseStatus.STRUCTURED.name)
                 .toEnumOrDefault(StructuredSummaryParseStatus.STRUCTURED)
+        )
+    }
+
+    fun encodeTimelineChapters(chapters: List<TimelineChapter>): JSONArray {
+        return JSONArray(chapters.map(::encodeTimelineChapter))
+    }
+
+    fun decodeTimelineChapters(array: JSONArray): List<TimelineChapter> {
+        return List(array.length()) { index ->
+            decodeTimelineChapter(array.getJSONObject(index))
+        }
+    }
+
+    fun encodeTimelineChapter(chapter: TimelineChapter): JSONObject {
+        return JSONObject()
+            .put("title", chapter.title)
+            .put("startMs", chapter.startMs)
+            .put("endMs", chapter.endMs)
+            .put("keyPoints", JSONArray(chapter.keyPoints))
+            .put("sourceStartMs", chapter.sourceStartMs)
+            .put("sourceEndMs", chapter.sourceEndMs)
+    }
+
+    fun decodeTimelineChapter(json: JSONObject): TimelineChapter {
+        return TimelineChapter(
+            title = json.optString("title"),
+            startMs = json.nullableLong("startMs"),
+            endMs = json.nullableLong("endMs"),
+            keyPoints = json.stringList("keyPoints"),
+            sourceStartMs = json.nullableLong("sourceStartMs"),
+            sourceEndMs = json.nullableLong("sourceEndMs")
         )
     }
 

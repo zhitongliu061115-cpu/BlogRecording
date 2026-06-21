@@ -170,7 +170,17 @@ data class StructuredSummary(
     val actionItems: List<String>,
     val openQuestions: List<String>,
     val quoteCandidates: List<String>,
+    val timelineChapters: List<TimelineChapter> = emptyList(),
     val parseStatus: StructuredSummaryParseStatus = StructuredSummaryParseStatus.STRUCTURED
+)
+
+data class TimelineChapter(
+    val title: String,
+    val startMs: Long?,
+    val endMs: Long?,
+    val keyPoints: List<String>,
+    val sourceStartMs: Long?,
+    val sourceEndMs: Long?
 )
 
 enum class StructuredSummaryParseStatus {

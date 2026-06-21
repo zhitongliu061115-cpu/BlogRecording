@@ -22,6 +22,7 @@ object StructuredSummaryParser {
         val actionItems = firstList(json, "actionItems", "action_items", "actions")
         val openQuestions = firstList(json, "openQuestions", "open_questions", "questions")
         val quoteCandidates = firstList(json, "quoteCandidates", "quote_candidates", "quotes")
+        val timelineChapters = TimelineChapterParser.parse(json.toString(), bounds = null)
         if (
             overview.isBlank() &&
             keyPoints.isEmpty() &&
@@ -48,6 +49,7 @@ object StructuredSummaryParser {
             actionItems = actionItems.take(MAX_ITEMS),
             openQuestions = openQuestions.take(MAX_ITEMS),
             quoteCandidates = quoteCandidates.take(MAX_ITEMS),
+            timelineChapters = timelineChapters,
             parseStatus = parseStatus
         )
     }

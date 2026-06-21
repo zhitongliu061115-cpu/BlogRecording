@@ -73,9 +73,17 @@ class LocalMediaImporter(
             }
         }
         try {
-            emit(decodeCachedFile(cached))
+            emit(decodeCachedMediaFile(cached))
         } finally {
             cached.delete()
+        }
+    }
+
+    fun decodeCachedFile(file: File, deleteAfter: Boolean = true): Flow<AppResult<DecodedLocalMedia>> = flow {
+        try {
+            emit(decodeCachedMediaFile(file))
+        } finally {
+            if (deleteAfter) file.delete()
         }
     }
 
@@ -94,7 +102,7 @@ class LocalMediaImporter(
         }
     }
 
-    private fun decodeCachedFile(file: File): AppResult<DecodedLocalMedia> {
+    private fun decodeCachedMediaFile(file: File): AppResult<DecodedLocalMedia> {
         val extractor = MediaExtractor()
         return try {
             extractor.setDataSource(file.absolutePath)

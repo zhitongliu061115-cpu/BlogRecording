@@ -41,6 +41,9 @@ import com.example.blogrecording.diarization.SpeakerSegment
 import com.example.blogrecording.diarization.SpeakerProfileManager
 import com.example.blogrecording.importing.DecodedLocalMedia
 import com.example.blogrecording.importing.LocalMediaImporter
+import com.example.blogrecording.importing.UrlImportSourceKind
+import com.example.blogrecording.importing.UrlMediaImportPolicy
+import com.example.blogrecording.importing.UrlMediaImporter
 import com.example.blogrecording.recording.ActiveRecordingSegment
 import com.example.blogrecording.recording.RecordingController
 import com.example.blogrecording.recording.SegmentRecorder
@@ -75,6 +78,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsStore = SettingsStore(application)
     private val repository = Repository(application)
     private val localMediaImporter = LocalMediaImporter(application)
+    private val urlMediaImporter = UrlMediaImporter(application)
     private val apiKeyStore = ApiKeyStore(application)
     private val bundledModelInstaller = BundledModelInstaller(application)
     private val summaryRepository = SummaryRepository(DeepSeekSummaryClient())
@@ -253,6 +257,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch(captureDispatcher) {
             runLocalMediaImport(uri)
+        }
+    }
+
+    fun importUrlMedia(url: String) {
+        if (recordingController.currentState().isRecording) {
+            mutableState.value = mutableState.value.copy(
+                processingStage = ProcessingStageUiState.error(AppError.LocalMediaImportBlocked.toUserMessage()),
+                error = AppError.LocalMediaImportBlocked
+            )
+            return
+        }
+        viewModelScope.launch(captureDispatcher) {
+            runUrlMediaImport(url)
         }
     }
 
@@ -972,6 +989,125 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private suspend fun runUrlMediaImport(url: String) {
+        val settings = mutableState.value.settings
+        val gateError = modelGateError(settings)
+        if (gateError != null) {
+            withContext(Dispatchers.Main.immediate) {
+                mutableState.value = mutableState.value.copy(
+                    processingStage = ProcessingStageUiState.error(gateError.toUserMessage()),
+                    error = gateError
+                )
+            }
+            return
+        }
+        val source = when (val validation = UrlMediaImportPolicy.validate(url)) {
+            is AppResult.Success -> validation.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = validation.error)
+                return
+            }
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                audioSourceType = AudioSourceType.LOCAL_MEDIA,
+                recordingStatus = RecordingStatus.TRANSCRIBING,
+                processingStage = ProcessingStageUiState.importing(
+                    message = "正在解析 ${source.kind.toUserLabel()} 链接"
+                ),
+                processingSessionId = null,
+                error = null
+            )
+        }
+        val now = System.currentTimeMillis()
+        val initialMetadata = ImportedContentMetadata(
+            kind = ImportedContentKind.URL_MEDIA,
+            displayName = source.displayName,
+            mimeType = null,
+            sizeBytes = null,
+            durationMs = null,
+            status = ImportedContentStatus.RESOLVING,
+            errorMessage = null,
+            importedAt = now,
+            updatedAt = now,
+            sourceUrl = source.sanitizedUrl,
+            sourceHost = source.host
+        )
+        val session = when (val created = repository.createImportedSession(
+            title = source.displayName,
+            metadata = initialMetadata
+        )) {
+            is AppResult.Success -> created.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = created.error)
+                return
+            }
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                selectedSessionId = session.id,
+                currentSession = repository.getSession(session.id),
+                currentSegments = emptyList(),
+                processingStage = ProcessingStageUiState.importing("正在解析链接媒体"),
+                processingSessionId = session.id,
+                error = null
+            )
+        }
+        val resolved = when (val resolvedResult = urlMediaImporter.resolve(source)) {
+            is AppResult.Success -> resolvedResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(session.id, resolvedResult.error, initialMetadata)
+                return
+            }
+        }
+        val downloadingMetadata = initialMetadata.copy(
+            displayName = resolved.displayName,
+            mimeType = resolved.mimeType,
+            sizeBytes = resolved.sizeBytes,
+            status = ImportedContentStatus.DOWNLOADING,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.updateImportedContent(
+            sessionId = session.id,
+            metadata = downloadingMetadata,
+            status = PodcastSessionStatus.PROCESSING
+        )
+        updateRecordingState(
+            currentSession = repository.getSession(session.id),
+            currentSegments = emptyList(),
+            recordingStatus = RecordingStatus.TRANSCRIBING,
+            vadLabel = "正在下载远程媒体",
+            processingStage = ProcessingStageUiState.importing("正在下载远程音视频"),
+            processingSessionId = session.id,
+            error = null
+        )
+        val downloaded = when (val downloadResult = urlMediaImporter.download(source, resolved)) {
+            is AppResult.Success -> downloadResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(session.id, downloadResult.error, downloadingMetadata)
+                return
+            }
+        }
+        val downloadedMetadata = downloadingMetadata.copy(
+            displayName = downloaded.displayName,
+            mimeType = downloaded.mimeType ?: downloadingMetadata.mimeType,
+            sizeBytes = downloaded.sizeBytes,
+            status = ImportedContentStatus.COPYING,
+            updatedAt = System.currentTimeMillis()
+        )
+        localMediaImporter.decodeCachedFile(downloaded.file).collect { result ->
+            when (result) {
+                is AppResult.Failure -> updateLocalImportError(session.id, result.error, downloadedMetadata)
+                is AppResult.Success -> processDecodedLocalMedia(
+                    sessionId = session.id,
+                    metadata = downloadedMetadata,
+                    decoded = result.value,
+                    settings = settings
+                )
+            }
+        }
+    }
+
     private suspend fun processDecodedLocalMedia(
         sessionId: String,
         metadata: ImportedContentMetadata,
@@ -1316,6 +1452,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             AudioSourceType.INTERNAL_AUDIO -> CaptureNotificationState.SOURCE_SYSTEM_AUDIO
             AudioSourceType.MICROPHONE -> CaptureNotificationState.SOURCE_MICROPHONE
             AudioSourceType.LOCAL_MEDIA -> CaptureNotificationState.SOURCE_AUDIO
+        }
+    }
+
+    private fun UrlImportSourceKind.toUserLabel(): String {
+        return when (this) {
+            UrlImportSourceKind.XIAOYUZHOU_EPISODE -> "小宇宙单期"
+            UrlImportSourceKind.DIRECT_MEDIA -> "直链媒体"
+            UrlImportSourceKind.RSS_ENCLOSURE -> "RSS enclosure"
+            UrlImportSourceKind.UNSUPPORTED -> "URL"
         }
     }
 

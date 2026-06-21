@@ -109,6 +109,7 @@ class MainActivity : ComponentActivity() {
                     onImportLocalMedia = {
                         localMediaLauncher.launch(arrayOf("audio/*", "video/*"))
                     },
+                    onImportUrlMedia = viewModel::importUrlMedia,
                     onStartInternalSession = { sessionId ->
                         viewModel.prepareInternalAudioAuthorization(sessionId)
                         pendingStart.value = PendingStartAction.Internal(sessionId)
@@ -153,6 +154,7 @@ fun AppPreview() {
             state = AppUiState(),
             onCreateSession = {},
             onImportLocalMedia = {},
+            onImportUrlMedia = {},
             onStartInternal = {},
             onStartMicrophone = {},
             onStartInternalSession = {},

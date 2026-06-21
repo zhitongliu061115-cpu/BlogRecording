@@ -53,6 +53,7 @@ fun HomeScreen(
     state: AppUiState,
     onCreateSession: () -> Unit,
     onImportLocalMedia: () -> Unit,
+    onImportUrlMedia: (String) -> Unit,
     onStartInternal: () -> Unit,
     onStartMicrophone: () -> Unit,
     onStartInternalSession: (String) -> Unit,
@@ -69,6 +70,7 @@ fun HomeScreen(
     onNavigate: (AppScreen) -> Unit
 ) {
     val home = state.home
+    var urlImportDialogOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -88,7 +90,8 @@ fun HomeScreen(
         if (home.isEmpty) {
             HomeEmptyState(
                 onCreateSession = onCreateSession,
-                onImportLocalMedia = onImportLocalMedia
+                onImportLocalMedia = onImportLocalMedia,
+                onImportUrlMedia = { urlImportDialogOpen = true }
             )
         } else {
             Row(
@@ -102,6 +105,9 @@ fun HomeScreen(
                     }
                     OutlinedButton(onClick = onImportLocalMedia) {
                         Text("导入音视频")
+                    }
+                    OutlinedButton(onClick = { urlImportDialogOpen = true }) {
+                        Text("导入 URL")
                     }
                 }
             }
@@ -130,6 +136,9 @@ fun HomeScreen(
             }
             OutlinedButton(onClick = onImportLocalMedia) {
                 Text("导入音视频")
+            }
+            OutlinedButton(onClick = { urlImportDialogOpen = true }) {
+                Text("导入 URL")
             }
             OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
                 Text("历史")
@@ -163,12 +172,22 @@ fun HomeScreen(
             onDismiss = onDismissRename
         )
     }
+    if (urlImportDialogOpen) {
+        UrlImportDialog(
+            onConfirm = { url ->
+                urlImportDialogOpen = false
+                onImportUrlMedia(url)
+            },
+            onDismiss = { urlImportDialogOpen = false }
+        )
+    }
 }
 
 @Composable
 fun HomeEmptyState(
     onCreateSession: () -> Unit,
     onImportLocalMedia: () -> Unit,
+    onImportUrlMedia: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -185,6 +204,9 @@ fun HomeEmptyState(
             }
             OutlinedButton(onClick = onImportLocalMedia) {
                 Text("导入音视频")
+            }
+            OutlinedButton(onClick = onImportUrlMedia) {
+                Text("导入 URL")
             }
         }
     }
@@ -442,6 +464,48 @@ private fun RenamePodcastDialog(
     )
 }
 
+@Composable
+private fun UrlImportDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var url by remember {
+        mutableStateOf("https://www.xiaoyuzhoufm.com/episode/6a3392764233e62bc54be185")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("导入 URL") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    singleLine = true,
+                    label = { Text("小宇宙单期 / 直链媒体 / RSS") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "优先支持小宇宙单期链接；不支持登录、Cookie 或私有内容。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(url) },
+                enabled = url.isNotBlank()
+            ) {
+                Text("导入")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun PodcastSessionCardPreview() {
@@ -497,6 +561,7 @@ private fun HomeScreenEmptyPreview() {
         ),
         onCreateSession = {},
         onImportLocalMedia = {},
+        onImportUrlMedia = {},
         onStartInternal = {},
         onStartMicrophone = {},
         onStartInternalSession = {},

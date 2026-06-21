@@ -157,7 +157,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val segments = repository.getSegments(sessionId)
             val detail = repository.observeSessionDetail(sessionId).first()
             mutableState.value = UiNavigationPolicy.openDetail(mutableState.value, sessionId, session, segments).copy(
-                currentPodcastSummary = detail?.session?.summary
+                currentPodcastSummary = detail?.session?.summary,
+                currentTagLabels = detail?.session?.tagGeneration?.tags
+                    ?.sortedBy { it.order }
+                    ?.map { it.text }
+                    .orEmpty()
             )
         }
     }
@@ -460,6 +464,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
                         currentPodcastSummary = detail?.session?.summary,
+                        currentTagLabels = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.tagGeneration?.tags
+                                ?.sortedBy { it.order }
+                                ?.map { it.text }
+                                .orEmpty()
+                        } else {
+                            mutableState.value.currentTagLabels
+                        },
                         currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
                             segments
                         } else {
@@ -478,6 +490,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
                         currentPodcastSummary = detail?.session?.summary,
+                        currentTagLabels = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.tagGeneration?.tags
+                                ?.sortedBy { it.order }
+                                ?.map { it.text }
+                                .orEmpty()
+                        } else {
+                            mutableState.value.currentTagLabels
+                        },
                         error = result.error
                     )
                 }

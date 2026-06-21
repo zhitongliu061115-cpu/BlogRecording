@@ -24,6 +24,7 @@ data class AppUiState(
     val hasApiKey: Boolean = false,
     val currentSession: RecordingSessionEntity? = null,
     val currentPodcastSummary: SessionSummary? = null,
+    val currentTagLabels: List<String> = emptyList(),
     val sessions: List<RecordingSessionEntity> = emptyList(),
     val currentSegments: List<TranscriptSegmentEntity> = emptyList(),
     val selectedSessionId: String? = null,

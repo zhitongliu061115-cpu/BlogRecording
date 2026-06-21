@@ -30,6 +30,7 @@ object UiNavigationPolicy {
             currentScreen = AppScreen.HISTORY,
             currentSession = null,
             currentPodcastSummary = null,
+            currentTagLabels = emptyList(),
             currentSegments = emptyList(),
             selectedSessionId = null
         )

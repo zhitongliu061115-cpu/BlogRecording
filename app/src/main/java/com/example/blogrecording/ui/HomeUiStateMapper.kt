@@ -99,6 +99,10 @@ object HomeUiStateMapper {
                 session.id == processingSessionId || session.id == activeRecordingSessionId
             } ?: session.toProcessingStage(),
             transcriptPreviewSnippets = transcriptPreviewSnippets(),
+            tagLabels = session.tagGeneration.tags
+                .sortedBy { it.order }
+                .take(MAX_HOME_TAGS)
+                .map { it.text },
             summaryLabel = summaryLabel(session, hasTranscript),
             isRecording = isRecording,
             actionState = RecordingActionState(
@@ -229,6 +233,7 @@ object HomeUiStateMapper {
 
     private const val MAX_HOME_CARDS = 5
     private const val MAX_TRANSCRIPT_PREVIEW_SNIPPETS = 3
+    private const val MAX_HOME_TAGS = 4
 
     private val RESUMABLE_STATUSES = setOf(
         PodcastSessionStatus.PAUSED,

@@ -283,6 +283,8 @@ fun PodcastSessionCard(
                 CardInfoText("摘要 ${state.summaryLabel}")
             }
 
+            TagRow(tags = state.tagLabels)
+
             ProcessingStagePanel(state.processingStage)
 
             TranscriptPreview(snippets = state.transcriptPreviewSnippets)
@@ -338,6 +340,24 @@ fun PodcastSessionCard(
             state.startSummaryDisabledReason?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagRow(tags: List<String>) {
+    if (tags.isEmpty()) return
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        tags.forEach { tag ->
+            Text(
+                text = "#$tag",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -522,6 +542,7 @@ private fun PodcastSessionCardPreview() {
                 TranscriptPreviewSnippet("0:12", "欢迎来到本期播客。"),
                 TranscriptPreviewSnippet("0:28", "我们先聊一下今天的主题。")
             ),
+            tagLabels = listOf("AI", "播客"),
             summaryLabel = "未就绪",
             isRecording = true,
             actionState = RecordingActionState(

@@ -10,8 +10,8 @@
 
 ## 3. UI And Failure States
 
-- [ ] 3.1 Display a compact tag subset on home cards.
-- [ ] 3.2 Display the full generated tag list on the detail screen.
+- [x] 3.1 Display a compact tag subset on home cards.
+- [x] 3.2 Display the full generated tag list on the detail screen.
 - [x] 3.3 Handle missing API key, empty transcript, repeated tags, long tags, and failed retry.
 
 ## 4. Tests And Harness

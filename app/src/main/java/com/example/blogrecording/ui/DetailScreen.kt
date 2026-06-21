@@ -16,6 +16,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +28,9 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.example.blogrecording.common.toUserMessage
+import com.example.blogrecording.data.QaMessageStatus
 import com.example.blogrecording.data.SessionHighlight
+import com.example.blogrecording.data.SessionQaMessage
 import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.TimelineChapter
@@ -44,6 +47,8 @@ fun DetailScreen(
     onToggleHighlightFavorite: (String) -> Unit,
     onSaveExport: (SessionExportFormat) -> Unit,
     onShareExport: (SessionExportFormat) -> Unit,
+    onAskQuestion: (String) -> Unit,
+    onRetryQuestion: (String) -> Unit,
     onDelete: () -> Unit
 ) {
     val clipboard = LocalClipboardManager.current
@@ -103,6 +108,18 @@ fun DetailScreen(
         HighlightSection(
             highlights = state.currentHighlights,
             onToggleFavorite = onToggleHighlightFavorite
+        )
+        SessionQaSection(
+            messages = state.currentQaMessages,
+            isAsking = state.isAskingQa,
+            hasApiKey = state.hasApiKey,
+            hasContent = session?.transcript?.isNotBlank() == true ||
+                state.currentSegments.any { it.text.isNotBlank() } ||
+                state.currentPodcastSummary != null ||
+                state.currentTagLabels.isNotEmpty() ||
+                state.currentHighlights.isNotEmpty(),
+            onAskQuestion = onAskQuestion,
+            onRetryQuestion = onRetryQuestion
         )
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -176,6 +193,81 @@ private fun SessionExportFormat.displayLabel(): String {
         SessionExportFormat.MARKDOWN -> "Markdown"
         SessionExportFormat.TXT -> "TXT"
         SessionExportFormat.JSON -> "JSON"
+    }
+}
+
+@Composable
+private fun SessionQaSection(
+    messages: List<SessionQaMessage>,
+    isAsking: Boolean,
+    hasApiKey: Boolean,
+    hasContent: Boolean,
+    onAskQuestion: (String) -> Unit,
+    onRetryQuestion: (String) -> Unit
+) {
+    var question by remember { mutableStateOf("") }
+    val disabledReason = when {
+        !hasApiKey -> "请先在设置里配置 DeepSeek API Key"
+        !hasContent -> "需要先有转写、总结或高光内容"
+        isAsking -> "正在回答"
+        else -> null
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("单期 AI 问答", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = question,
+                onValueChange = { question = it },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                label = { Text("提问") },
+                enabled = !isAsking
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = question.isNotBlank() && disabledReason == null,
+                    onClick = {
+                        val readyQuestion = question
+                        question = ""
+                        onAskQuestion(readyQuestion)
+                    }
+                ) {
+                    Text(if (isAsking) "回答中" else "发送")
+                }
+                disabledReason?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            messages.forEach { message ->
+                QaMessageItem(message = message, onRetryQuestion = onRetryQuestion)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QaMessageItem(
+    message: SessionQaMessage,
+    onRetryQuestion: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("问：${message.question}", style = MaterialTheme.typography.bodyMedium)
+        when (message.status) {
+            QaMessageStatus.ANSWERING -> Text("答：回答中", style = MaterialTheme.typography.bodySmall)
+            QaMessageStatus.ANSWERED -> Text("答：${message.answer.orEmpty()}")
+            QaMessageStatus.FAILED -> {
+                Text("失败：${message.errorMessage.orEmpty().ifBlank { "问答失败" }}", color = MaterialTheme.colorScheme.error)
+                OutlinedButton(onClick = { onRetryQuestion(message.id) }) {
+                    Text("重试")
+                }
+            }
+            QaMessageStatus.BLOCKED_MISSING_API_KEY -> {
+                Text("未配置 API Key", color = MaterialTheme.colorScheme.error)
+            }
+            QaMessageStatus.BLOCKED_EMPTY_CONTENT -> {
+                Text("缺少可问答内容", color = MaterialTheme.colorScheme.error)
+            }
+        }
     }
 }
 

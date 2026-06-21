@@ -20,6 +20,8 @@ fun PodcastRecapApp(
     onImportUrlMedia: (String) -> Unit = {},
     onSaveExport: (SessionExportFormat) -> Unit = {},
     onShareExport: (SessionExportFormat) -> Unit = {},
+    onAskQuestion: (String) -> Unit = viewModel::askQuestionForCurrentSession,
+    onRetryQuestion: (String) -> Unit = viewModel::retryQaForCurrentSession,
     onResumeInternalSession: (String) -> Unit = onStartInternalSession,
     onResumeMicrophoneSession: (String) -> Unit = onStartMicrophoneSession
 ) {
@@ -64,6 +66,8 @@ fun PodcastRecapApp(
                 onToggleHighlightFavorite = viewModel::toggleHighlightFavorite,
                 onSaveExport = onSaveExport,
                 onShareExport = onShareExport,
+                onAskQuestion = onAskQuestion,
+                onRetryQuestion = onRetryQuestion,
                 onDelete = viewModel::deleteCurrentSession
             )
         }

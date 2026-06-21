@@ -8,6 +8,7 @@ import com.example.blogrecording.data.ModelStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
 import com.example.blogrecording.data.SessionHighlight
+import com.example.blogrecording.data.SessionQaMessage
 import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.TranscriptSegmentEntity
 
@@ -27,6 +28,7 @@ data class AppUiState(
     val currentPodcastSummary: SessionSummary? = null,
     val currentTagLabels: List<String> = emptyList(),
     val currentHighlights: List<SessionHighlight> = emptyList(),
+    val currentQaMessages: List<SessionQaMessage> = emptyList(),
     val sessions: List<RecordingSessionEntity> = emptyList(),
     val currentSegments: List<TranscriptSegmentEntity> = emptyList(),
     val selectedSessionId: String? = null,
@@ -43,5 +45,6 @@ data class AppUiState(
         diarization = ModelLoadStatus.MISSING
     ),
     val isGeneratingSummary: Boolean = false,
+    val isAskingQa: Boolean = false,
     val error: AppError? = null
 )

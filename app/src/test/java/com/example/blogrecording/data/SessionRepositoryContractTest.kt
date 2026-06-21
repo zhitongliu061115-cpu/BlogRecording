@@ -453,6 +453,16 @@ class SessionRepositoryContractTest {
             return AppResult.Success(updated)
         }
 
+        override suspend fun updateQaHistory(
+            sessionId: String,
+            qaHistory: SessionQaHistory
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return missing()
+            val updated = detail.session.copy(qaHistory = qaHistory)
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
         override fun observeSessions(): Flow<List<PodcastSession>> {
             return details.map { value -> value.values.map { it.session } }
         }

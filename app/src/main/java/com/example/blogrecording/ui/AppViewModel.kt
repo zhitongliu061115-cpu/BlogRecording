@@ -47,6 +47,8 @@ import com.example.blogrecording.importing.UrlMediaImporter
 import com.example.blogrecording.export.SessionExportFormat
 import com.example.blogrecording.export.SessionExportPayload
 import com.example.blogrecording.export.SessionExportRenderer
+import com.example.blogrecording.qa.DeepSeekQaClient
+import com.example.blogrecording.qa.SessionQaUseCase
 import com.example.blogrecording.recording.ActiveRecordingSegment
 import com.example.blogrecording.recording.RecordingController
 import com.example.blogrecording.recording.SegmentRecorder
@@ -86,11 +88,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val apiKeyStore = ApiKeyStore(application)
     private val bundledModelInstaller = BundledModelInstaller(application)
     private val summaryRepository = SummaryRepository(DeepSeekSummaryClient())
+    private val qaClient = DeepSeekQaClient()
     private val sessionSummaryUseCase = SessionSummaryUseCase(
         sessionRepository = repository,
         readApiKey = { apiKeyStore.readApiKey() },
         generateSummary = { apiKey, transcript, settings ->
             summaryRepository.generateSummary(apiKey, transcript, settings)
+        }
+    )
+    private val sessionQaUseCase = SessionQaUseCase(
+        sessionRepository = repository,
+        readApiKey = { apiKeyStore.readApiKey() },
+        answerQuestion = { apiKey, model, prompt ->
+            qaClient.answer(apiKey, model, prompt)
         }
     )
     private val transcriptAssembler = TranscriptAssembler()
@@ -166,7 +176,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     ?.sortedBy { it.order }
                     ?.map { it.text }
                     .orEmpty(),
-                currentHighlights = detail?.session?.highlights?.items.orEmpty()
+                currentHighlights = detail?.session?.highlights?.items.orEmpty(),
+                currentQaMessages = detail?.session?.qaHistory?.messages.orEmpty()
             )
         }
     }
@@ -218,6 +229,50 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onExportWriteFailed() {
         mutableState.value = mutableState.value.copy(error = AppError.ExportWriteFailed)
+    }
+
+    fun askQuestionForCurrentSession(question: String) {
+        val sessionId = mutableState.value.selectedSessionId ?: return
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(isAskingQa = true, error = null)
+            when (val result = sessionQaUseCase.ask(sessionId, question, mutableState.value.settings)) {
+                is AppResult.Success -> mutableState.value = mutableState.value.copy(
+                    currentQaMessages = result.value.qaHistory.messages,
+                    isAskingQa = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    mutableState.value = mutableState.value.copy(
+                        currentQaMessages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAskingQa = false,
+                        error = result.error
+                    )
+                }
+            }
+        }
+    }
+
+    fun retryQaForCurrentSession(messageId: String) {
+        val sessionId = mutableState.value.selectedSessionId ?: return
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(isAskingQa = true, error = null)
+            when (val result = sessionQaUseCase.retry(sessionId, messageId, mutableState.value.settings)) {
+                is AppResult.Success -> mutableState.value = mutableState.value.copy(
+                    currentQaMessages = result.value.qaHistory.messages,
+                    isAskingQa = false,
+                    error = null
+                )
+                is AppResult.Failure -> {
+                    val latest = repository.observeSessionDetail(sessionId).first()
+                    mutableState.value = mutableState.value.copy(
+                        currentQaMessages = latest?.session?.qaHistory?.messages.orEmpty(),
+                        isAskingQa = false,
+                        error = result.error
+                    )
+                }
+            }
+        }
     }
 
     fun acceptPrivacy() {
@@ -531,6 +586,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         } else {
                             mutableState.value.currentHighlights
                         },
+                        currentQaMessages = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.qaHistory?.messages.orEmpty()
+                        } else {
+                            mutableState.value.currentQaMessages
+                        },
                         currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
                             segments
                         } else {
@@ -561,6 +621,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             detail?.session?.highlights?.items.orEmpty()
                         } else {
                             mutableState.value.currentHighlights
+                        },
+                        currentQaMessages = if (mutableState.value.selectedSessionId == sessionId) {
+                            detail?.session?.qaHistory?.messages.orEmpty()
+                        } else {
+                            mutableState.value.currentQaMessages
                         },
                         error = result.error
                     )

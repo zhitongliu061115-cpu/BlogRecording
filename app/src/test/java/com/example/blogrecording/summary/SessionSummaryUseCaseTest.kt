@@ -10,6 +10,7 @@ import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSegment
 import com.example.blogrecording.data.RecordingSegmentStatus
 import com.example.blogrecording.data.SessionHighlights
+import com.example.blogrecording.data.SessionQaHistory
 import com.example.blogrecording.data.SessionRepository
 import com.example.blogrecording.data.SessionTagGeneration
 import com.example.blogrecording.data.SessionSummary
@@ -308,6 +309,16 @@ class SessionSummaryUseCaseTest {
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
             val updated = detail.session.copy(highlights = highlights)
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateQaHistory(
+            sessionId: String,
+            qaHistory: SessionQaHistory
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
+            val updated = detail.session.copy(qaHistory = qaHistory)
             details.value = details.value + (sessionId to detail.copy(session = updated))
             return AppResult.Success(updated)
         }

@@ -12,14 +12,14 @@
 ## 3. DeepSeek QA Flow
 
 - [x] 3.1 Add prompt builder that instructs answers to stay within episode content.
-- [ ] 3.2 Send QA requests only when API key and session content are available.
+- [x] 3.2 Send QA requests only when API key and session content are available.
 - [x] 3.3 Handle missing API key, missing content, timeout, 401, 429, non-2xx, empty response, and retry.
 - [x] 3.4 Ensure logs and errors do not include API keys, raw prompt context, full question/answer bodies, or private paths.
 
 ## 4. UI
 
-- [ ] 4.1 Add detail-screen QA entry, question input, send action, and QA history.
-- [ ] 4.2 Show loading, blocked, failed, retryable, and answered states.
+- [x] 4.1 Add detail-screen QA entry, question input, send action, and QA history.
+- [x] 4.2 Show loading, blocked, failed, retryable, and answered states.
 
 ## 5. Tests And Harness
 

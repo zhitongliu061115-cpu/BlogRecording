@@ -46,11 +46,13 @@ class RecordingPersistenceContractTest {
 
     @Test
     fun contractDefinesPodcastSessionAndRecordingSegmentJsonFields() {
-        assertEquals(22, RecordingPersistenceContract.PODCAST_SESSION_FIELDS.size)
+        assertEquals(24, RecordingPersistenceContract.PODCAST_SESSION_FIELDS.size)
         assertTrue("activeSegmentId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("legacyRecordingSessionId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("summary" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("importedContent" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("tagGeneration" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("highlights" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
 
         assertEquals(11, RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS.size)
         assertTrue("displayName" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
@@ -76,6 +78,15 @@ class RecordingPersistenceContractTest {
         assertTrue("title" in RecordingPersistenceContract.TIMELINE_CHAPTER_FIELDS)
         assertTrue("startMs" in RecordingPersistenceContract.TIMELINE_CHAPTER_FIELDS)
         assertTrue("sourceEndMs" in RecordingPersistenceContract.TIMELINE_CHAPTER_FIELDS)
+
+        assertEquals(3, RecordingPersistenceContract.SESSION_HIGHLIGHTS_FIELDS.size)
+        assertTrue("items" in RecordingPersistenceContract.SESSION_HIGHLIGHTS_FIELDS)
+        assertTrue("updatedAt" in RecordingPersistenceContract.SESSION_HIGHLIGHTS_FIELDS)
+
+        assertEquals(11, RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS.size)
+        assertTrue("normalizedKey" in RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS)
+        assertTrue("transcriptSegmentIds" in RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS)
+        assertTrue("isFavorite" in RecordingPersistenceContract.SESSION_HIGHLIGHT_FIELDS)
 
         assertEquals(16, RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS.size)
         assertTrue("transcriptSegmentIds" in RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS)

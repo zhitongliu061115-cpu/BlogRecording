@@ -85,7 +85,9 @@ internal object RecordingPersistenceContract {
         "transcriptSegmentCount",
         "errorMessage",
         "legacyRecordingSessionId",
-        "importedContent"
+        "importedContent",
+        "tagGeneration",
+        "highlights"
     )
 
     val IMPORTED_CONTENT_FIELDS = setOf(
@@ -129,6 +131,26 @@ internal object RecordingPersistenceContract {
         "keyPoints",
         "sourceStartMs",
         "sourceEndMs"
+    )
+
+    val SESSION_HIGHLIGHTS_FIELDS = setOf(
+        "items",
+        "generatedAt",
+        "updatedAt"
+    )
+
+    val SESSION_HIGHLIGHT_FIELDS = setOf(
+        "id",
+        "text",
+        "normalizedKey",
+        "source",
+        "sourceStartMs",
+        "sourceEndMs",
+        "transcriptSegmentIds",
+        "isFavorite",
+        "generated",
+        "createdAt",
+        "updatedAt"
     )
 
     val RECORDING_SEGMENT_FIELDS = setOf(

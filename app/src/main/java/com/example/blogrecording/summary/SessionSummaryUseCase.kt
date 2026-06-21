@@ -66,7 +66,14 @@ class SessionSummaryUseCase(
                 summaryText = result.value.text,
                 generatedAt = nowMillis(),
                 structuredSummary = result.value.structured,
-                tagGeneration = result.value.tagGeneration
+                tagGeneration = result.value.tagGeneration,
+                highlights = SessionHighlightGenerator.generate(
+                    structured = result.value.structured,
+                    transcriptSegments = detail.transcriptSegments,
+                    fallbackTranscript = aggregateTranscript,
+                    existing = detail.session.highlights,
+                    generatedAt = result.value.highlights.generatedAt ?: nowMillis()
+                )
             )
             is AppResult.Failure -> {
                 markFailed(sessionId, settings, result.error)

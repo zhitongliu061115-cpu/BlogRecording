@@ -58,6 +58,7 @@ interface SessionRepository {
         generatedAt: Long? = null,
         structuredSummary: StructuredSummary? = null,
         tagGeneration: SessionTagGeneration? = null,
+        highlights: SessionHighlights? = null,
         errorMessage: String? = null
     ): AppResult<PodcastSession> {
         return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("summary lifecycle unsupported"))
@@ -68,6 +69,13 @@ interface SessionRepository {
         tagGeneration: SessionTagGeneration
     ): AppResult<PodcastSession> {
         return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("tag generation unsupported"))
+    }
+
+    suspend fun updateHighlights(
+        sessionId: String,
+        highlights: SessionHighlights
+    ): AppResult<PodcastSession> {
+        return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("highlights unsupported"))
     }
 
     fun observeSessions(): Flow<List<PodcastSession>>

@@ -217,6 +217,35 @@ data class SessionTagGeneration(
     }
 }
 
+enum class HighlightSource {
+    STRUCTURED_SUMMARY,
+    TRANSCRIPT
+}
+
+data class SessionHighlight(
+    val id: String,
+    val text: String,
+    val normalizedKey: String,
+    val source: HighlightSource,
+    val sourceStartMs: Long?,
+    val sourceEndMs: Long?,
+    val transcriptSegmentIds: List<String>,
+    val isFavorite: Boolean,
+    val generated: Boolean,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+data class SessionHighlights(
+    val items: List<SessionHighlight> = emptyList(),
+    val generatedAt: Long? = null,
+    val updatedAt: Long = 0L
+) {
+    companion object {
+        fun empty(): SessionHighlights = SessionHighlights()
+    }
+}
+
 enum class StructuredSummaryParseStatus {
     STRUCTURED,
     PARTIAL,
@@ -265,7 +294,8 @@ data class PodcastSession(
     val errorMessage: String?,
     val legacyRecordingSessionId: String?,
     val importedContent: ImportedContentMetadata? = null,
-    val tagGeneration: SessionTagGeneration = SessionTagGeneration.empty()
+    val tagGeneration: SessionTagGeneration = SessionTagGeneration.empty(),
+    val highlights: SessionHighlights = SessionHighlights.empty()
 )
 
 data class PodcastSessionDetail(

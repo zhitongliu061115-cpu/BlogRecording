@@ -69,6 +69,7 @@ class SummaryRepositoryTest {
         assertEquals("final-summary", result.value.structured.overview)
         assertEquals(5_000L, result.value.tagGeneration.generatedAt)
         assertEquals(listOf("final-summary", "p"), result.value.tagGeneration.tags.map { it.text })
+        assertEquals(listOf("aaaaaaaa", "bbbbbbbb", "cccccccc"), result.value.highlights.items.map { it.text })
         assertEquals(StructuredSummaryParseStatus.PARTIAL, result.value.structured.parseStatus)
         assertEquals(3, callCount)
         assertTrue(requestBodies[0].contains("a".repeat(8)))

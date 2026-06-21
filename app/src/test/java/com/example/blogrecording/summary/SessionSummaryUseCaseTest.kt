@@ -9,6 +9,7 @@ import com.example.blogrecording.data.PodcastSessionDetail
 import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSegment
 import com.example.blogrecording.data.RecordingSegmentStatus
+import com.example.blogrecording.data.SessionHighlights
 import com.example.blogrecording.data.SessionRepository
 import com.example.blogrecording.data.SessionTagGeneration
 import com.example.blogrecording.data.SessionSummary
@@ -59,6 +60,8 @@ class SessionSummaryUseCaseTest {
         assertEquals("session summary", session.summary?.structured?.overview)
         assertEquals(TagGenerationStatus.GENERATED, session.tagGeneration.status)
         assertEquals(listOf("session summary"), session.tagGeneration.tags.map { it.text })
+        assertEquals(listOf("first segment", "second segment"), session.highlights.items.map { it.text })
+        assertEquals(listOf("t-1"), session.highlights.items.first().transcriptSegmentIds)
         assertOrdered(capturedTranscript, "first segment", "second segment")
     }
 
@@ -229,6 +232,7 @@ class SessionSummaryUseCaseTest {
             generatedAt: Long?,
             structuredSummary: StructuredSummary?,
             tagGeneration: SessionTagGeneration?,
+            highlights: SessionHighlights?,
             errorMessage: String?
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
@@ -277,6 +281,11 @@ class SessionSummaryUseCaseTest {
                 } else {
                     detail.session.tagGeneration
                 },
+                highlights = if (status == SummaryStatus.SUMMARIZED) {
+                    highlights ?: detail.session.highlights
+                } else {
+                    detail.session.highlights
+                },
                 errorMessage = if (status == SummaryStatus.FAILED) summary.errorMessage else null
             )
             details.value = details.value + (sessionId to detail.copy(session = updated))
@@ -289,6 +298,16 @@ class SessionSummaryUseCaseTest {
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
             val updated = detail.session.copy(tagGeneration = tagGeneration)
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateHighlights(
+            sessionId: String,
+            highlights: SessionHighlights
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
+            val updated = detail.session.copy(highlights = highlights)
             details.value = details.value + (sessionId to detail.copy(session = updated))
             return AppResult.Success(updated)
         }
@@ -436,6 +455,19 @@ class SessionSummaryUseCaseTest {
                     rawModelText = """{"tags":["$text"]}""",
                     structured = null,
                     transcript = text,
+                    generatedAt = 1_000L
+                ),
+                highlights = SessionHighlightGenerator.generate(
+                    structured = StructuredSummary(
+                        overview = text,
+                        keyPoints = emptyList(),
+                        actionItems = emptyList(),
+                        openQuestions = emptyList(),
+                        quoteCandidates = listOf("quote"),
+                        parseStatus = StructuredSummaryParseStatus.STRUCTURED
+                    ),
+                    transcriptSegments = emptyList(),
+                    fallbackTranscript = text,
                     generatedAt = 1_000L
                 )
             )

@@ -413,6 +413,7 @@ class Repository(private val context: Context) : SessionRepository {
         generatedAt: Long?,
         structuredSummary: StructuredSummary?,
         tagGeneration: SessionTagGeneration?,
+        highlights: SessionHighlights?,
         errorMessage: String?
     ): AppResult<PodcastSession> {
         val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
@@ -471,6 +472,11 @@ class Repository(private val context: Context) : SessionRepository {
             } else {
                 detail.session.tagGeneration
             },
+            highlights = if (status == SummaryStatus.SUMMARIZED) {
+                highlights ?: detail.session.highlights
+            } else {
+                detail.session.highlights
+            },
             updatedAt = now,
             errorMessage = if (status == SummaryStatus.FAILED) boundedError else null
         )
@@ -486,6 +492,19 @@ class Repository(private val context: Context) : SessionRepository {
         val updated = detail.session.copy(
             tagGeneration = tagGeneration,
             updatedAt = tagGeneration.updatedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
+        )
+        savePodcastSession(updated)
+        return AppResult.Success(updated)
+    }
+
+    override suspend fun updateHighlights(
+        sessionId: String,
+        highlights: SessionHighlights
+    ): AppResult<PodcastSession> {
+        val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
+        val updated = detail.session.copy(
+            highlights = highlights,
+            updatedAt = highlights.updatedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
         )
         savePodcastSession(updated)
         return AppResult.Success(updated)

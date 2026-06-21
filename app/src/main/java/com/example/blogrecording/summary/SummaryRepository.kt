@@ -4,13 +4,15 @@ import com.example.blogrecording.common.AppError
 import com.example.blogrecording.common.AppResult
 import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.SessionTagGeneration
+import com.example.blogrecording.data.SessionHighlights
 import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.StructuredSummaryParseStatus
 
 data class SummaryGenerationResult(
     val text: String,
     val structured: StructuredSummary,
-    val tagGeneration: SessionTagGeneration
+    val tagGeneration: SessionTagGeneration,
+    val highlights: SessionHighlights
 )
 
 class SummaryRepository(
@@ -59,6 +61,12 @@ class SummaryRepository(
                     rawModelText = rawSummary,
                     structured = structured,
                     transcript = transcript,
+                    generatedAt = generatedAt
+                ),
+                highlights = SessionHighlightGenerator.generate(
+                    structured = structured,
+                    transcriptSegments = emptyList(),
+                    fallbackTranscript = transcript,
                     generatedAt = generatedAt
                 )
             )

@@ -225,6 +225,46 @@ class PodcastSessionJsonCodecTest {
         assertEquals(SessionTagGeneration.empty(), decoded.tagGeneration)
     }
 
+    @Test
+    fun highlightsRoundTripThroughPodcastSessionJson() {
+        val highlights = SessionHighlights(
+            items = listOf(
+                SessionHighlight(
+                    id = "highlight-1",
+                    text = "important quote",
+                    normalizedKey = "important quote|1000|2000",
+                    source = HighlightSource.TRANSCRIPT,
+                    sourceStartMs = 1_000L,
+                    sourceEndMs = 2_000L,
+                    transcriptSegmentIds = listOf("transcript-1"),
+                    isFavorite = true,
+                    generated = true,
+                    createdAt = 3_000L,
+                    updatedAt = 4_000L
+                )
+            ),
+            generatedAt = 3_000L,
+            updatedAt = 4_000L
+        )
+        val session = podcastSession().copy(highlights = highlights)
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(highlights, decoded.highlights)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingHighlights() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("highlights")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertEquals(SessionHighlights.empty(), decoded.highlights)
+    }
+
     private fun podcastSession(
         sourceType: AudioSourceType? = AudioSourceType.MICROPHONE,
         summary: SessionSummary? = SessionSummary(

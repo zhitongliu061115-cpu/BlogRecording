@@ -29,6 +29,7 @@ internal object PodcastSessionJsonCodec {
             .put("legacyRecordingSessionId", session.legacyRecordingSessionId)
             .put("importedContent", session.importedContent?.let(::encodeImportedContent))
             .put("tagGeneration", encodeTagGeneration(session.tagGeneration))
+            .put("highlights", encodeSessionHighlights(session.highlights))
     }
 
     fun decodeSession(json: JSONObject): PodcastSession {
@@ -58,7 +59,9 @@ internal object PodcastSessionJsonCodec {
             legacyRecordingSessionId = json.nullableString("legacyRecordingSessionId"),
             importedContent = json.optJSONObject("importedContent")?.let(::decodeImportedContent),
             tagGeneration = json.optJSONObject("tagGeneration")?.let(::decodeTagGeneration)
-                ?: SessionTagGeneration.empty()
+                ?: SessionTagGeneration.empty(),
+            highlights = json.optJSONObject("highlights")?.let(::decodeSessionHighlights)
+                ?: SessionHighlights.empty()
         )
     }
 
@@ -219,6 +222,59 @@ internal object PodcastSessionJsonCodec {
             generatedAt = json.optLong("generatedAt"),
             status = json.optString("status", TagGenerationStatus.GENERATED.name)
                 .toEnumOrDefault(TagGenerationStatus.GENERATED)
+        )
+    }
+
+    fun encodeSessionHighlights(highlights: SessionHighlights): JSONObject {
+        return JSONObject()
+            .put("items", JSONArray(highlights.items.map(::encodeSessionHighlight)))
+            .put("generatedAt", highlights.generatedAt)
+            .put("updatedAt", highlights.updatedAt)
+    }
+
+    fun decodeSessionHighlights(json: JSONObject): SessionHighlights {
+        return SessionHighlights(
+            items = json.optJSONArray("items")?.let(::decodeSessionHighlightList).orEmpty(),
+            generatedAt = json.nullableLong("generatedAt"),
+            updatedAt = json.optLong("updatedAt")
+        )
+    }
+
+    fun encodeSessionHighlight(highlight: SessionHighlight): JSONObject {
+        return JSONObject()
+            .put("id", highlight.id)
+            .put("text", highlight.text)
+            .put("normalizedKey", highlight.normalizedKey)
+            .put("source", highlight.source.name)
+            .put("sourceStartMs", highlight.sourceStartMs)
+            .put("sourceEndMs", highlight.sourceEndMs)
+            .put("transcriptSegmentIds", JSONArray(highlight.transcriptSegmentIds))
+            .put("isFavorite", highlight.isFavorite)
+            .put("generated", highlight.generated)
+            .put("createdAt", highlight.createdAt)
+            .put("updatedAt", highlight.updatedAt)
+    }
+
+    fun decodeSessionHighlightList(array: JSONArray): List<SessionHighlight> {
+        return List(array.length()) { index ->
+            decodeSessionHighlight(array.getJSONObject(index))
+        }
+    }
+
+    fun decodeSessionHighlight(json: JSONObject): SessionHighlight {
+        return SessionHighlight(
+            id = json.optString("id"),
+            text = json.optString("text"),
+            normalizedKey = json.optString("normalizedKey"),
+            source = json.optString("source", HighlightSource.STRUCTURED_SUMMARY.name)
+                .toEnumOrDefault(HighlightSource.STRUCTURED_SUMMARY),
+            sourceStartMs = json.nullableLong("sourceStartMs"),
+            sourceEndMs = json.nullableLong("sourceEndMs"),
+            transcriptSegmentIds = json.stringList("transcriptSegmentIds"),
+            isFavorite = json.optBoolean("isFavorite"),
+            generated = json.optBoolean("generated", true),
+            createdAt = json.optLong("createdAt"),
+            updatedAt = json.optLong("updatedAt")
         )
     }
 

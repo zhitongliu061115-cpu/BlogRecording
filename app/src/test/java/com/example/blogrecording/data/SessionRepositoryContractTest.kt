@@ -215,6 +215,25 @@ class SessionRepositoryContractTest {
                 status = TagGenerationStatus.GENERATED,
                 generatedAt = 1_000L,
                 updatedAt = 1_000L
+            ),
+            highlights = SessionHighlights(
+                items = listOf(
+                    SessionHighlight(
+                        id = "highlight-1",
+                        text = "quote",
+                        normalizedKey = "quote",
+                        source = HighlightSource.STRUCTURED_SUMMARY,
+                        sourceStartMs = null,
+                        sourceEndMs = null,
+                        transcriptSegmentIds = emptyList(),
+                        isFavorite = true,
+                        generated = true,
+                        createdAt = 1_000L,
+                        updatedAt = 1_000L
+                    )
+                ),
+                generatedAt = 1_000L,
+                updatedAt = 1_000L
             )
         ) as AppResult.Success
         val failed = repository.updateSummaryLifecycle(
@@ -230,6 +249,7 @@ class SessionRepositoryContractTest {
         assertEquals(PodcastSessionStatus.SUMMARIZED, summarized.value.status)
         assertEquals("previous summary", summarized.value.summary?.text)
         assertEquals(listOf("AI"), summarized.value.tagGeneration.tags.map { it.text })
+        assertEquals(listOf("quote"), summarized.value.highlights.items.map { it.text })
         assertEquals(1_000L, summarized.value.summary?.generatedAt)
         assertEquals(PodcastSessionStatus.READY_FOR_SUMMARY, failed.value.status)
         assertEquals(SummaryStatus.FAILED, failed.value.summary?.status)
@@ -352,6 +372,7 @@ class SessionRepositoryContractTest {
             generatedAt: Long?,
             structuredSummary: StructuredSummary?,
             tagGeneration: SessionTagGeneration?,
+            highlights: SessionHighlights?,
             errorMessage: String?
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return missing()
@@ -401,6 +422,11 @@ class SessionRepositoryContractTest {
                 } else {
                     detail.session.tagGeneration
                 },
+                highlights = if (status == SummaryStatus.SUMMARIZED) {
+                    highlights ?: detail.session.highlights
+                } else {
+                    detail.session.highlights
+                },
                 errorMessage = if (status == SummaryStatus.FAILED) boundedError else null
             )
             details.value = details.value + (sessionId to detail.copy(session = updated))
@@ -413,6 +439,16 @@ class SessionRepositoryContractTest {
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return missing()
             val updated = detail.session.copy(tagGeneration = tagGeneration)
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateHighlights(
+            sessionId: String,
+            highlights: SessionHighlights
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return missing()
+            val updated = detail.session.copy(highlights = highlights)
             details.value = details.value + (sessionId to detail.copy(session = updated))
             return AppResult.Success(updated)
         }

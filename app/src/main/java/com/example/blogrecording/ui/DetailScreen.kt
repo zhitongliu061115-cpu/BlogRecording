@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.example.blogrecording.common.toUserMessage
+import com.example.blogrecording.data.SessionSummary
+import com.example.blogrecording.data.StructuredSummary
 import com.example.blogrecording.data.toTranscriptText
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.state.ProcessingStageUiState
@@ -72,7 +74,10 @@ fun DetailScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("AI 总结", style = MaterialTheme.typography.titleMedium)
-                Text(session?.summary?.ifBlank { "暂无总结。" } ?: "暂无总结。")
+                SummaryContent(
+                    summary = state.currentPodcastSummary,
+                    legacyText = session?.summary
+                )
             }
         }
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -80,6 +85,47 @@ fun DetailScreen(
                 Text("说话人说明", style = MaterialTheme.typography.titleMedium)
                 Text("Speaker 1、Speaker 2 是自动分离标签，不代表真实身份。多人同时说话、背景音乐和麦克风外放录音会降低准确性。")
             }
+        }
+    }
+}
+
+@Composable
+private fun SummaryContent(
+    summary: SessionSummary?,
+    legacyText: String?
+) {
+    val structured = summary?.structured
+    if (structured == null) {
+        Text((summary?.text ?: legacyText).orEmpty().ifBlank { "暂无总结。" })
+        return
+    }
+    StructuredSummaryContent(
+        structured = structured,
+        fallbackText = summary.text
+    )
+}
+
+@Composable
+private fun StructuredSummaryContent(
+    structured: StructuredSummary,
+    fallbackText: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(structured.overview.ifBlank { fallbackText.ifBlank { "暂无总结。" } })
+        SummarySection("关键要点", structured.keyPoints)
+        SummarySection("行动项", structured.actionItems)
+        SummarySection("开放问题", structured.openQuestions)
+        SummarySection("金句候选", structured.quoteCandidates)
+    }
+}
+
+@Composable
+private fun SummarySection(title: String, items: List<String>) {
+    if (items.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        items.forEach { item ->
+            Text("- $item")
         }
     }
 }

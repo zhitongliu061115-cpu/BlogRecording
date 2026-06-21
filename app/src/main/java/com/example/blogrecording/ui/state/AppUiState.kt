@@ -7,6 +7,7 @@ import com.example.blogrecording.data.ModelLoadStatus
 import com.example.blogrecording.data.ModelStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
+import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.TranscriptSegmentEntity
 
 enum class AppScreen {
@@ -22,6 +23,7 @@ data class AppUiState(
     val settings: AppSettings = AppSettings(),
     val hasApiKey: Boolean = false,
     val currentSession: RecordingSessionEntity? = null,
+    val currentPodcastSummary: SessionSummary? = null,
     val sessions: List<RecordingSessionEntity> = emptyList(),
     val currentSegments: List<TranscriptSegmentEntity> = emptyList(),
     val selectedSessionId: String? = null,

@@ -29,6 +29,7 @@ object UiNavigationPolicy {
         return state.copy(
             currentScreen = AppScreen.HISTORY,
             currentSession = null,
+            currentPodcastSummary = null,
             currentSegments = emptyList(),
             selectedSessionId = null
         )

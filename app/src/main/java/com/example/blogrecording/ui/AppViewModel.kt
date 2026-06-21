@@ -155,7 +155,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val session = repository.getSession(sessionId)
             val segments = repository.getSegments(sessionId)
-            mutableState.value = UiNavigationPolicy.openDetail(mutableState.value, sessionId, session, segments)
+            val detail = repository.observeSessionDetail(sessionId).first()
+            mutableState.value = UiNavigationPolicy.openDetail(mutableState.value, sessionId, session, segments).copy(
+                currentPodcastSummary = detail?.session?.summary
+            )
         }
     }
 
@@ -449,12 +452,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 is AppResult.Success -> {
                     val updated = repository.getSession(sessionId)
                     val segments = repository.getSegments(sessionId)
+                    val detail = repository.observeSessionDetail(sessionId).first()
                     mutableState.value = mutableState.value.copy(
                         isGeneratingSummary = false,
                         recordingStatus = updated?.status ?: RecordingStatus.COMPLETED,
                         processingStage = ProcessingStageUiState.completed("总结已生成"),
                         processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
+                        currentPodcastSummary = detail?.session?.summary,
                         currentSegments = if (mutableState.value.selectedSessionId == sessionId) {
                             segments
                         } else {
@@ -465,12 +470,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 is AppResult.Failure -> {
                     val updated = repository.getSession(sessionId)
+                    val detail = repository.observeSessionDetail(sessionId).first()
                     mutableState.value = mutableState.value.copy(
                         isGeneratingSummary = false,
                         recordingStatus = updated?.status ?: mutableState.value.recordingStatus,
                         processingStage = ProcessingStageUiState.error(result.error.toUserMessage()),
                         processingSessionId = sessionId,
                         currentSession = updated ?: mutableState.value.currentSession,
+                        currentPodcastSummary = detail?.session?.summary,
                         error = result.error
                     )
                 }

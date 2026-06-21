@@ -153,6 +153,33 @@ class HomeUiStateMapperTest {
     }
 
     @Test
+    fun importedSessionWithTranscriptCanSummarizeButNotStartRecording() {
+        val card = HomeUiStateMapper.map(
+            listOf(
+                detail(
+                    session = session(
+                        status = PodcastSessionStatus.READY_FOR_SUMMARY,
+                        sourceType = AudioSourceType.LOCAL_MEDIA,
+                        transcript = "import transcript",
+                        transcriptSegmentCount = 1
+                    ),
+                    recordingSegments = listOf(
+                        segment(
+                            sourceType = AudioSourceType.LOCAL_MEDIA,
+                            status = RecordingSegmentStatus.COMPLETED
+                        )
+                    )
+                )
+            )
+        ).cards.single()
+
+        assertFalse(card.actionState.canStart)
+        assertFalse(card.actionState.canResume)
+        assertTrue(card.canStartSummary)
+        assertEquals("可总结", card.statusLabel)
+    }
+
+    @Test
     fun failedSummaryCanRetryWhenTranscriptExists() {
         val card = HomeUiStateMapper.map(
             listOf(
@@ -356,13 +383,15 @@ class HomeUiStateMapperTest {
         transcript: String = "",
         transcriptSegmentCount: Int = 0,
         summary: SessionSummary? = null
+        ,
+        sourceType: AudioSourceType = AudioSourceType.MICROPHONE
     ): PodcastSession {
         return PodcastSession(
             id = id,
             title = title,
             createdAt = 1L,
             updatedAt = updatedAt,
-            sourceType = AudioSourceType.MICROPHONE,
+            sourceType = sourceType,
             status = status,
             activeSegmentId = activeSegmentId,
             lastCompletedSegmentId = null,
@@ -386,13 +415,14 @@ class HomeUiStateMapperTest {
         sessionId: String = "session-1",
         id: String = "segment-1",
         status: RecordingSegmentStatus = RecordingSegmentStatus.COMPLETED,
-        durationMs: Long = 0L
+        durationMs: Long = 0L,
+        sourceType: AudioSourceType = AudioSourceType.MICROPHONE
     ): RecordingSegment {
         return RecordingSegment(
             id = id,
             sessionId = sessionId,
             index = 1,
-            sourceType = AudioSourceType.MICROPHONE,
+            sourceType = sourceType,
             status = status,
             startedAt = 1L,
             endedAt = 2L,

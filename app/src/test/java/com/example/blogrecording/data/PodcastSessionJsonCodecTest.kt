@@ -83,6 +83,41 @@ class PodcastSessionJsonCodecTest {
         assertEquals(summary, decoded)
     }
 
+    @Test
+    fun importedContentRoundTripsThroughPodcastSessionJson() {
+        val metadata = ImportedContentMetadata(
+            kind = ImportedContentKind.LOCAL_MEDIA,
+            displayName = "episode.mp3",
+            mimeType = "audio/mpeg",
+            sizeBytes = 123_456L,
+            durationMs = 60_000L,
+            status = ImportedContentStatus.COMPLETED,
+            errorMessage = null,
+            importedAt = 1_000L,
+            updatedAt = 2_000L
+        )
+        val session = podcastSession(sourceType = AudioSourceType.LOCAL_MEDIA).copy(
+            importedContent = metadata
+        )
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(AudioSourceType.LOCAL_MEDIA, decoded.sourceType)
+        assertEquals(metadata, decoded.importedContent)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingImportedContent() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("importedContent")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertNull(decoded.importedContent)
+    }
+
     private fun podcastSession(
         sourceType: AudioSourceType? = AudioSourceType.MICROPHONE,
         summary: SessionSummary? = SessionSummary(

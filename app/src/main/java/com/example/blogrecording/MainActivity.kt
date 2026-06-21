@@ -6,6 +6,7 @@ import android.os.Build
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -82,6 +83,15 @@ class MainActivity : ComponentActivity() {
                     pendingStart.value = null
                 }
             }
+            val localMediaLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument()
+            ) { uri: Uri? ->
+                if (uri == null) {
+                    viewModel.onLocalMediaImportCanceled()
+                } else {
+                    viewModel.importLocalMedia(uri)
+                }
+            }
             val state by viewModel.state.collectAsState()
             BlogRecordingTheme {
                 PodcastRecapApp(
@@ -95,6 +105,9 @@ class MainActivity : ComponentActivity() {
                     onStartMicrophone = {
                         pendingStart.value = PendingStartAction.Microphone(sessionId = null)
                         capturePermissionLauncher.launch(capturePermissions())
+                    },
+                    onImportLocalMedia = {
+                        localMediaLauncher.launch(arrayOf("audio/*", "video/*"))
                     },
                     onStartInternalSession = { sessionId ->
                         viewModel.prepareInternalAudioAuthorization(sessionId)
@@ -139,6 +152,7 @@ fun AppPreview() {
         HomeScreen(
             state = AppUiState(),
             onCreateSession = {},
+            onImportLocalMedia = {},
             onStartInternal = {},
             onStartMicrophone = {},
             onStartInternalSession = {},

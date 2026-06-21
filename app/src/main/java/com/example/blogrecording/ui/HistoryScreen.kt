@@ -61,6 +61,7 @@ private fun SessionCard(session: RecordingSessionEntity, onClick: () -> Unit) {
 private fun AudioSourceType.toLabel(): String = when (this) {
     AudioSourceType.INTERNAL_AUDIO -> "系统内录"
     AudioSourceType.MICROPHONE -> "麦克风"
+    AudioSourceType.LOCAL_MEDIA -> "本地导入"
 }
 
 private fun formatTime(timeMs: Long): String {

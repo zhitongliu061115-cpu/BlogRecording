@@ -22,6 +22,12 @@ sealed class AppError {
     data object ForegroundServiceStartFailed : AppError()
     data object BackgroundKilled : AppError()
     data object DeviceTooSlow : AppError()
+    data object LocalMediaImportBlocked : AppError()
+    data object LocalMediaUnsupported : AppError()
+    data object LocalMediaTooLarge : AppError()
+    data object LocalMediaNoAudioTrack : AppError()
+    data object LocalMediaReadFailed : AppError()
+    data class LocalMediaDecodeFailed(val reason: String) : AppError()
     data class RecordingPipelineFailed(val reason: String) : AppError()
     data class NetworkFailed(val reason: String) : AppError()
     data class Unknown(val reason: String) : AppError()
@@ -50,6 +56,12 @@ fun AppError.toUserMessage(): String {
         AppError.ForegroundServiceStartFailed -> "前台服务启动失败"
         AppError.BackgroundKilled -> "App 被系统杀后台"
         AppError.DeviceTooSlow -> "设备性能不足，实时处理跟不上"
+        AppError.LocalMediaImportBlocked -> "请先暂停当前录音，再导入本地音视频"
+        AppError.LocalMediaUnsupported -> "暂不支持该音视频格式"
+        AppError.LocalMediaTooLarge -> "文件过大，请先导入较短的音视频"
+        AppError.LocalMediaNoAudioTrack -> "未找到可用音轨"
+        AppError.LocalMediaReadFailed -> "无法读取所选文件，请重新选择"
+        is AppError.LocalMediaDecodeFailed -> "音视频解码失败：$reason"
         is AppError.RecordingPipelineFailed -> "录音识别流水线异常：$reason"
         is AppError.NetworkFailed -> "网络请求失败：$reason"
         is AppError.Unknown -> "未知错误：$reason"

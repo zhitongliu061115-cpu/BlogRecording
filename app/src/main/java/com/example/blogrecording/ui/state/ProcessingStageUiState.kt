@@ -5,6 +5,7 @@ enum class ProcessingStage {
     AUTHORIZING,
     CAPTURING,
     BUFFERING,
+    IMPORTING,
     TRANSCRIBING,
     SILENCE,
     PAUSED,
@@ -56,6 +57,17 @@ data class ProcessingStageUiState(
                 isActive = true
             )
         }
+
+        fun importing(
+            message: String,
+            progressLabel: String? = null
+        ): ProcessingStageUiState = ProcessingStageUiState(
+            stage = ProcessingStage.IMPORTING,
+            title = "正在导入",
+            message = message,
+            progressLabel = progressLabel,
+            isActive = true
+        )
 
         fun transcribing(
             chunkSequence: Int,

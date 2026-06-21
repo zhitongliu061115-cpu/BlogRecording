@@ -27,6 +27,7 @@ internal object PodcastSessionJsonCodec {
             .put("transcriptSegmentCount", session.transcriptSegmentCount)
             .put("errorMessage", session.errorMessage)
             .put("legacyRecordingSessionId", session.legacyRecordingSessionId)
+            .put("importedContent", session.importedContent?.let(::encodeImportedContent))
     }
 
     fun decodeSession(json: JSONObject): PodcastSession {
@@ -53,7 +54,37 @@ internal object PodcastSessionJsonCodec {
             recordingSegmentCount = json.optInt("recordingSegmentCount"),
             transcriptSegmentCount = json.optInt("transcriptSegmentCount"),
             errorMessage = json.nullableString("errorMessage"),
-            legacyRecordingSessionId = json.nullableString("legacyRecordingSessionId")
+            legacyRecordingSessionId = json.nullableString("legacyRecordingSessionId"),
+            importedContent = json.optJSONObject("importedContent")?.let(::decodeImportedContent)
+        )
+    }
+
+    fun encodeImportedContent(metadata: ImportedContentMetadata): JSONObject {
+        return JSONObject()
+            .put("kind", metadata.kind.name)
+            .put("displayName", metadata.displayName)
+            .put("mimeType", metadata.mimeType)
+            .put("sizeBytes", metadata.sizeBytes)
+            .put("durationMs", metadata.durationMs)
+            .put("status", metadata.status.name)
+            .put("errorMessage", metadata.errorMessage)
+            .put("importedAt", metadata.importedAt)
+            .put("updatedAt", metadata.updatedAt)
+    }
+
+    fun decodeImportedContent(json: JSONObject): ImportedContentMetadata {
+        return ImportedContentMetadata(
+            kind = json.optString("kind", ImportedContentKind.LOCAL_MEDIA.name)
+                .toEnumOrDefault(ImportedContentKind.LOCAL_MEDIA),
+            displayName = json.optString("displayName", "Imported media"),
+            mimeType = json.nullableString("mimeType"),
+            sizeBytes = json.nullableLong("sizeBytes"),
+            durationMs = json.nullableLong("durationMs"),
+            status = json.optString("status", ImportedContentStatus.COMPLETED.name)
+                .toEnumOrDefault(ImportedContentStatus.COMPLETED),
+            errorMessage = json.nullableString("errorMessage"),
+            importedAt = json.optLong("importedAt", json.optLong("updatedAt")),
+            updatedAt = json.optLong("updatedAt", json.optLong("importedAt"))
         )
     }
 

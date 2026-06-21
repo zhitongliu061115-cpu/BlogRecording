@@ -2,6 +2,7 @@ package com.example.blogrecording.ui
 
 import com.example.blogrecording.common.AppError
 import com.example.blogrecording.common.toUserMessage
+import com.example.blogrecording.data.AudioSourceType
 import com.example.blogrecording.data.PodcastSession
 import com.example.blogrecording.data.PodcastSessionDetail
 import com.example.blogrecording.data.PodcastSessionStatus
@@ -70,10 +71,12 @@ object HomeUiStateMapper {
         val hasTranscript = session.transcript.isNotBlank() || transcriptSegments.any { it.text.isNotBlank() }
         val summaryEligibility = SessionSummaryEligibilityPolicy.evaluate(this)
         val isAnotherSessionRecording = activeRecordingSessionId != null && !isRecording
-        val canStart = !isRecording && session.status == PodcastSessionStatus.DRAFT
-        val canResume = !isRecording && session.status in RESUMABLE_STATUSES
-        val canPause = isRecording
+        val isImportedSession = session.sourceType == AudioSourceType.LOCAL_MEDIA
+        val canStart = !isImportedSession && !isRecording && session.status == PodcastSessionStatus.DRAFT
+        val canResume = !isImportedSession && !isRecording && session.status in RESUMABLE_STATUSES
+        val canPause = !isImportedSession && isRecording
         val canFinish = when {
+            isImportedSession -> false
             isRecording -> true
             session.status == PodcastSessionStatus.PAUSED && hasCompletedSegment -> true
             session.status == PodcastSessionStatus.PROCESSING && hasAnySegment -> true

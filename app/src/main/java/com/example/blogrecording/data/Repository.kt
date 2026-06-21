@@ -214,6 +214,81 @@ class Repository(private val context: Context) : SessionRepository {
         return session
     }
 
+    override suspend fun createImportedSession(
+        title: String,
+        metadata: ImportedContentMetadata
+    ): AppResult<PodcastSession> {
+        val session = createSession(
+            title = title.takeIf { it.isNotBlank() } ?: metadata.displayName,
+            sourceType = AudioSourceType.LOCAL_MEDIA
+        ).copy(
+            status = PodcastSessionStatus.PROCESSING,
+            importedContent = metadata,
+            updatedAt = metadata.updatedAt
+        )
+        savePodcastSession(session)
+        return AppResult.Success(session)
+    }
+
+    override suspend fun updateImportedContent(
+        sessionId: String,
+        metadata: ImportedContentMetadata,
+        status: PodcastSessionStatus?
+    ): AppResult<PodcastSession> {
+        val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
+        val updated = detail.session.copy(
+            status = status ?: detail.session.status,
+            activeSegmentId = if (status == PodcastSessionStatus.ERROR) null else detail.session.activeSegmentId,
+            importedContent = metadata,
+            updatedAt = metadata.updatedAt,
+            errorMessage = metadata.errorMessage
+        )
+        savePodcastSession(updated)
+        return AppResult.Success(updated)
+    }
+
+    override suspend fun appendImportedSegment(
+        sessionId: String,
+        startedAt: Long,
+        durationMs: Long,
+        sampleRate: Int,
+        channelCount: Int
+    ): AppResult<RecordingSegment> {
+        val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
+        val now = System.currentTimeMillis()
+        val segment = RecordingSegment(
+            id = UUID.randomUUID().toString(),
+            sessionId = sessionId,
+            index = detail.recordingSegments.size + 1,
+            sourceType = AudioSourceType.LOCAL_MEDIA,
+            status = RecordingSegmentStatus.COMPLETED,
+            startedAt = startedAt,
+            endedAt = startedAt + durationMs.coerceAtLeast(0L),
+            durationMs = durationMs.coerceAtLeast(0L),
+            pcmFilePath = null,
+            audioFilePath = null,
+            sampleRate = sampleRate,
+            channelCount = channelCount,
+            transcriptSegmentIds = emptyList(),
+            errorMessage = null,
+            createdAt = startedAt,
+            updatedAt = now
+        )
+        saveRecordingSegments(sessionId, detail.recordingSegments + segment)
+        savePodcastSession(
+            detail.session.copy(
+                sourceType = AudioSourceType.LOCAL_MEDIA,
+                activeSegmentId = null,
+                lastCompletedSegmentId = segment.id,
+                recordingSegmentCount = detail.recordingSegments.size + 1,
+                status = PodcastSessionStatus.PROCESSING,
+                updatedAt = now,
+                errorMessage = null
+            )
+        )
+        return AppResult.Success(segment)
+    }
+
     override suspend fun renameSession(sessionId: String, title: String): AppResult<PodcastSession> {
         val session = getPodcastSession(sessionId) ?: return missingSession()
         val updated = session.copy(
@@ -313,7 +388,18 @@ class Repository(private val context: Context) : SessionRepository {
             activeSegmentId = activeSegmentId,
             lastCompletedSegmentId = lastCompletedSegmentId,
             updatedAt = System.currentTimeMillis(),
-            errorMessage = errorMessage
+            errorMessage = errorMessage,
+            importedContent = detail.session.importedContent?.let {
+                if (status == PodcastSessionStatus.ERROR) {
+                    it.copy(
+                        status = ImportedContentStatus.FAILED,
+                        errorMessage = errorMessage,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                } else {
+                    it
+                }
+            }
         )
         savePodcastSession(updated)
         return AppResult.Success(updated)

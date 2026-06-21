@@ -52,6 +52,7 @@ import com.example.blogrecording.ui.state.TranscriptPreviewSnippet
 fun HomeScreen(
     state: AppUiState,
     onCreateSession: () -> Unit,
+    onImportLocalMedia: () -> Unit,
     onStartInternal: () -> Unit,
     onStartMicrophone: () -> Unit,
     onStartInternalSession: (String) -> Unit,
@@ -85,15 +86,23 @@ fun HomeScreen(
         }
 
         if (home.isEmpty) {
-            HomeEmptyState(onCreateSession = onCreateSession)
+            HomeEmptyState(
+                onCreateSession = onCreateSession,
+                onImportLocalMedia = onImportLocalMedia
+            )
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("播客", style = MaterialTheme.typography.titleLarge)
-                OutlinedButton(onClick = onCreateSession) {
-                    Text("新建")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onCreateSession) {
+                        Text("新建")
+                    }
+                    OutlinedButton(onClick = onImportLocalMedia) {
+                        Text("导入音视频")
+                    }
                 }
             }
             home.cards.forEach { card ->
@@ -118,6 +127,9 @@ fun HomeScreen(
             }
             OutlinedButton(onClick = onStartMicrophone) {
                 Text("麦克风录音")
+            }
+            OutlinedButton(onClick = onImportLocalMedia) {
+                Text("导入音视频")
             }
             OutlinedButton(onClick = { onNavigate(AppScreen.HISTORY) }) {
                 Text("历史")
@@ -156,6 +168,7 @@ fun HomeScreen(
 @Composable
 fun HomeEmptyState(
     onCreateSession: () -> Unit,
+    onImportLocalMedia: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -169,6 +182,9 @@ fun HomeEmptyState(
             Text("还没有播客", style = MaterialTheme.typography.titleMedium)
             Button(onClick = onCreateSession) {
                 Text("新建播客")
+            }
+            OutlinedButton(onClick = onImportLocalMedia) {
+                Text("导入音视频")
             }
         }
     }
@@ -480,6 +496,7 @@ private fun HomeScreenEmptyPreview() {
             )
         ),
         onCreateSession = {},
+        onImportLocalMedia = {},
         onStartInternal = {},
         onStartMicrophone = {},
         onStartInternalSession = {},

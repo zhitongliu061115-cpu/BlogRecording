@@ -15,6 +15,7 @@ fun PodcastRecapApp(
     onStartMicrophone: () -> Unit = {},
     onStartInternalSession: (String) -> Unit = {},
     onStartMicrophoneSession: (String) -> Unit = {},
+    onImportLocalMedia: () -> Unit = {},
     onResumeInternalSession: (String) -> Unit = onStartInternalSession,
     onResumeMicrophoneSession: (String) -> Unit = onStartMicrophoneSession
 ) {
@@ -23,6 +24,7 @@ fun PodcastRecapApp(
             AppScreen.HOME -> HomeScreen(
                 state = state,
                 onCreateSession = viewModel::createPodcastSession,
+                onImportLocalMedia = onImportLocalMedia,
                 onStartInternal = onStartInternal,
                 onStartMicrophone = onStartMicrophone,
                 onStartInternalSession = onStartInternalSession,

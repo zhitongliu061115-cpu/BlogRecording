@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjectionManager
 import android.media.projection.MediaProjection
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,7 +25,11 @@ import com.example.blogrecording.common.toUserMessage
 import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.AudioSourceType
 import com.example.blogrecording.data.BundledModelInstaller
+import com.example.blogrecording.data.ImportedContentKind
+import com.example.blogrecording.data.ImportedContentMetadata
+import com.example.blogrecording.data.ImportedContentStatus
 import com.example.blogrecording.data.PodcastSessionStatus
+import com.example.blogrecording.data.RecordingSegmentStatus
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
 import com.example.blogrecording.data.Repository
@@ -34,6 +39,8 @@ import com.example.blogrecording.data.isInterruptedOnStartup
 import com.example.blogrecording.diarization.SpeakerDiarizationEngine
 import com.example.blogrecording.diarization.SpeakerSegment
 import com.example.blogrecording.diarization.SpeakerProfileManager
+import com.example.blogrecording.importing.DecodedLocalMedia
+import com.example.blogrecording.importing.LocalMediaImporter
 import com.example.blogrecording.recording.ActiveRecordingSegment
 import com.example.blogrecording.recording.RecordingController
 import com.example.blogrecording.recording.SegmentRecorder
@@ -67,6 +74,7 @@ import kotlinx.coroutines.withContext
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsStore = SettingsStore(application)
     private val repository = Repository(application)
+    private val localMediaImporter = LocalMediaImporter(application)
     private val apiKeyStore = ApiKeyStore(application)
     private val bundledModelInstaller = BundledModelInstaller(application)
     private val summaryRepository = SummaryRepository(DeepSeekSummaryClient())
@@ -224,6 +232,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun createPodcastSession() {
         viewModelScope.launch {
             repository.createSession(title = null, sourceType = AudioSourceType.MICROPHONE)
+        }
+    }
+
+    fun onLocalMediaImportCanceled() {
+        mutableState.value = mutableState.value.copy(
+            processingStage = ProcessingStageUiState.idle(),
+            processingSessionId = null,
+            error = null
+        )
+    }
+
+    fun importLocalMedia(uri: Uri) {
+        if (recordingController.currentState().isRecording) {
+            mutableState.value = mutableState.value.copy(
+                processingStage = ProcessingStageUiState.error(AppError.LocalMediaImportBlocked.toUserMessage()),
+                error = AppError.LocalMediaImportBlocked
+            )
+            return
+        }
+        viewModelScope.launch(captureDispatcher) {
+            runLocalMediaImport(uri)
         }
     }
 
@@ -871,6 +900,216 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 result
             }
+            AudioSourceType.LOCAL_MEDIA -> AppResult.Failure(AppError.LocalMediaImportBlocked)
+        }
+    }
+
+    private suspend fun runLocalMediaImport(uri: Uri) {
+        val settings = mutableState.value.settings
+        val gateError = modelGateError(settings)
+        if (gateError != null) {
+            withContext(Dispatchers.Main.immediate) {
+                mutableState.value = mutableState.value.copy(
+                    processingStage = ProcessingStageUiState.error(gateError.toUserMessage()),
+                    error = gateError
+                )
+            }
+            return
+        }
+
+        val source = when (val sourceResult = localMediaImporter.readSource(uri)) {
+            is AppResult.Success -> sourceResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = sourceResult.error)
+                return
+            }
+        }
+        val now = System.currentTimeMillis()
+        val initialMetadata = ImportedContentMetadata(
+            kind = ImportedContentKind.LOCAL_MEDIA,
+            displayName = source.displayName,
+            mimeType = source.mimeType,
+            sizeBytes = source.sizeBytes,
+            durationMs = null,
+            status = ImportedContentStatus.COPYING,
+            errorMessage = null,
+            importedAt = now,
+            updatedAt = now
+        )
+        val session = when (val created = repository.createImportedSession(
+            title = source.displayName,
+            metadata = initialMetadata
+        )) {
+            is AppResult.Success -> created.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId = null, error = created.error)
+                return
+            }
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                selectedSessionId = session.id,
+                currentSession = repository.getSession(session.id),
+                currentSegments = emptyList(),
+                audioSourceType = AudioSourceType.LOCAL_MEDIA,
+                recordingStatus = RecordingStatus.TRANSCRIBING,
+                processingStage = ProcessingStageUiState.importing("正在读取所选音视频"),
+                processingSessionId = session.id,
+                error = null
+            )
+        }
+
+        localMediaImporter.decode(uri).collect { result ->
+            when (result) {
+                is AppResult.Failure -> updateLocalImportError(session.id, result.error, initialMetadata)
+                is AppResult.Success -> processDecodedLocalMedia(
+                    sessionId = session.id,
+                    metadata = initialMetadata,
+                    decoded = result.value,
+                    settings = settings
+                )
+            }
+        }
+    }
+
+    private suspend fun processDecodedLocalMedia(
+        sessionId: String,
+        metadata: ImportedContentMetadata,
+        decoded: DecodedLocalMedia,
+        settings: AppSettings
+    ) {
+        val decodingMetadata = metadata.copy(
+            durationMs = decoded.durationMs,
+            status = ImportedContentStatus.DECODING,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.updateImportedContent(
+            sessionId = sessionId,
+            metadata = decodingMetadata,
+            status = PodcastSessionStatus.PROCESSING
+        )
+        updateRecordingState(
+            recordingStatus = RecordingStatus.TRANSCRIBING,
+            vadLabel = "正在解码并准备转写本地音视频",
+            processingStage = ProcessingStageUiState.importing(
+                message = "已读取音轨，准备转文字",
+                progressLabel = decoded.durationMs?.let { "${(it / 1000).coerceAtLeast(1)} 秒" }
+            ),
+            processingSessionId = sessionId,
+            error = null
+        )
+        val segment = when (val segmentResult = repository.appendImportedSegment(
+            sessionId = sessionId,
+            startedAt = System.currentTimeMillis(),
+            durationMs = decoded.durationMs ?: decoded.streams.durationMs(),
+            sampleRate = decoded.sampleRate,
+            channelCount = decoded.channelCount
+        )) {
+            is AppResult.Success -> segmentResult.value
+            is AppResult.Failure -> {
+                updateLocalImportError(sessionId, segmentResult.error, decodingMetadata)
+                return
+            }
+        }
+        val legacySession = repository.getSession(sessionId)
+            ?: RecordingSessionEntity(
+                id = sessionId,
+                title = metadata.displayName,
+                createdAt = metadata.importedAt,
+                updatedAt = System.currentTimeMillis(),
+                sourceType = AudioSourceType.LOCAL_MEDIA,
+                status = RecordingStatus.TRANSCRIBING,
+                transcript = "",
+                summary = null,
+                asrModelName = "SenseVoice sherpa-onnx",
+                vadModelName = "Silero VAD sherpa-onnx",
+                diarizationModelName = "sherpa-onnx speaker diarization",
+                summaryModelName = settings.deepSeekModel,
+                summaryStyle = settings.summaryStyle,
+                summaryLanguage = settings.summaryLanguage,
+                detectedSpeakerCount = 0,
+                segmentCount = 0,
+                errorMessage = null
+            )
+        val chunker = PcmChunker(settings.transcriptionChunkDurationMs.coerceIn(10_000L, 600_000L))
+        val recognizer = SenseVoiceRecognizer(settings.senseVoiceModelPath)
+        val diarization = SpeakerDiarizationEngine(
+            modelPath = settings.diarizationModelPath,
+            enabled = settings.enableSpeakerDiarization,
+            maxSpeakerCount = settings.maxSpeakerCount
+        )
+        decoded.streams.forEach { stream ->
+            chunker.offer(stream).forEach { chunk ->
+                processChunk(
+                    session = legacySession.copy(status = RecordingStatus.TRANSCRIBING),
+                    chunk = chunk,
+                    recognizer = recognizer,
+                    diarization = diarization,
+                    recordingSegmentId = segment.id
+                )
+            }
+        }
+        chunker.flush()?.let { chunk ->
+            processChunk(
+                session = legacySession.copy(status = RecordingStatus.TRANSCRIBING),
+                chunk = chunk,
+                recognizer = recognizer,
+                diarization = diarization,
+                recordingSegmentId = segment.id
+            )
+        }
+        val completedMetadata = decodingMetadata.copy(
+            status = ImportedContentStatus.COMPLETED,
+            errorMessage = null,
+            updatedAt = System.currentTimeMillis()
+        )
+        val transcriptSegments = repository.getSegments(sessionId)
+        repository.updateImportedContent(
+            sessionId = sessionId,
+            metadata = completedMetadata,
+            status = if (transcriptSegments.isEmpty()) PodcastSessionStatus.PAUSED else PodcastSessionStatus.READY_FOR_SUMMARY
+        )
+        val updated = repository.getSession(sessionId)
+        val stage = if (transcriptSegments.isEmpty()) {
+            ProcessingStageUiState.internalAudioUnavailable()
+        } else {
+            ProcessingStageUiState.completed("本地音视频导入完成，可生成总结")
+        }
+        updateRecordingState(
+            currentSession = updated,
+            currentSegments = transcriptSegments,
+            recordingStatus = if (transcriptSegments.isEmpty()) RecordingStatus.ERROR else RecordingStatus.COMPLETED,
+            vadLabel = if (transcriptSegments.isEmpty()) "未识别到可转写声音" else "导入完成，已写入 ${transcriptSegments.size} 段转写",
+            processingStage = stage,
+            processingSessionId = sessionId,
+            error = null
+        )
+    }
+
+    private suspend fun updateLocalImportError(
+        sessionId: String?,
+        error: AppError,
+        metadata: ImportedContentMetadata? = null
+    ) {
+        val message = error.toUserMessage()
+        if (sessionId != null && metadata != null) {
+            repository.updateImportedContent(
+                sessionId = sessionId,
+                metadata = metadata.copy(
+                    status = ImportedContentStatus.FAILED,
+                    errorMessage = message,
+                    updatedAt = System.currentTimeMillis()
+                ),
+                status = PodcastSessionStatus.ERROR
+            )
+        }
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(
+                recordingStatus = RecordingStatus.ERROR,
+                processingStage = ProcessingStageUiState.error(message),
+                processingSessionId = sessionId,
+                error = error
+            )
         }
     }
 
@@ -1044,6 +1283,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val foregroundServiceType = when (source) {
             AudioSourceType.INTERNAL_AUDIO -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             AudioSourceType.MICROPHONE -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            AudioSourceType.LOCAL_MEDIA -> return
         }
         val intent = CaptureForegroundService.buildStartIntent(
             context = context,
@@ -1067,6 +1307,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return when (this) {
             AudioSourceType.INTERNAL_AUDIO -> "系统内录"
             AudioSourceType.MICROPHONE -> "麦克风"
+            AudioSourceType.LOCAL_MEDIA -> "本地导入"
         }
     }
 
@@ -1074,6 +1315,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return when (this) {
             AudioSourceType.INTERNAL_AUDIO -> CaptureNotificationState.SOURCE_SYSTEM_AUDIO
             AudioSourceType.MICROPHONE -> CaptureNotificationState.SOURCE_MICROPHONE
+            AudioSourceType.LOCAL_MEDIA -> CaptureNotificationState.SOURCE_AUDIO
         }
     }
 
@@ -1087,6 +1329,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             RecordingStatus.ERROR,
             RecordingStatus.NOT_STARTED -> CaptureNotificationState.STATE_PAUSED
             RecordingStatus.CAPTURING_AUDIO -> CaptureNotificationState.STATE_RECORDING
+        }
+    }
+
+    private fun List<PcmAudioStream>.durationMs(): Long {
+        return sumOf { stream ->
+            val samplesPerSecond = stream.sampleRate.toLong() * stream.channelCount.coerceAtLeast(1)
+            if (samplesPerSecond <= 0L) 0L else (stream.samples.size.toLong() * 1000L) / samplesPerSecond
         }
     }
 

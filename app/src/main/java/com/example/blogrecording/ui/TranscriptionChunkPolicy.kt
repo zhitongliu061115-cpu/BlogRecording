@@ -15,7 +15,8 @@ internal object TranscriptionChunkPolicy {
             .filter { segment ->
                 when (sourceType) {
                     AudioSourceType.INTERNAL_AUDIO -> segment.hasAnyCapturedWaveform()
-                    AudioSourceType.MICROPHONE -> hasMeaningfulAudio(segment)
+                    AudioSourceType.MICROPHONE,
+                    AudioSourceType.LOCAL_MEDIA -> hasMeaningfulAudio(segment)
                 }
             }
     }

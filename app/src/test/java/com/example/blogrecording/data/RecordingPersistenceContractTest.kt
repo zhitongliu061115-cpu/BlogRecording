@@ -9,7 +9,7 @@ class RecordingPersistenceContractTest {
     fun contractKeepsDatastoreAndKeyFamilies() {
         assertEquals("podcast_recap_records", RecordingPersistenceContract.DATASTORE_NAME)
         assertEquals("schema_version", RecordingPersistenceContract.SCHEMA_VERSION_KEY)
-        assertEquals(2, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
+        assertEquals(3, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
         assertEquals("session_order", RecordingPersistenceContract.SESSION_ORDER_KEY)
         assertEquals("session_abc", RecordingPersistenceContract.sessionKey("abc"))
         assertEquals("segments_abc", RecordingPersistenceContract.segmentsKey("abc"))
@@ -24,6 +24,7 @@ class RecordingPersistenceContractTest {
         assertTrue("summaryLanguage" in RecordingPersistenceContract.SESSION_FIELDS)
         assertEquals("INTERNAL_AUDIO", AudioSourceType.INTERNAL_AUDIO.name)
         assertEquals("MICROPHONE", AudioSourceType.MICROPHONE.name)
+        assertEquals("LOCAL_MEDIA", AudioSourceType.LOCAL_MEDIA.name)
         assertEquals("CAPTURING_AUDIO", RecordingStatus.CAPTURING_AUDIO.name)
         assertEquals("VAD_DETECTING", RecordingStatus.VAD_DETECTING.name)
         assertEquals("DIARIZING", RecordingStatus.DIARIZING.name)
@@ -45,10 +46,16 @@ class RecordingPersistenceContractTest {
 
     @Test
     fun contractDefinesPodcastSessionAndRecordingSegmentJsonFields() {
-        assertEquals(21, RecordingPersistenceContract.PODCAST_SESSION_FIELDS.size)
+        assertEquals(22, RecordingPersistenceContract.PODCAST_SESSION_FIELDS.size)
         assertTrue("activeSegmentId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("legacyRecordingSessionId" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("summary" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+        assertTrue("importedContent" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
+
+        assertEquals(9, RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS.size)
+        assertTrue("displayName" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("mimeType" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("status" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
 
         assertEquals(6, RecordingPersistenceContract.SESSION_SUMMARY_FIELDS.size)
         assertTrue("generatedAt" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)

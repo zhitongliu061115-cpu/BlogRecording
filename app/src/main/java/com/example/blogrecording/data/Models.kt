@@ -2,7 +2,8 @@ package com.example.blogrecording.data
 
 enum class AudioSourceType {
     INTERNAL_AUDIO,
-    MICROPHONE
+    MICROPHONE,
+    LOCAL_MEDIA
 }
 
 enum class RecordingStatus {
@@ -75,6 +76,30 @@ enum class ModelLoadStatus {
     MISSING,
     INIT_FAILED
 }
+
+enum class ImportedContentKind {
+    LOCAL_MEDIA
+}
+
+enum class ImportedContentStatus {
+    COPYING,
+    DECODING,
+    TRANSCRIBING,
+    COMPLETED,
+    FAILED
+}
+
+data class ImportedContentMetadata(
+    val kind: ImportedContentKind,
+    val displayName: String,
+    val mimeType: String?,
+    val sizeBytes: Long?,
+    val durationMs: Long?,
+    val status: ImportedContentStatus,
+    val errorMessage: String?,
+    val importedAt: Long,
+    val updatedAt: Long
+)
 
 data class RecordingSessionEntity(
     val id: String,
@@ -173,7 +198,8 @@ data class PodcastSession(
     val recordingSegmentCount: Int,
     val transcriptSegmentCount: Int,
     val errorMessage: String?,
-    val legacyRecordingSessionId: String?
+    val legacyRecordingSessionId: String?,
+    val importedContent: ImportedContentMetadata? = null
 )
 
 data class PodcastSessionDetail(

@@ -58,6 +58,20 @@ class SummaryPromptBuilder {
             - 保持清晰、有层次。
             - $languageInstruction
             - $styleInstruction
+        """.trimIndent() + "\n\n" + structuredOutputInstruction()
+    }
+
+    private fun structuredOutputInstruction(): String {
+        return """
+
+            结构化输出契约：
+            - 严格输出一个 JSON 对象，不要输出 Markdown 代码块。
+            - 必须包含这些字段：overview, keyPoints, actionItems, openQuestions, quoteCandidates, timelineChapters, tags。
+            - overview 是一句话概括。
+            - keyPoints/actionItems/openQuestions/quoteCandidates/tags 都必须是字符串数组。
+            - tags 是 3-8 个简短主题标签，不要输出长句。
+            - timelineChapters 必须是数组，每项包含 title, startMs, endMs, keyPoints；没有可靠时间时 startMs/endMs 用 null。
+            - 不要包含 API Key、私有路径、原始音频或与转写无关的内容。
         """.trimIndent()
     }
 }

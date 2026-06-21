@@ -2,7 +2,8 @@ package com.example.blogrecording.data
 
 enum class AudioSourceType {
     INTERNAL_AUDIO,
-    MICROPHONE
+    MICROPHONE,
+    LOCAL_MEDIA
 }
 
 enum class RecordingStatus {
@@ -76,6 +77,35 @@ enum class ModelLoadStatus {
     INIT_FAILED
 }
 
+enum class ImportedContentKind {
+    LOCAL_MEDIA,
+    URL_MEDIA
+}
+
+enum class ImportedContentStatus {
+    RESOLVING,
+    DOWNLOADING,
+    COPYING,
+    DECODING,
+    TRANSCRIBING,
+    COMPLETED,
+    FAILED
+}
+
+data class ImportedContentMetadata(
+    val kind: ImportedContentKind,
+    val displayName: String,
+    val mimeType: String?,
+    val sizeBytes: Long?,
+    val durationMs: Long?,
+    val status: ImportedContentStatus,
+    val errorMessage: String?,
+    val importedAt: Long,
+    val updatedAt: Long,
+    val sourceUrl: String? = null,
+    val sourceHost: String? = null
+)
+
 data class RecordingSessionEntity(
     val id: String,
     val title: String,
@@ -130,8 +160,125 @@ data class SessionSummary(
     val modelName: String,
     val generatedAt: Long?,
     val updatedAt: Long,
+    val errorMessage: String?,
+    val structured: StructuredSummary? = null
+)
+
+data class StructuredSummary(
+    val overview: String,
+    val keyPoints: List<String>,
+    val actionItems: List<String>,
+    val openQuestions: List<String>,
+    val quoteCandidates: List<String>,
+    val timelineChapters: List<TimelineChapter> = emptyList(),
+    val parseStatus: StructuredSummaryParseStatus = StructuredSummaryParseStatus.STRUCTURED
+)
+
+data class TimelineChapter(
+    val title: String,
+    val startMs: Long?,
+    val endMs: Long?,
+    val keyPoints: List<String>,
+    val sourceStartMs: Long?,
+    val sourceEndMs: Long?
+)
+
+enum class GeneratedTagSource {
+    STRUCTURED_SUMMARY,
+    TRANSCRIPT
+}
+
+enum class TagGenerationStatus {
+    NOT_READY,
+    GENERATED,
+    BLOCKED_MISSING_API_KEY,
+    BLOCKED_EMPTY_CONTENT,
+    FAILED
+}
+
+data class GeneratedTag(
+    val text: String,
+    val normalizedKey: String,
+    val order: Int,
+    val source: GeneratedTagSource,
+    val generatedAt: Long,
+    val status: TagGenerationStatus = TagGenerationStatus.GENERATED
+)
+
+data class SessionTagGeneration(
+    val tags: List<GeneratedTag> = emptyList(),
+    val status: TagGenerationStatus = TagGenerationStatus.NOT_READY,
+    val generatedAt: Long? = null,
+    val updatedAt: Long = 0L,
+    val errorMessage: String? = null
+) {
+    companion object {
+        fun empty(): SessionTagGeneration = SessionTagGeneration()
+    }
+}
+
+enum class HighlightSource {
+    STRUCTURED_SUMMARY,
+    TRANSCRIPT
+}
+
+data class SessionHighlight(
+    val id: String,
+    val text: String,
+    val normalizedKey: String,
+    val source: HighlightSource,
+    val sourceStartMs: Long?,
+    val sourceEndMs: Long?,
+    val transcriptSegmentIds: List<String>,
+    val isFavorite: Boolean,
+    val generated: Boolean,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+data class SessionHighlights(
+    val items: List<SessionHighlight> = emptyList(),
+    val generatedAt: Long? = null,
+    val updatedAt: Long = 0L
+) {
+    companion object {
+        fun empty(): SessionHighlights = SessionHighlights()
+    }
+}
+
+enum class QaMessageStatus {
+    ANSWERING,
+    ANSWERED,
+    FAILED,
+    BLOCKED_MISSING_API_KEY,
+    BLOCKED_EMPTY_CONTENT
+}
+
+data class SessionQaMessage(
+    val id: String,
+    val question: String,
+    val answer: String?,
+    val askedAt: Long,
+    val answeredAt: Long?,
+    val status: QaMessageStatus,
+    val modelName: String,
     val errorMessage: String?
 )
+
+data class SessionQaHistory(
+    val messages: List<SessionQaMessage> = emptyList(),
+    val updatedAt: Long = 0L
+) {
+    companion object {
+        fun empty(): SessionQaHistory = SessionQaHistory()
+    }
+}
+
+enum class StructuredSummaryParseStatus {
+    STRUCTURED,
+    PARTIAL,
+    FALLBACK_TEXT
+}
 
 data class RecordingSegment(
     val id: String,
@@ -173,7 +320,11 @@ data class PodcastSession(
     val recordingSegmentCount: Int,
     val transcriptSegmentCount: Int,
     val errorMessage: String?,
-    val legacyRecordingSessionId: String?
+    val legacyRecordingSessionId: String?,
+    val importedContent: ImportedContentMetadata? = null,
+    val tagGeneration: SessionTagGeneration = SessionTagGeneration.empty(),
+    val highlights: SessionHighlights = SessionHighlights.empty(),
+    val qaHistory: SessionQaHistory = SessionQaHistory.empty()
 )
 
 data class PodcastSessionDetail(

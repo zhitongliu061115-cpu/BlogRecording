@@ -73,7 +73,25 @@ class PodcastSessionJsonCodecTest {
             modelName = "deepseek-chat",
             generatedAt = 1_000L,
             updatedAt = 2_000L,
-            errorMessage = null
+            errorMessage = null,
+            structured = StructuredSummary(
+                overview = "overview",
+                keyPoints = listOf("point"),
+                actionItems = listOf("action"),
+                openQuestions = listOf("question"),
+                quoteCandidates = listOf("quote"),
+                timelineChapters = listOf(
+                    TimelineChapter(
+                        title = "Intro",
+                        startMs = 0L,
+                        endMs = 10_000L,
+                        keyPoints = listOf("hello"),
+                        sourceStartMs = 0L,
+                        sourceEndMs = 10_000L
+                    )
+                ),
+                parseStatus = StructuredSummaryParseStatus.STRUCTURED
+            )
         )
 
         val decoded = PodcastSessionJsonCodec.decodeSummary(
@@ -81,6 +99,216 @@ class PodcastSessionJsonCodecTest {
         )
 
         assertEquals(summary, decoded)
+    }
+
+    @Test
+    fun legacySummaryJsonDefaultsMissingStructuredSummary() {
+        val encoded = PodcastSessionJsonCodec.encodeSummary(
+            SessionSummary(
+                text = "legacy",
+                status = SummaryStatus.SUMMARIZED,
+                modelName = "deepseek-chat",
+                generatedAt = 1_000L,
+                updatedAt = 2_000L,
+                errorMessage = null
+            )
+        )
+        encoded.remove("structured")
+
+        val decoded = PodcastSessionJsonCodec.decodeSummary(encoded)
+
+        assertNull(decoded.structured)
+        assertEquals("legacy", decoded.text)
+    }
+
+    @Test
+    fun importedContentRoundTripsThroughPodcastSessionJson() {
+        val metadata = ImportedContentMetadata(
+            kind = ImportedContentKind.LOCAL_MEDIA,
+            displayName = "episode.mp3",
+            mimeType = "audio/mpeg",
+            sizeBytes = 123_456L,
+            durationMs = 60_000L,
+            status = ImportedContentStatus.COMPLETED,
+            errorMessage = null,
+            importedAt = 1_000L,
+            updatedAt = 2_000L
+        )
+        val session = podcastSession(sourceType = AudioSourceType.LOCAL_MEDIA).copy(
+            importedContent = metadata
+        )
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(AudioSourceType.LOCAL_MEDIA, decoded.sourceType)
+        assertEquals(metadata, decoded.importedContent)
+    }
+
+    @Test
+    fun urlImportedContentRoundTripsSanitizedSourceMetadata() {
+        val metadata = ImportedContentMetadata(
+            kind = ImportedContentKind.URL_MEDIA,
+            displayName = "episode.mp3",
+            mimeType = "audio/mpeg",
+            sizeBytes = 123_456L,
+            durationMs = null,
+            status = ImportedContentStatus.DOWNLOADING,
+            errorMessage = null,
+            importedAt = 1_000L,
+            updatedAt = 2_000L,
+            sourceUrl = "https://www.xiaoyuzhoufm.com/episode/6a3392764233e62bc54be185",
+            sourceHost = "www.xiaoyuzhoufm.com"
+        )
+        val session = podcastSession(sourceType = AudioSourceType.LOCAL_MEDIA).copy(
+            importedContent = metadata
+        )
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(metadata, decoded.importedContent)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingImportedContent() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("importedContent")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertNull(decoded.importedContent)
+    }
+
+    @Test
+    fun tagGenerationRoundTripsThroughPodcastSessionJson() {
+        val tags = SessionTagGeneration(
+            tags = listOf(
+                GeneratedTag(
+                    text = "AI",
+                    normalizedKey = "ai",
+                    order = 1,
+                    source = GeneratedTagSource.STRUCTURED_SUMMARY,
+                    generatedAt = 3_000L
+                ),
+                GeneratedTag(
+                    text = "Podcast",
+                    normalizedKey = "podcast",
+                    order = 2,
+                    source = GeneratedTagSource.TRANSCRIPT,
+                    generatedAt = 3_000L
+                )
+            ),
+            status = TagGenerationStatus.GENERATED,
+            generatedAt = 3_000L,
+            updatedAt = 4_000L,
+            errorMessage = null
+        )
+        val session = podcastSession().copy(tagGeneration = tags)
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(tags, decoded.tagGeneration)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingTagGeneration() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("tagGeneration")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertEquals(SessionTagGeneration.empty(), decoded.tagGeneration)
+    }
+
+    @Test
+    fun highlightsRoundTripThroughPodcastSessionJson() {
+        val highlights = SessionHighlights(
+            items = listOf(
+                SessionHighlight(
+                    id = "highlight-1",
+                    text = "important quote",
+                    normalizedKey = "important quote|1000|2000",
+                    source = HighlightSource.TRANSCRIPT,
+                    sourceStartMs = 1_000L,
+                    sourceEndMs = 2_000L,
+                    transcriptSegmentIds = listOf("transcript-1"),
+                    isFavorite = true,
+                    generated = true,
+                    createdAt = 3_000L,
+                    updatedAt = 4_000L
+                )
+            ),
+            generatedAt = 3_000L,
+            updatedAt = 4_000L
+        )
+        val session = podcastSession().copy(highlights = highlights)
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(highlights, decoded.highlights)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingHighlights() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("highlights")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertEquals(SessionHighlights.empty(), decoded.highlights)
+    }
+
+    @Test
+    fun qaHistoryRoundTripsThroughPodcastSessionJson() {
+        val history = SessionQaHistory(
+            messages = listOf(
+                SessionQaMessage(
+                    id = "qa-1",
+                    question = "What happened?",
+                    answer = "Only episode content.",
+                    askedAt = 3_000L,
+                    answeredAt = 4_000L,
+                    status = QaMessageStatus.ANSWERED,
+                    modelName = "deepseek-chat",
+                    errorMessage = null
+                ),
+                SessionQaMessage(
+                    id = "qa-2",
+                    question = "Retry?",
+                    answer = null,
+                    askedAt = 5_000L,
+                    answeredAt = null,
+                    status = QaMessageStatus.FAILED,
+                    modelName = "deepseek-chat",
+                    errorMessage = "HTTP 500"
+                )
+            ),
+            updatedAt = 5_000L
+        )
+        val session = podcastSession().copy(qaHistory = history)
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(history, decoded.qaHistory)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingQaHistory() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("qaHistory")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertEquals(SessionQaHistory.empty(), decoded.qaHistory)
     }
 
     private fun podcastSession(

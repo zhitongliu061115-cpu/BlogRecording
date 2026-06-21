@@ -3,7 +3,7 @@ package com.example.blogrecording.data
 internal object RecordingPersistenceContract {
     const val DATASTORE_NAME = "podcast_recap_records"
     const val SCHEMA_VERSION_KEY = "schema_version"
-    const val CURRENT_SCHEMA_VERSION = 2
+    const val CURRENT_SCHEMA_VERSION = 5
     const val SESSION_ORDER_KEY = "session_order"
 
     // Existing key families are compatibility surfaces for old recording history.
@@ -84,7 +84,24 @@ internal object RecordingPersistenceContract {
         "recordingSegmentCount",
         "transcriptSegmentCount",
         "errorMessage",
-        "legacyRecordingSessionId"
+        "legacyRecordingSessionId",
+        "importedContent",
+        "tagGeneration",
+        "highlights"
+    )
+
+    val IMPORTED_CONTENT_FIELDS = setOf(
+        "kind",
+        "displayName",
+        "mimeType",
+        "sizeBytes",
+        "durationMs",
+        "status",
+        "errorMessage",
+        "importedAt",
+        "updatedAt",
+        "sourceUrl",
+        "sourceHost"
     )
 
     val SESSION_SUMMARY_FIELDS = setOf(
@@ -93,7 +110,47 @@ internal object RecordingPersistenceContract {
         "modelName",
         "generatedAt",
         "updatedAt",
-        "errorMessage"
+        "errorMessage",
+        "structured"
+    )
+
+    val STRUCTURED_SUMMARY_FIELDS = setOf(
+        "overview",
+        "keyPoints",
+        "actionItems",
+        "openQuestions",
+        "quoteCandidates",
+        "timelineChapters",
+        "parseStatus"
+    )
+
+    val TIMELINE_CHAPTER_FIELDS = setOf(
+        "title",
+        "startMs",
+        "endMs",
+        "keyPoints",
+        "sourceStartMs",
+        "sourceEndMs"
+    )
+
+    val SESSION_HIGHLIGHTS_FIELDS = setOf(
+        "items",
+        "generatedAt",
+        "updatedAt"
+    )
+
+    val SESSION_HIGHLIGHT_FIELDS = setOf(
+        "id",
+        "text",
+        "normalizedKey",
+        "source",
+        "sourceStartMs",
+        "sourceEndMs",
+        "transcriptSegmentIds",
+        "isFavorite",
+        "generated",
+        "createdAt",
+        "updatedAt"
     )
 
     val RECORDING_SEGMENT_FIELDS = setOf(

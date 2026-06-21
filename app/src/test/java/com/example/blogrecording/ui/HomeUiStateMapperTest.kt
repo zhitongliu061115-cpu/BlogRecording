@@ -1,16 +1,20 @@
 package com.example.blogrecording.ui
 
 import com.example.blogrecording.data.AudioSourceType
+import com.example.blogrecording.data.GeneratedTag
+import com.example.blogrecording.data.GeneratedTagSource
 import com.example.blogrecording.data.PodcastSession
 import com.example.blogrecording.data.PodcastSessionDetail
 import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSegment
 import com.example.blogrecording.data.RecordingSegmentStatus
+import com.example.blogrecording.data.SessionTagGeneration
 import com.example.blogrecording.data.SessionSummary
 import com.example.blogrecording.data.SpeakerProfileEntity
 import com.example.blogrecording.data.SummaryLanguage
 import com.example.blogrecording.data.SummaryStatus
 import com.example.blogrecording.data.SummaryStyle
+import com.example.blogrecording.data.TagGenerationStatus
 import com.example.blogrecording.data.TranscriptSegmentEntity
 import com.example.blogrecording.ui.state.ProcessingStage
 import com.example.blogrecording.ui.state.ProcessingStageUiState
@@ -150,6 +154,33 @@ class HomeUiStateMapperTest {
         assertTrue(card.canFinish)
         assertTrue(card.canStartSummary)
         assertNull(card.startSummaryDisabledReason)
+    }
+
+    @Test
+    fun importedSessionWithTranscriptCanSummarizeButNotStartRecording() {
+        val card = HomeUiStateMapper.map(
+            listOf(
+                detail(
+                    session = session(
+                        status = PodcastSessionStatus.READY_FOR_SUMMARY,
+                        sourceType = AudioSourceType.LOCAL_MEDIA,
+                        transcript = "import transcript",
+                        transcriptSegmentCount = 1
+                    ),
+                    recordingSegments = listOf(
+                        segment(
+                            sourceType = AudioSourceType.LOCAL_MEDIA,
+                            status = RecordingSegmentStatus.COMPLETED
+                        )
+                    )
+                )
+            )
+        ).cards.single()
+
+        assertFalse(card.actionState.canStart)
+        assertFalse(card.actionState.canResume)
+        assertTrue(card.canStartSummary)
+        assertEquals("可总结", card.statusLabel)
     }
 
     @Test
@@ -334,6 +365,34 @@ class HomeUiStateMapperTest {
         )
     }
 
+    @Test
+    fun cardShowsCompactGeneratedTags() {
+        val card = HomeUiStateMapper.map(
+            listOf(
+                detail(
+                    session = session(
+                        tagGeneration = SessionTagGeneration(
+                            tags = listOf("AI", "Podcast", "Export", "Timeline", "Extra").mapIndexed { index, text ->
+                                GeneratedTag(
+                                    text = text,
+                                    normalizedKey = text.lowercase(),
+                                    order = index + 1,
+                                    source = GeneratedTagSource.STRUCTURED_SUMMARY,
+                                    generatedAt = 1_000L
+                                )
+                            },
+                            status = TagGenerationStatus.GENERATED,
+                            generatedAt = 1_000L,
+                            updatedAt = 1_000L
+                        )
+                    )
+                )
+            )
+        ).cards.single()
+
+        assertEquals(listOf("AI", "Podcast", "Export", "Timeline"), card.tagLabels)
+    }
+
     private fun detail(
         session: PodcastSession,
         recordingSegments: List<RecordingSegment> = emptyList(),
@@ -356,13 +415,16 @@ class HomeUiStateMapperTest {
         transcript: String = "",
         transcriptSegmentCount: Int = 0,
         summary: SessionSummary? = null
+        ,
+        sourceType: AudioSourceType = AudioSourceType.MICROPHONE,
+        tagGeneration: SessionTagGeneration = SessionTagGeneration.empty()
     ): PodcastSession {
         return PodcastSession(
             id = id,
             title = title,
             createdAt = 1L,
             updatedAt = updatedAt,
-            sourceType = AudioSourceType.MICROPHONE,
+            sourceType = sourceType,
             status = status,
             activeSegmentId = activeSegmentId,
             lastCompletedSegmentId = null,
@@ -378,7 +440,8 @@ class HomeUiStateMapperTest {
             recordingSegmentCount = 0,
             transcriptSegmentCount = transcriptSegmentCount,
             errorMessage = null,
-            legacyRecordingSessionId = null
+            legacyRecordingSessionId = null,
+            tagGeneration = tagGeneration
         )
     }
 
@@ -386,13 +449,14 @@ class HomeUiStateMapperTest {
         sessionId: String = "session-1",
         id: String = "segment-1",
         status: RecordingSegmentStatus = RecordingSegmentStatus.COMPLETED,
-        durationMs: Long = 0L
+        durationMs: Long = 0L,
+        sourceType: AudioSourceType = AudioSourceType.MICROPHONE
     ): RecordingSegment {
         return RecordingSegment(
             id = id,
             sessionId = sessionId,
             index = 1,
-            sourceType = AudioSourceType.MICROPHONE,
+            sourceType = sourceType,
             status = status,
             startedAt = 1L,
             endedAt = 2L,

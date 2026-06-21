@@ -41,6 +41,20 @@ class ProcessingStageUiStateTest {
         assertFalseSystemLevelLanguage(state.message)
     }
 
+    @Test
+    fun importingStageShowsActiveImportProgress() {
+        val state = ProcessingStageUiState.importing(
+            message = "正在读取所选音视频",
+            progressLabel = "60 秒"
+        )
+
+        assertEquals(ProcessingStage.IMPORTING, state.stage)
+        assertTrue(state.isActive)
+        assertEquals("正在导入", state.title)
+        assertEquals("60 秒", state.progressLabel)
+        assertTrue(state.message.contains("音视频"))
+    }
+
     private fun assertFalseSystemLevelLanguage(text: String) {
         assertTrue(!text.contains("系统级"))
         assertTrue(!text.contains("系统音频输出"))

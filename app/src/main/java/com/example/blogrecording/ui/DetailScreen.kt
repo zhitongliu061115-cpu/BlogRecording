@@ -2,6 +2,8 @@ package com.example.blogrecording.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,16 +12,30 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.example.blogrecording.common.toUserMessage
+import com.example.blogrecording.data.QaMessageStatus
+import com.example.blogrecording.data.SessionHighlight
+import com.example.blogrecording.data.SessionQaMessage
+import com.example.blogrecording.data.SessionSummary
+import com.example.blogrecording.data.StructuredSummary
+import com.example.blogrecording.data.TimelineChapter
 import com.example.blogrecording.data.toTranscriptText
+import com.example.blogrecording.export.SessionExportFormat
 import com.example.blogrecording.ui.state.AppUiState
 import com.example.blogrecording.ui.state.ProcessingStageUiState
 
@@ -28,6 +44,11 @@ fun DetailScreen(
     state: AppUiState,
     onBack: () -> Unit,
     onGenerateSummary: () -> Unit,
+    onToggleHighlightFavorite: (String) -> Unit,
+    onSaveExport: (SessionExportFormat) -> Unit,
+    onShareExport: (SessionExportFormat) -> Unit,
+    onAskQuestion: (String) -> Unit,
+    onRetryQuestion: (String) -> Unit,
     onDelete: () -> Unit
 ) {
     val clipboard = LocalClipboardManager.current
@@ -63,6 +84,11 @@ fun DetailScreen(
             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(transcriptWithMeta)) }) { Text("复制带标签转写") }
             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(session?.summary.orEmpty())) }) { Text("复制总结") }
         }
+        ExportActionRow(
+            enabled = session != null,
+            onSaveExport = onSaveExport,
+            onShareExport = onShareExport
+        )
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("转写文本", style = MaterialTheme.typography.titleMedium)
@@ -72,15 +98,310 @@ fun DetailScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("AI 总结", style = MaterialTheme.typography.titleMedium)
-                Text(session?.summary?.ifBlank { "暂无总结。" } ?: "暂无总结。")
+                SummaryContent(
+                    summary = state.currentPodcastSummary,
+                    legacyText = session?.summary
+                )
             }
         }
+        TagSection(state.currentTagLabels)
+        HighlightSection(
+            highlights = state.currentHighlights,
+            onToggleFavorite = onToggleHighlightFavorite
+        )
+        SessionQaSection(
+            messages = state.currentQaMessages,
+            isAsking = state.isAskingQa,
+            hasApiKey = state.hasApiKey,
+            hasContent = session?.transcript?.isNotBlank() == true ||
+                state.currentSegments.any { it.text.isNotBlank() } ||
+                state.currentPodcastSummary != null ||
+                state.currentTagLabels.isNotEmpty() ||
+                state.currentHighlights.isNotEmpty(),
+            onAskQuestion = onAskQuestion,
+            onRetryQuestion = onRetryQuestion
+        )
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("说话人说明", style = MaterialTheme.typography.titleMedium)
                 Text("Speaker 1、Speaker 2 是自动分离标签，不代表真实身份。多人同时说话、背景音乐和麦克风外放录音会降低准确性。")
             }
         }
+    }
+}
+
+@Composable
+private fun ExportActionRow(
+    enabled: Boolean,
+    onSaveExport: (SessionExportFormat) -> Unit,
+    onShareExport: (SessionExportFormat) -> Unit
+) {
+    var saveExpanded by remember { mutableStateOf(false) }
+    var shareExpanded by remember { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExportMenuButton(
+            label = "保存导出",
+            expanded = saveExpanded,
+            enabled = enabled,
+            onExpandedChange = { saveExpanded = it },
+            onSelect = onSaveExport
+        )
+        ExportMenuButton(
+            label = "分享导出",
+            expanded = shareExpanded,
+            enabled = enabled,
+            onExpandedChange = { shareExpanded = it },
+            onSelect = onShareExport
+        )
+    }
+}
+
+@Composable
+private fun ExportMenuButton(
+    label: String,
+    expanded: Boolean,
+    enabled: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelect: (SessionExportFormat) -> Unit
+) {
+    Column {
+        OutlinedButton(
+            enabled = enabled,
+            onClick = { onExpandedChange(true) }
+        ) {
+            Text(label)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            SessionExportFormat.entries.forEach { format ->
+                DropdownMenuItem(
+                    text = { Text(format.displayLabel()) },
+                    onClick = {
+                        onExpandedChange(false)
+                        onSelect(format)
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun SessionExportFormat.displayLabel(): String {
+    return when (this) {
+        SessionExportFormat.MARKDOWN -> "Markdown"
+        SessionExportFormat.TXT -> "TXT"
+        SessionExportFormat.JSON -> "JSON"
+    }
+}
+
+@Composable
+private fun SessionQaSection(
+    messages: List<SessionQaMessage>,
+    isAsking: Boolean,
+    hasApiKey: Boolean,
+    hasContent: Boolean,
+    onAskQuestion: (String) -> Unit,
+    onRetryQuestion: (String) -> Unit
+) {
+    var question by remember { mutableStateOf("") }
+    val disabledReason = when {
+        !hasApiKey -> "请先在设置里配置 DeepSeek API Key"
+        !hasContent -> "需要先有转写、总结或高光内容"
+        isAsking -> "正在回答"
+        else -> null
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("单期 AI 问答", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = question,
+                onValueChange = { question = it },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                label = { Text("提问") },
+                enabled = !isAsking
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    enabled = question.isNotBlank() && disabledReason == null,
+                    onClick = {
+                        val readyQuestion = question
+                        question = ""
+                        onAskQuestion(readyQuestion)
+                    }
+                ) {
+                    Text(if (isAsking) "回答中" else "发送")
+                }
+                disabledReason?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            messages.forEach { message ->
+                QaMessageItem(message = message, onRetryQuestion = onRetryQuestion)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QaMessageItem(
+    message: SessionQaMessage,
+    onRetryQuestion: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("问：${message.question}", style = MaterialTheme.typography.bodyMedium)
+        when (message.status) {
+            QaMessageStatus.ANSWERING -> Text("答：回答中", style = MaterialTheme.typography.bodySmall)
+            QaMessageStatus.ANSWERED -> Text("答：${message.answer.orEmpty()}")
+            QaMessageStatus.FAILED -> {
+                Text("失败：${message.errorMessage.orEmpty().ifBlank { "问答失败" }}", color = MaterialTheme.colorScheme.error)
+                OutlinedButton(onClick = { onRetryQuestion(message.id) }) {
+                    Text("重试")
+                }
+            }
+            QaMessageStatus.BLOCKED_MISSING_API_KEY -> {
+                Text("未配置 API Key", color = MaterialTheme.colorScheme.error)
+            }
+            QaMessageStatus.BLOCKED_EMPTY_CONTENT -> {
+                Text("缺少可问答内容", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HighlightSection(
+    highlights: List<SessionHighlight>,
+    onToggleFavorite: (String) -> Unit
+) {
+    if (highlights.isEmpty()) return
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("高光 / 金句", style = MaterialTheme.typography.titleMedium)
+            highlights.forEach { highlight ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(highlight.text)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        highlight.timeLabel()?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall)
+                        }
+                        OutlinedButton(onClick = { onToggleFavorite(highlight.id) }) {
+                            Text(if (highlight.isFavorite) "取消收藏" else "收藏")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagSection(tags: List<String>) {
+    if (tags.isEmpty()) return
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("关键词 / 标签", style = MaterialTheme.typography.titleMedium)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                tags.forEach { tag ->
+                    Text(
+                        text = "#$tag",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryContent(
+    summary: SessionSummary?,
+    legacyText: String?
+) {
+    val structured = summary?.structured
+    if (structured == null) {
+        Text((summary?.text ?: legacyText).orEmpty().ifBlank { "暂无总结。" })
+        return
+    }
+    StructuredSummaryContent(
+        structured = structured,
+        fallbackText = summary.text
+    )
+}
+
+@Composable
+private fun StructuredSummaryContent(
+    structured: StructuredSummary,
+    fallbackText: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(structured.overview.ifBlank { fallbackText.ifBlank { "暂无总结。" } })
+        TimelineChapterSection(structured.timelineChapters)
+        SummarySection("关键要点", structured.keyPoints)
+        SummarySection("行动项", structured.actionItems)
+        SummarySection("开放问题", structured.openQuestions)
+        SummarySection("金句候选", structured.quoteCandidates)
+    }
+}
+
+@Composable
+private fun TimelineChapterSection(chapters: List<TimelineChapter>) {
+    if (chapters.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("章节时间线", style = MaterialTheme.typography.titleSmall)
+        chapters.forEach { chapter ->
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("${chapter.timeLabel()} ${chapter.title}".trim())
+                chapter.keyPoints.forEach { point ->
+                    Text("- $point", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummarySection(title: String, items: List<String>) {
+    if (items.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        items.forEach { item ->
+            Text("- $item")
+        }
+    }
+}
+
+private fun TimelineChapter.timeLabel(): String {
+    val start = startMs?.formatTimelineMs()
+    val end = endMs?.formatTimelineMs()
+    return when {
+        start != null && end != null -> "$start-$end"
+        start != null -> start
+        else -> ""
+    }
+}
+
+private fun Long.formatTimelineMs(): String {
+    val totalSeconds = this / 1000L
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return "%02d:%02d".format(minutes, seconds)
+}
+
+private fun SessionHighlight.timeLabel(): String? {
+    val start = sourceStartMs?.formatTimelineMs()
+    val end = sourceEndMs?.formatTimelineMs()
+    return when {
+        start != null && end != null -> "$start-$end"
+        start != null -> start
+        else -> null
     }
 }
 

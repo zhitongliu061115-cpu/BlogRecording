@@ -6,12 +6,17 @@ import com.example.blogrecording.data.AppSettings
 import com.example.blogrecording.data.PodcastSession
 import com.example.blogrecording.data.SessionRepository
 import com.example.blogrecording.data.SummaryStatus
+import com.example.blogrecording.data.TagGenerationStatus
 import kotlinx.coroutines.flow.first
 
 class SessionSummaryUseCase(
     private val sessionRepository: SessionRepository,
     private val readApiKey: suspend () -> AppResult<String>,
-    private val generateSummary: suspend (apiKey: String, transcript: String, settings: AppSettings) -> AppResult<String>,
+    private val generateSummary: suspend (
+        apiKey: String,
+        transcript: String,
+        settings: AppSettings
+    ) -> AppResult<SummaryGenerationResult>,
     private val nowMillis: () -> Long = System::currentTimeMillis
 ) {
     suspend fun start(
@@ -23,6 +28,16 @@ class SessionSummaryUseCase(
         val aggregateTranscript = SessionTranscriptAggregator.aggregate(detail)
         val eligibility = SessionSummaryEligibilityPolicy.evaluate(detail, aggregateTranscript)
         if (!eligibility.canStart) {
+            if (aggregateTranscript.isBlank()) {
+                sessionRepository.updateTagGeneration(
+                    sessionId = sessionId,
+                    tagGeneration = SessionTagGenerator.blocked(
+                        status = TagGenerationStatus.BLOCKED_EMPTY_CONTENT,
+                        updatedAt = nowMillis(),
+                        errorMessage = eligibility.disabledReason
+                    )
+                )
+            }
             return AppResult.Failure(AppError.Unknown(eligibility.disabledReason ?: "summary not ready"))
         }
 
@@ -48,8 +63,17 @@ class SessionSummaryUseCase(
                 sessionId = sessionId,
                 status = SummaryStatus.SUMMARIZED,
                 modelName = settings.deepSeekModel,
-                summaryText = result.value,
-                generatedAt = nowMillis()
+                summaryText = result.value.text,
+                generatedAt = nowMillis(),
+                structuredSummary = result.value.structured,
+                tagGeneration = result.value.tagGeneration,
+                highlights = SessionHighlightGenerator.generate(
+                    structured = result.value.structured,
+                    transcriptSegments = detail.transcriptSegments,
+                    fallbackTranscript = aggregateTranscript,
+                    existing = detail.session.highlights,
+                    generatedAt = result.value.highlights.generatedAt ?: nowMillis()
+                )
             )
             is AppResult.Failure -> {
                 markFailed(sessionId, settings, result.error)
@@ -68,6 +92,17 @@ class SessionSummaryUseCase(
             status = SummaryStatus.FAILED,
             modelName = settings.deepSeekModel,
             errorMessage = error.toSummaryLifecycleMessage()
+        )
+        sessionRepository.updateTagGeneration(
+            sessionId = sessionId,
+            tagGeneration = SessionTagGenerator.blocked(
+                status = when (error) {
+                    AppError.DeepSeekApiKeyMissing -> TagGenerationStatus.BLOCKED_MISSING_API_KEY
+                    else -> TagGenerationStatus.FAILED
+                },
+                updatedAt = nowMillis(),
+                errorMessage = error.toSummaryLifecycleMessage()
+            )
         )
     }
 }

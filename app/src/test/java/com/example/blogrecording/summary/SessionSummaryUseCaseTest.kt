@@ -9,11 +9,17 @@ import com.example.blogrecording.data.PodcastSessionDetail
 import com.example.blogrecording.data.PodcastSessionStatus
 import com.example.blogrecording.data.RecordingSegment
 import com.example.blogrecording.data.RecordingSegmentStatus
+import com.example.blogrecording.data.SessionHighlights
+import com.example.blogrecording.data.SessionQaHistory
 import com.example.blogrecording.data.SessionRepository
+import com.example.blogrecording.data.SessionTagGeneration
 import com.example.blogrecording.data.SessionSummary
+import com.example.blogrecording.data.StructuredSummary
+import com.example.blogrecording.data.StructuredSummaryParseStatus
 import com.example.blogrecording.data.SummaryLanguage
 import com.example.blogrecording.data.SummaryStatus
 import com.example.blogrecording.data.SummaryStyle
+import com.example.blogrecording.data.TagGenerationStatus
 import com.example.blogrecording.data.TranscriptSegmentEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +48,7 @@ class SessionSummaryUseCaseTest {
             repository = repository,
             generateSummary = { _, transcript, _ ->
                 capturedTranscript = transcript
-                AppResult.Success("session summary")
+                AppResult.Success(summaryResult("session summary"))
             }
         )
 
@@ -52,6 +58,11 @@ class SessionSummaryUseCaseTest {
         assertEquals(PodcastSessionStatus.SUMMARIZED, session.status)
         assertEquals(SummaryStatus.SUMMARIZED, session.summary?.status)
         assertEquals("session summary", session.summary?.text)
+        assertEquals("session summary", session.summary?.structured?.overview)
+        assertEquals(TagGenerationStatus.GENERATED, session.tagGeneration.status)
+        assertEquals(listOf("session summary"), session.tagGeneration.tags.map { it.text })
+        assertEquals(listOf("first segment", "second segment"), session.highlights.items.map { it.text })
+        assertEquals(listOf("t-1"), session.highlights.items.first().transcriptSegmentIds)
         assertOrdered(capturedTranscript, "first segment", "second segment")
     }
 
@@ -65,7 +76,7 @@ class SessionSummaryUseCaseTest {
             readApiKey = { AppResult.Failure(AppError.DeepSeekApiKeyMissing) },
             generateSummary = { _, _, _ ->
                 generateCalls += 1
-                AppResult.Success("should not happen")
+                AppResult.Success(summaryResult("should not happen"))
             }
         )
 
@@ -76,6 +87,7 @@ class SessionSummaryUseCaseTest {
         assertEquals(0, generateCalls)
         assertEquals(SummaryStatus.FAILED, latest.summary?.status)
         assertEquals("DeepSeek API Key missing", latest.summary?.errorMessage)
+        assertEquals(TagGenerationStatus.BLOCKED_MISSING_API_KEY, latest.tagGeneration.status)
     }
 
     @Test
@@ -108,8 +120,10 @@ class SessionSummaryUseCaseTest {
         assertEquals(PodcastSessionStatus.READY_FOR_SUMMARY, latest.status)
         assertEquals(SummaryStatus.FAILED, latest.summary?.status)
         assertEquals("previous summary", latest.summary?.text)
+        assertEquals("previous summary", latest.summary?.structured?.overview)
         assertEquals(500L, latest.summary?.generatedAt)
         assertEquals("DeepSeek summary request failed", latest.summary?.errorMessage)
+        assertEquals(TagGenerationStatus.FAILED, latest.tagGeneration.status)
         assertFalse(latest.summary?.errorMessage.orEmpty().contains("ready"))
     }
 
@@ -144,13 +158,14 @@ class SessionSummaryUseCaseTest {
         assertTrue(recordingResult is AppResult.Failure)
         assertTrue(blankResult is AppResult.Failure)
         assertEquals(0, apiKeyReads)
+        assertEquals(TagGenerationStatus.BLOCKED_EMPTY_CONTENT, blankRepository.detail("session-1")?.session?.tagGeneration?.status)
     }
 
     private fun useCase(
         repository: FakeSessionRepository,
         readApiKey: suspend () -> AppResult<String> = { AppResult.Success("api-key") },
-        generateSummary: suspend (String, String, AppSettings) -> AppResult<String> = { _, _, _ ->
-            AppResult.Success("summary")
+        generateSummary: suspend (String, String, AppSettings) -> AppResult<SummaryGenerationResult> = { _, _, _ ->
+            AppResult.Success(summaryResult("summary"))
         }
     ): SessionSummaryUseCase {
         return SessionSummaryUseCase(
@@ -216,6 +231,9 @@ class SessionSummaryUseCaseTest {
             modelName: String,
             summaryText: String?,
             generatedAt: Long?,
+            structuredSummary: StructuredSummary?,
+            tagGeneration: SessionTagGeneration?,
+            highlights: SessionHighlights?,
             errorMessage: String?
         ): AppResult<PodcastSession> {
             val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
@@ -238,7 +256,14 @@ class SessionSummaryUseCaseTest {
                     SummaryStatus.FAILED -> existing?.generatedAt
                 },
                 updatedAt = 1_000L,
-                errorMessage = if (status == SummaryStatus.FAILED) errorMessage?.take(160) else null
+                errorMessage = if (status == SummaryStatus.FAILED) errorMessage?.take(160) else null,
+                structured = when (status) {
+                    SummaryStatus.SUMMARIZED -> structuredSummary
+                    SummaryStatus.NOT_READY,
+                    SummaryStatus.READY,
+                    SummaryStatus.SUMMARIZING,
+                    SummaryStatus.FAILED -> existing?.structured
+                }
             )
             val sessionStatus = when (status) {
                 SummaryStatus.NOT_READY -> detail.session.status
@@ -252,8 +277,48 @@ class SessionSummaryUseCaseTest {
                 activeSegmentId = null,
                 summary = summary,
                 summaryModelName = modelName,
+                tagGeneration = if (status == SummaryStatus.SUMMARIZED) {
+                    tagGeneration ?: detail.session.tagGeneration
+                } else {
+                    detail.session.tagGeneration
+                },
+                highlights = if (status == SummaryStatus.SUMMARIZED) {
+                    highlights ?: detail.session.highlights
+                } else {
+                    detail.session.highlights
+                },
                 errorMessage = if (status == SummaryStatus.FAILED) summary.errorMessage else null
             )
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateTagGeneration(
+            sessionId: String,
+            tagGeneration: SessionTagGeneration
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
+            val updated = detail.session.copy(tagGeneration = tagGeneration)
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateHighlights(
+            sessionId: String,
+            highlights: SessionHighlights
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
+            val updated = detail.session.copy(highlights = highlights)
+            details.value = details.value + (sessionId to detail.copy(session = updated))
+            return AppResult.Success(updated)
+        }
+
+        override suspend fun updateQaHistory(
+            sessionId: String,
+            qaHistory: SessionQaHistory
+        ): AppResult<PodcastSession> {
+            val detail = details.value[sessionId] ?: return AppResult.Failure(AppError.Unknown("missing"))
+            val updated = detail.session.copy(qaHistory = qaHistory)
             details.value = details.value + (sessionId to detail.copy(session = updated))
             return AppResult.Success(updated)
         }
@@ -374,7 +439,48 @@ class SessionSummaryUseCaseTest {
                 modelName = "deepseek-chat",
                 generatedAt = generatedAt,
                 updatedAt = generatedAt ?: 1L,
-                errorMessage = null
+                errorMessage = null,
+                structured = StructuredSummary(
+                    overview = text,
+                    keyPoints = emptyList(),
+                    actionItems = emptyList(),
+                    openQuestions = emptyList(),
+                    quoteCandidates = emptyList(),
+                    parseStatus = StructuredSummaryParseStatus.FALLBACK_TEXT
+                )
+            )
+        }
+
+        fun summaryResult(text: String): SummaryGenerationResult {
+            return SummaryGenerationResult(
+                text = text,
+                structured = StructuredSummary(
+                    overview = text,
+                    keyPoints = emptyList(),
+                    actionItems = emptyList(),
+                    openQuestions = emptyList(),
+                    quoteCandidates = emptyList(),
+                    parseStatus = StructuredSummaryParseStatus.FALLBACK_TEXT
+                ),
+                tagGeneration = SessionTagGenerator.generate(
+                    rawModelText = """{"tags":["$text"]}""",
+                    structured = null,
+                    transcript = text,
+                    generatedAt = 1_000L
+                ),
+                highlights = SessionHighlightGenerator.generate(
+                    structured = StructuredSummary(
+                        overview = text,
+                        keyPoints = emptyList(),
+                        actionItems = emptyList(),
+                        openQuestions = emptyList(),
+                        quoteCandidates = listOf("quote"),
+                        parseStatus = StructuredSummaryParseStatus.STRUCTURED
+                    ),
+                    transcriptSegments = emptyList(),
+                    fallbackTranscript = text,
+                    generatedAt = 1_000L
+                )
             )
         }
     }

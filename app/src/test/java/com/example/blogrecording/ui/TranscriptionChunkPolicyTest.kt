@@ -45,6 +45,18 @@ class TranscriptionChunkPolicyTest {
         assertTrue(segments.isEmpty())
     }
 
+    @Test
+    fun localMediaChunkUsesMeaningfulAudioGate() {
+        val chunk = chunk(samples = ShortArray(16_000) { 2 })
+
+        val segments = TranscriptionChunkPolicy.recognizerSegments(
+            chunk = chunk,
+            sourceType = AudioSourceType.LOCAL_MEDIA
+        ) { true }
+
+        assertEquals(1, segments.size)
+    }
+
     private fun chunk(samples: ShortArray): PcmChunk {
         return PcmChunk(
             sequence = 1,

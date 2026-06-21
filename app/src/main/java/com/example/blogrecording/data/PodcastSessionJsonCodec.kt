@@ -27,6 +27,10 @@ internal object PodcastSessionJsonCodec {
             .put("transcriptSegmentCount", session.transcriptSegmentCount)
             .put("errorMessage", session.errorMessage)
             .put("legacyRecordingSessionId", session.legacyRecordingSessionId)
+            .put("importedContent", session.importedContent?.let(::encodeImportedContent))
+            .put("tagGeneration", encodeTagGeneration(session.tagGeneration))
+            .put("highlights", encodeSessionHighlights(session.highlights))
+            .put("qaHistory", encodeQaHistory(session.qaHistory))
     }
 
     fun decodeSession(json: JSONObject): PodcastSession {
@@ -53,7 +57,47 @@ internal object PodcastSessionJsonCodec {
             recordingSegmentCount = json.optInt("recordingSegmentCount"),
             transcriptSegmentCount = json.optInt("transcriptSegmentCount"),
             errorMessage = json.nullableString("errorMessage"),
-            legacyRecordingSessionId = json.nullableString("legacyRecordingSessionId")
+            legacyRecordingSessionId = json.nullableString("legacyRecordingSessionId"),
+            importedContent = json.optJSONObject("importedContent")?.let(::decodeImportedContent),
+            tagGeneration = json.optJSONObject("tagGeneration")?.let(::decodeTagGeneration)
+                ?: SessionTagGeneration.empty(),
+            highlights = json.optJSONObject("highlights")?.let(::decodeSessionHighlights)
+                ?: SessionHighlights.empty(),
+            qaHistory = json.optJSONObject("qaHistory")?.let(::decodeQaHistory)
+                ?: SessionQaHistory.empty()
+        )
+    }
+
+    fun encodeImportedContent(metadata: ImportedContentMetadata): JSONObject {
+        return JSONObject()
+            .put("kind", metadata.kind.name)
+            .put("displayName", metadata.displayName)
+            .put("mimeType", metadata.mimeType)
+            .put("sizeBytes", metadata.sizeBytes)
+            .put("durationMs", metadata.durationMs)
+            .put("status", metadata.status.name)
+            .put("errorMessage", metadata.errorMessage)
+            .put("importedAt", metadata.importedAt)
+            .put("updatedAt", metadata.updatedAt)
+            .put("sourceUrl", metadata.sourceUrl)
+            .put("sourceHost", metadata.sourceHost)
+    }
+
+    fun decodeImportedContent(json: JSONObject): ImportedContentMetadata {
+        return ImportedContentMetadata(
+            kind = json.optString("kind", ImportedContentKind.LOCAL_MEDIA.name)
+                .toEnumOrDefault(ImportedContentKind.LOCAL_MEDIA),
+            displayName = json.optString("displayName", "Imported media"),
+            mimeType = json.nullableString("mimeType"),
+            sizeBytes = json.nullableLong("sizeBytes"),
+            durationMs = json.nullableLong("durationMs"),
+            status = json.optString("status", ImportedContentStatus.COMPLETED.name)
+                .toEnumOrDefault(ImportedContentStatus.COMPLETED),
+            errorMessage = json.nullableString("errorMessage"),
+            importedAt = json.optLong("importedAt", json.optLong("updatedAt")),
+            updatedAt = json.optLong("updatedAt", json.optLong("importedAt")),
+            sourceUrl = json.nullableString("sourceUrl"),
+            sourceHost = json.nullableString("sourceHost")
         )
     }
 
@@ -65,6 +109,7 @@ internal object PodcastSessionJsonCodec {
             .put("generatedAt", summary.generatedAt)
             .put("updatedAt", summary.updatedAt)
             .put("errorMessage", summary.errorMessage)
+            .put("structured", summary.structured?.let(::encodeStructuredSummary))
     }
 
     fun decodeSummary(json: JSONObject): SessionSummary {
@@ -74,6 +119,209 @@ internal object PodcastSessionJsonCodec {
             modelName = json.optString("modelName", "deepseek-chat"),
             generatedAt = json.nullableLong("generatedAt"),
             updatedAt = json.getLong("updatedAt"),
+            errorMessage = json.nullableString("errorMessage"),
+            structured = json.optJSONObject("structured")?.let(::decodeStructuredSummary)
+        )
+    }
+
+    fun encodeStructuredSummary(summary: StructuredSummary): JSONObject {
+        return JSONObject()
+            .put("overview", summary.overview)
+            .put("keyPoints", JSONArray(summary.keyPoints))
+            .put("actionItems", JSONArray(summary.actionItems))
+            .put("openQuestions", JSONArray(summary.openQuestions))
+            .put("quoteCandidates", JSONArray(summary.quoteCandidates))
+            .put("timelineChapters", encodeTimelineChapters(summary.timelineChapters))
+            .put("parseStatus", summary.parseStatus.name)
+    }
+
+    fun decodeStructuredSummary(json: JSONObject): StructuredSummary {
+        return StructuredSummary(
+            overview = json.optString("overview"),
+            keyPoints = json.stringList("keyPoints"),
+            actionItems = json.stringList("actionItems"),
+            openQuestions = json.stringList("openQuestions"),
+            quoteCandidates = json.stringList("quoteCandidates"),
+            timelineChapters = json.optJSONArray("timelineChapters")?.let(::decodeTimelineChapters).orEmpty(),
+            parseStatus = json.optString("parseStatus", StructuredSummaryParseStatus.STRUCTURED.name)
+                .toEnumOrDefault(StructuredSummaryParseStatus.STRUCTURED)
+        )
+    }
+
+    fun encodeTimelineChapters(chapters: List<TimelineChapter>): JSONArray {
+        return JSONArray(chapters.map(::encodeTimelineChapter))
+    }
+
+    fun decodeTimelineChapters(array: JSONArray): List<TimelineChapter> {
+        return List(array.length()) { index ->
+            decodeTimelineChapter(array.getJSONObject(index))
+        }
+    }
+
+    fun encodeTimelineChapter(chapter: TimelineChapter): JSONObject {
+        return JSONObject()
+            .put("title", chapter.title)
+            .put("startMs", chapter.startMs)
+            .put("endMs", chapter.endMs)
+            .put("keyPoints", JSONArray(chapter.keyPoints))
+            .put("sourceStartMs", chapter.sourceStartMs)
+            .put("sourceEndMs", chapter.sourceEndMs)
+    }
+
+    fun decodeTimelineChapter(json: JSONObject): TimelineChapter {
+        return TimelineChapter(
+            title = json.optString("title"),
+            startMs = json.nullableLong("startMs"),
+            endMs = json.nullableLong("endMs"),
+            keyPoints = json.stringList("keyPoints"),
+            sourceStartMs = json.nullableLong("sourceStartMs"),
+            sourceEndMs = json.nullableLong("sourceEndMs")
+        )
+    }
+
+    fun encodeTagGeneration(tagGeneration: SessionTagGeneration): JSONObject {
+        return JSONObject()
+            .put("tags", JSONArray(tagGeneration.tags.map(::encodeGeneratedTag)))
+            .put("status", tagGeneration.status.name)
+            .put("generatedAt", tagGeneration.generatedAt)
+            .put("updatedAt", tagGeneration.updatedAt)
+            .put("errorMessage", tagGeneration.errorMessage)
+    }
+
+    fun decodeTagGeneration(json: JSONObject): SessionTagGeneration {
+        return SessionTagGeneration(
+            tags = json.optJSONArray("tags")?.let(::decodeGeneratedTags).orEmpty(),
+            status = json.optString("status", TagGenerationStatus.NOT_READY.name)
+                .toEnumOrDefault(TagGenerationStatus.NOT_READY),
+            generatedAt = json.nullableLong("generatedAt"),
+            updatedAt = json.optLong("updatedAt"),
+            errorMessage = json.nullableString("errorMessage")
+        )
+    }
+
+    fun encodeGeneratedTag(tag: GeneratedTag): JSONObject {
+        return JSONObject()
+            .put("text", tag.text)
+            .put("normalizedKey", tag.normalizedKey)
+            .put("order", tag.order)
+            .put("source", tag.source.name)
+            .put("generatedAt", tag.generatedAt)
+            .put("status", tag.status.name)
+    }
+
+    fun decodeGeneratedTags(array: JSONArray): List<GeneratedTag> {
+        return List(array.length()) { index ->
+            decodeGeneratedTag(array.getJSONObject(index))
+        }.sortedBy { it.order }
+    }
+
+    fun decodeGeneratedTag(json: JSONObject): GeneratedTag {
+        return GeneratedTag(
+            text = json.optString("text"),
+            normalizedKey = json.optString("normalizedKey"),
+            order = json.optInt("order"),
+            source = json.optString("source", GeneratedTagSource.STRUCTURED_SUMMARY.name)
+                .toEnumOrDefault(GeneratedTagSource.STRUCTURED_SUMMARY),
+            generatedAt = json.optLong("generatedAt"),
+            status = json.optString("status", TagGenerationStatus.GENERATED.name)
+                .toEnumOrDefault(TagGenerationStatus.GENERATED)
+        )
+    }
+
+    fun encodeSessionHighlights(highlights: SessionHighlights): JSONObject {
+        return JSONObject()
+            .put("items", JSONArray(highlights.items.map(::encodeSessionHighlight)))
+            .put("generatedAt", highlights.generatedAt)
+            .put("updatedAt", highlights.updatedAt)
+    }
+
+    fun decodeSessionHighlights(json: JSONObject): SessionHighlights {
+        return SessionHighlights(
+            items = json.optJSONArray("items")?.let(::decodeSessionHighlightList).orEmpty(),
+            generatedAt = json.nullableLong("generatedAt"),
+            updatedAt = json.optLong("updatedAt")
+        )
+    }
+
+    fun encodeSessionHighlight(highlight: SessionHighlight): JSONObject {
+        return JSONObject()
+            .put("id", highlight.id)
+            .put("text", highlight.text)
+            .put("normalizedKey", highlight.normalizedKey)
+            .put("source", highlight.source.name)
+            .put("sourceStartMs", highlight.sourceStartMs)
+            .put("sourceEndMs", highlight.sourceEndMs)
+            .put("transcriptSegmentIds", JSONArray(highlight.transcriptSegmentIds))
+            .put("isFavorite", highlight.isFavorite)
+            .put("generated", highlight.generated)
+            .put("createdAt", highlight.createdAt)
+            .put("updatedAt", highlight.updatedAt)
+    }
+
+    fun decodeSessionHighlightList(array: JSONArray): List<SessionHighlight> {
+        return List(array.length()) { index ->
+            decodeSessionHighlight(array.getJSONObject(index))
+        }
+    }
+
+    fun decodeSessionHighlight(json: JSONObject): SessionHighlight {
+        return SessionHighlight(
+            id = json.optString("id"),
+            text = json.optString("text"),
+            normalizedKey = json.optString("normalizedKey"),
+            source = json.optString("source", HighlightSource.STRUCTURED_SUMMARY.name)
+                .toEnumOrDefault(HighlightSource.STRUCTURED_SUMMARY),
+            sourceStartMs = json.nullableLong("sourceStartMs"),
+            sourceEndMs = json.nullableLong("sourceEndMs"),
+            transcriptSegmentIds = json.stringList("transcriptSegmentIds"),
+            isFavorite = json.optBoolean("isFavorite"),
+            generated = json.optBoolean("generated", true),
+            createdAt = json.optLong("createdAt"),
+            updatedAt = json.optLong("updatedAt")
+        )
+    }
+
+    fun encodeQaHistory(history: SessionQaHistory): JSONObject {
+        return JSONObject()
+            .put("messages", JSONArray(history.messages.map(::encodeQaMessage)))
+            .put("updatedAt", history.updatedAt)
+    }
+
+    fun decodeQaHistory(json: JSONObject): SessionQaHistory {
+        return SessionQaHistory(
+            messages = json.optJSONArray("messages")?.let(::decodeQaMessages).orEmpty(),
+            updatedAt = json.optLong("updatedAt")
+        )
+    }
+
+    fun encodeQaMessage(message: SessionQaMessage): JSONObject {
+        return JSONObject()
+            .put("id", message.id)
+            .put("question", message.question)
+            .put("answer", message.answer)
+            .put("askedAt", message.askedAt)
+            .put("answeredAt", message.answeredAt)
+            .put("status", message.status.name)
+            .put("modelName", message.modelName)
+            .put("errorMessage", message.errorMessage)
+    }
+
+    fun decodeQaMessages(array: JSONArray): List<SessionQaMessage> {
+        return List(array.length()) { index ->
+            decodeQaMessage(array.getJSONObject(index))
+        }.sortedBy { it.askedAt }
+    }
+
+    fun decodeQaMessage(json: JSONObject): SessionQaMessage {
+        return SessionQaMessage(
+            id = json.optString("id"),
+            question = json.optString("question"),
+            answer = json.nullableString("answer"),
+            askedAt = json.optLong("askedAt"),
+            answeredAt = json.nullableLong("answeredAt"),
+            status = json.optString("status", QaMessageStatus.ANSWERED.name)
+                .toEnumOrDefault(QaMessageStatus.ANSWERED),
+            modelName = json.optString("modelName", "deepseek-chat"),
             errorMessage = json.nullableString("errorMessage")
         )
     }
@@ -140,6 +388,13 @@ internal object PodcastSessionJsonCodec {
 
     private fun JSONObject.nullableInt(name: String): Int? {
         return optInt(name).takeUnless { isNull(name) }
+    }
+
+    private fun JSONObject.stringList(name: String): List<String> {
+        val array = optJSONArray(name) ?: return emptyList()
+        return List(array.length()) { index -> array.optString(index) }
+            .map { it.trim() }
+            .filter { it.isNotBlank() && it != "null" }
     }
 
     private inline fun <reified T : Enum<T>> String.toNullableEnum(): T? {

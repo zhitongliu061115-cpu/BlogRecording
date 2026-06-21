@@ -28,6 +28,7 @@ internal object PodcastSessionJsonCodec {
             .put("errorMessage", session.errorMessage)
             .put("legacyRecordingSessionId", session.legacyRecordingSessionId)
             .put("importedContent", session.importedContent?.let(::encodeImportedContent))
+            .put("tagGeneration", encodeTagGeneration(session.tagGeneration))
     }
 
     fun decodeSession(json: JSONObject): PodcastSession {
@@ -55,7 +56,9 @@ internal object PodcastSessionJsonCodec {
             transcriptSegmentCount = json.optInt("transcriptSegmentCount"),
             errorMessage = json.nullableString("errorMessage"),
             legacyRecordingSessionId = json.nullableString("legacyRecordingSessionId"),
-            importedContent = json.optJSONObject("importedContent")?.let(::decodeImportedContent)
+            importedContent = json.optJSONObject("importedContent")?.let(::decodeImportedContent),
+            tagGeneration = json.optJSONObject("tagGeneration")?.let(::decodeTagGeneration)
+                ?: SessionTagGeneration.empty()
         )
     }
 
@@ -167,6 +170,55 @@ internal object PodcastSessionJsonCodec {
             keyPoints = json.stringList("keyPoints"),
             sourceStartMs = json.nullableLong("sourceStartMs"),
             sourceEndMs = json.nullableLong("sourceEndMs")
+        )
+    }
+
+    fun encodeTagGeneration(tagGeneration: SessionTagGeneration): JSONObject {
+        return JSONObject()
+            .put("tags", JSONArray(tagGeneration.tags.map(::encodeGeneratedTag)))
+            .put("status", tagGeneration.status.name)
+            .put("generatedAt", tagGeneration.generatedAt)
+            .put("updatedAt", tagGeneration.updatedAt)
+            .put("errorMessage", tagGeneration.errorMessage)
+    }
+
+    fun decodeTagGeneration(json: JSONObject): SessionTagGeneration {
+        return SessionTagGeneration(
+            tags = json.optJSONArray("tags")?.let(::decodeGeneratedTags).orEmpty(),
+            status = json.optString("status", TagGenerationStatus.NOT_READY.name)
+                .toEnumOrDefault(TagGenerationStatus.NOT_READY),
+            generatedAt = json.nullableLong("generatedAt"),
+            updatedAt = json.optLong("updatedAt"),
+            errorMessage = json.nullableString("errorMessage")
+        )
+    }
+
+    fun encodeGeneratedTag(tag: GeneratedTag): JSONObject {
+        return JSONObject()
+            .put("text", tag.text)
+            .put("normalizedKey", tag.normalizedKey)
+            .put("order", tag.order)
+            .put("source", tag.source.name)
+            .put("generatedAt", tag.generatedAt)
+            .put("status", tag.status.name)
+    }
+
+    fun decodeGeneratedTags(array: JSONArray): List<GeneratedTag> {
+        return List(array.length()) { index ->
+            decodeGeneratedTag(array.getJSONObject(index))
+        }.sortedBy { it.order }
+    }
+
+    fun decodeGeneratedTag(json: JSONObject): GeneratedTag {
+        return GeneratedTag(
+            text = json.optString("text"),
+            normalizedKey = json.optString("normalizedKey"),
+            order = json.optInt("order"),
+            source = json.optString("source", GeneratedTagSource.STRUCTURED_SUMMARY.name)
+                .toEnumOrDefault(GeneratedTagSource.STRUCTURED_SUMMARY),
+            generatedAt = json.optLong("generatedAt"),
+            status = json.optString("status", TagGenerationStatus.GENERATED.name)
+                .toEnumOrDefault(TagGenerationStatus.GENERATED)
         )
     }
 

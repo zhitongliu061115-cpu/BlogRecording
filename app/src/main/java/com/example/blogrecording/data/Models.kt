@@ -183,6 +183,40 @@ data class TimelineChapter(
     val sourceEndMs: Long?
 )
 
+enum class GeneratedTagSource {
+    STRUCTURED_SUMMARY,
+    TRANSCRIPT
+}
+
+enum class TagGenerationStatus {
+    NOT_READY,
+    GENERATED,
+    BLOCKED_MISSING_API_KEY,
+    BLOCKED_EMPTY_CONTENT,
+    FAILED
+}
+
+data class GeneratedTag(
+    val text: String,
+    val normalizedKey: String,
+    val order: Int,
+    val source: GeneratedTagSource,
+    val generatedAt: Long,
+    val status: TagGenerationStatus = TagGenerationStatus.GENERATED
+)
+
+data class SessionTagGeneration(
+    val tags: List<GeneratedTag> = emptyList(),
+    val status: TagGenerationStatus = TagGenerationStatus.NOT_READY,
+    val generatedAt: Long? = null,
+    val updatedAt: Long = 0L,
+    val errorMessage: String? = null
+) {
+    companion object {
+        fun empty(): SessionTagGeneration = SessionTagGeneration()
+    }
+}
+
 enum class StructuredSummaryParseStatus {
     STRUCTURED,
     PARTIAL,
@@ -230,7 +264,8 @@ data class PodcastSession(
     val transcriptSegmentCount: Int,
     val errorMessage: String?,
     val legacyRecordingSessionId: String?,
-    val importedContent: ImportedContentMetadata? = null
+    val importedContent: ImportedContentMetadata? = null,
+    val tagGeneration: SessionTagGeneration = SessionTagGeneration.empty()
 )
 
 data class PodcastSessionDetail(

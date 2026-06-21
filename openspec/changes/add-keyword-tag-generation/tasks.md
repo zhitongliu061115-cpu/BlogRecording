@@ -4,7 +4,7 @@
 
 ## 2. Data And Generation
 
-- [ ] 2.1 Define keyword/tag model with display text, normalized key, order, source, timestamp, and status.
+- [x] 2.1 Define keyword/tag model with display text, normalized key, order, source, timestamp, and status.
 - [ ] 2.2 Implement generation from structured summary when available and transcript fallback when absent.
 - [ ] 2.3 Normalize duplicates, trim whitespace, cap tag length, and cap tag count.
 

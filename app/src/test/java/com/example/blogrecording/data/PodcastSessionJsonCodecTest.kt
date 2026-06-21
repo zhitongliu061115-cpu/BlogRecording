@@ -182,6 +182,49 @@ class PodcastSessionJsonCodecTest {
         assertNull(decoded.importedContent)
     }
 
+    @Test
+    fun tagGenerationRoundTripsThroughPodcastSessionJson() {
+        val tags = SessionTagGeneration(
+            tags = listOf(
+                GeneratedTag(
+                    text = "AI",
+                    normalizedKey = "ai",
+                    order = 1,
+                    source = GeneratedTagSource.STRUCTURED_SUMMARY,
+                    generatedAt = 3_000L
+                ),
+                GeneratedTag(
+                    text = "Podcast",
+                    normalizedKey = "podcast",
+                    order = 2,
+                    source = GeneratedTagSource.TRANSCRIPT,
+                    generatedAt = 3_000L
+                )
+            ),
+            status = TagGenerationStatus.GENERATED,
+            generatedAt = 3_000L,
+            updatedAt = 4_000L,
+            errorMessage = null
+        )
+        val session = podcastSession().copy(tagGeneration = tags)
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(tags, decoded.tagGeneration)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingTagGeneration() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("tagGeneration")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertEquals(SessionTagGeneration.empty(), decoded.tagGeneration)
+    }
+
     private fun podcastSession(
         sourceType: AudioSourceType? = AudioSourceType.MICROPHONE,
         summary: SessionSummary? = SessionSummary(

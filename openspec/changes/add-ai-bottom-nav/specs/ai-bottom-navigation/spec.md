@@ -47,3 +47,26 @@ The AI page SHALL present a WeChat-like conversation between the user and AI ass
 - **THEN** assistant messages are visually grouped on the left
 - **AND** user messages are visually grouped on the right
 - **AND** the input row allows the user to enter and send a message
+
+### Requirement: AI Page Uses Session DeepSeek QA
+The AI page SHALL use the same DeepSeek-backed single-session QA behavior as the podcast detail page.
+
+#### Scenario: Send question from AI page
+- **GIVEN** the user selected a podcast on the AI page
+- **AND** the podcast has usable transcript, summary, tag, highlight, or timeline content
+- **AND** a DeepSeek API Key is configured
+- **WHEN** the user sends a question
+- **THEN** the question is submitted through the existing session QA use case
+- **AND** the resulting answer is persisted in that podcast session's QA history
+- **AND** the AI page displays the persisted answer as an assistant message
+
+#### Scenario: Missing API key or content
+- **GIVEN** the user selected a podcast on the AI page
+- **WHEN** the user sends a question without a configured API key or without usable podcast content
+- **THEN** the AI page displays the same blocked or failed state used by detail-screen QA
+- **AND** no API key, raw prompt context, or private file path is shown
+
+#### Scenario: Shared QA history with detail page
+- **GIVEN** the user asked a question from the AI page
+- **WHEN** the user opens the same podcast in the detail page
+- **THEN** the detail page shows the same QA history for that session

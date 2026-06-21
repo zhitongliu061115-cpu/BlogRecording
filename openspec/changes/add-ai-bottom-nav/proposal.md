@@ -8,12 +8,13 @@ Users need a clearer top-level route for chatting with the assistant about podca
 - Add an AI chat page that uses a WeChat-like conversation layout for assistant replies and user messages.
 - On first entry to AI, show horizontally swipeable podcast cards so the user can choose which podcast to chat about.
 - Add a top-right new conversation action on the AI page; tapping it returns to the podcast card chooser for a new chat target.
+- Reuse the same DeepSeek-backed single-session QA flow as the podcast detail page after a podcast is selected.
 - Keep existing Home recording/session behavior and existing Settings/History/Detail routes reachable through Home or Mine entry points.
 
 ## Capabilities
 
 ### New Capabilities
-- `ai-bottom-navigation`: Covers bottom navigation labels, AI chat entry, podcast card conversation selection, and new-conversation behavior.
+- `ai-bottom-navigation`: Covers bottom navigation labels, AI chat entry, podcast card conversation selection, DeepSeek-backed conversation behavior, and new-conversation behavior.
 
 ### Modified Capabilities
 - None.
@@ -22,5 +23,5 @@ Users need a clearer top-level route for chatting with the assistant about podca
 
 - Affected UI state and navigation policy under `app/src/main/java/com/example/blogrecording/ui/`.
 - Affected Compose surfaces: `PodcastRecapApp`, new AI chat screen, and Mine/profile-style top-level screen.
-- Affected tests: navigation policy and AI UI state behavior tests.
-- No new permissions, network endpoints, storage formats, API keys, or model assets.
+- Affected tests: navigation policy, AI UI state behavior tests, and QA flow reuse coverage.
+- No new permissions, storage formats, API keys, or model assets. The AI page uses the existing DeepSeek QA request path.

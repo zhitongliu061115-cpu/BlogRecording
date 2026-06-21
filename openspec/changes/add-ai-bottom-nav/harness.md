@@ -3,6 +3,7 @@
 - `openspec.cmd validate add-ai-bottom-nav`
 - `git diff --check`
 - `.\gradlew.bat testDebugUnitTest --tests "com.example.blogrecording.ui.UiNavigationPolicyTest" --tests "com.example.blogrecording.ui.AiChatUiStateMapperTest"`
+- `.\gradlew.bat testDebugUnitTest --tests "com.example.blogrecording.qa.SessionQaUseCaseTest"`
 - `.\gradlew.bat testDebugUnitTest`
 - `.\gradlew.bat assembleDebug`
 

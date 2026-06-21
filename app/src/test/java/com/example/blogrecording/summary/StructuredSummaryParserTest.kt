@@ -45,6 +45,36 @@ class StructuredSummaryParserTest {
     }
 
     @Test
+    fun parsesFencedJsonWithNestedTimelineChapters() {
+        val summary = StructuredSummaryParser.parse(
+            """
+            model note
+            ```json
+            {
+              "overview": "overview",
+              "keyPoints": ["point"],
+              "actionItems": ["action"],
+              "openQuestions": ["question"],
+              "quoteCandidates": ["quote"],
+              "timelineChapters": [
+                {
+                  "title": "Intro",
+                  "startMs": 0,
+                  "endMs": 1000,
+                  "keyPoints": ["nested object"]
+                }
+              ]
+            }
+            ```
+            """.trimIndent()
+        )
+
+        assertEquals(StructuredSummaryParseStatus.STRUCTURED, summary.parseStatus)
+        assertEquals("overview", summary.overview)
+        assertEquals("Intro", summary.timelineChapters.single().title)
+    }
+
+    @Test
     fun fallsBackToPlainTextWhenJsonIsMalformed() {
         val summary = StructuredSummaryParser.parse("plain text summary")
 

@@ -25,6 +25,22 @@ class SessionTagGeneratorTest {
     }
 
     @Test
+    fun modelTagsCanComeFromFencedJson() {
+        val result = SessionTagGenerator.generate(
+            rawModelText = """
+                ```json
+                {"tags":["AI","Podcast"]}
+                ```
+            """.trimIndent(),
+            structured = structuredSummary(),
+            transcript = "ignored transcript",
+            generatedAt = 1_500L
+        )
+
+        assertEquals(listOf("AI", "Podcast"), result.tags.map { it.text })
+    }
+
+    @Test
     fun structuredSummaryIsPreferredWhenModelTagsAreMissing() {
         val result = SessionTagGenerator.generate(
             rawModelText = """{"overview":"topic"}""",

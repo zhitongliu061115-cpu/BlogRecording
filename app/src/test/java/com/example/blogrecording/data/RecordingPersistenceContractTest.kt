@@ -9,7 +9,7 @@ class RecordingPersistenceContractTest {
     fun contractKeepsDatastoreAndKeyFamilies() {
         assertEquals("podcast_recap_records", RecordingPersistenceContract.DATASTORE_NAME)
         assertEquals("schema_version", RecordingPersistenceContract.SCHEMA_VERSION_KEY)
-        assertEquals(4, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
+        assertEquals(5, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
         assertEquals("session_order", RecordingPersistenceContract.SESSION_ORDER_KEY)
         assertEquals("session_abc", RecordingPersistenceContract.sessionKey("abc"))
         assertEquals("segments_abc", RecordingPersistenceContract.segmentsKey("abc"))
@@ -60,9 +60,16 @@ class RecordingPersistenceContractTest {
         assertTrue("sourceHost" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
         assertEquals("URL_MEDIA", ImportedContentKind.URL_MEDIA.name)
 
-        assertEquals(6, RecordingPersistenceContract.SESSION_SUMMARY_FIELDS.size)
+        assertEquals(7, RecordingPersistenceContract.SESSION_SUMMARY_FIELDS.size)
         assertTrue("generatedAt" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
         assertTrue("errorMessage" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
+        assertTrue("structured" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)
+
+        assertEquals(6, RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS.size)
+        assertTrue("overview" in RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS)
+        assertTrue("keyPoints" in RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS)
+        assertTrue("quoteCandidates" in RecordingPersistenceContract.STRUCTURED_SUMMARY_FIELDS)
+        assertEquals("FALLBACK_TEXT", StructuredSummaryParseStatus.FALLBACK_TEXT.name)
 
         assertEquals(16, RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS.size)
         assertTrue("transcriptSegmentIds" in RecordingPersistenceContract.RECORDING_SEGMENT_FIELDS)

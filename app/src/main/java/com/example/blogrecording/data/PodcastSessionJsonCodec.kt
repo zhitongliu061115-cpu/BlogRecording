@@ -100,6 +100,7 @@ internal object PodcastSessionJsonCodec {
             .put("generatedAt", summary.generatedAt)
             .put("updatedAt", summary.updatedAt)
             .put("errorMessage", summary.errorMessage)
+            .put("structured", summary.structured?.let(::encodeStructuredSummary))
     }
 
     fun decodeSummary(json: JSONObject): SessionSummary {
@@ -109,7 +110,30 @@ internal object PodcastSessionJsonCodec {
             modelName = json.optString("modelName", "deepseek-chat"),
             generatedAt = json.nullableLong("generatedAt"),
             updatedAt = json.getLong("updatedAt"),
-            errorMessage = json.nullableString("errorMessage")
+            errorMessage = json.nullableString("errorMessage"),
+            structured = json.optJSONObject("structured")?.let(::decodeStructuredSummary)
+        )
+    }
+
+    fun encodeStructuredSummary(summary: StructuredSummary): JSONObject {
+        return JSONObject()
+            .put("overview", summary.overview)
+            .put("keyPoints", JSONArray(summary.keyPoints))
+            .put("actionItems", JSONArray(summary.actionItems))
+            .put("openQuestions", JSONArray(summary.openQuestions))
+            .put("quoteCandidates", JSONArray(summary.quoteCandidates))
+            .put("parseStatus", summary.parseStatus.name)
+    }
+
+    fun decodeStructuredSummary(json: JSONObject): StructuredSummary {
+        return StructuredSummary(
+            overview = json.optString("overview"),
+            keyPoints = json.stringList("keyPoints"),
+            actionItems = json.stringList("actionItems"),
+            openQuestions = json.stringList("openQuestions"),
+            quoteCandidates = json.stringList("quoteCandidates"),
+            parseStatus = json.optString("parseStatus", StructuredSummaryParseStatus.STRUCTURED.name)
+                .toEnumOrDefault(StructuredSummaryParseStatus.STRUCTURED)
         )
     }
 
@@ -175,6 +199,13 @@ internal object PodcastSessionJsonCodec {
 
     private fun JSONObject.nullableInt(name: String): Int? {
         return optInt(name).takeUnless { isNull(name) }
+    }
+
+    private fun JSONObject.stringList(name: String): List<String> {
+        val array = optJSONArray(name) ?: return emptyList()
+        return List(array.length()) { index -> array.optString(index) }
+            .map { it.trim() }
+            .filter { it.isNotBlank() && it != "null" }
     }
 
     private inline fun <reified T : Enum<T>> String.toNullableEnum(): T? {

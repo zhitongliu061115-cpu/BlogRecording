@@ -160,8 +160,24 @@ data class SessionSummary(
     val modelName: String,
     val generatedAt: Long?,
     val updatedAt: Long,
-    val errorMessage: String?
+    val errorMessage: String?,
+    val structured: StructuredSummary? = null
 )
+
+data class StructuredSummary(
+    val overview: String,
+    val keyPoints: List<String>,
+    val actionItems: List<String>,
+    val openQuestions: List<String>,
+    val quoteCandidates: List<String>,
+    val parseStatus: StructuredSummaryParseStatus = StructuredSummaryParseStatus.STRUCTURED
+)
+
+enum class StructuredSummaryParseStatus {
+    STRUCTURED,
+    PARTIAL,
+    FALLBACK_TEXT
+}
 
 data class RecordingSegment(
     val id: String,

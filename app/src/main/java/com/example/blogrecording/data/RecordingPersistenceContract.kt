@@ -3,7 +3,7 @@ package com.example.blogrecording.data
 internal object RecordingPersistenceContract {
     const val DATASTORE_NAME = "podcast_recap_records"
     const val SCHEMA_VERSION_KEY = "schema_version"
-    const val CURRENT_SCHEMA_VERSION = 4
+    const val CURRENT_SCHEMA_VERSION = 5
     const val SESSION_ORDER_KEY = "session_order"
 
     // Existing key families are compatibility surfaces for old recording history.
@@ -108,7 +108,17 @@ internal object RecordingPersistenceContract {
         "modelName",
         "generatedAt",
         "updatedAt",
-        "errorMessage"
+        "errorMessage",
+        "structured"
+    )
+
+    val STRUCTURED_SUMMARY_FIELDS = setOf(
+        "overview",
+        "keyPoints",
+        "actionItems",
+        "openQuestions",
+        "quoteCandidates",
+        "parseStatus"
     )
 
     val RECORDING_SEGMENT_FIELDS = setOf(

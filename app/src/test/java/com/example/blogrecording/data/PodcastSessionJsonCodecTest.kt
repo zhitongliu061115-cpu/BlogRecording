@@ -73,7 +73,15 @@ class PodcastSessionJsonCodecTest {
             modelName = "deepseek-chat",
             generatedAt = 1_000L,
             updatedAt = 2_000L,
-            errorMessage = null
+            errorMessage = null,
+            structured = StructuredSummary(
+                overview = "overview",
+                keyPoints = listOf("point"),
+                actionItems = listOf("action"),
+                openQuestions = listOf("question"),
+                quoteCandidates = listOf("quote"),
+                parseStatus = StructuredSummaryParseStatus.STRUCTURED
+            )
         )
 
         val decoded = PodcastSessionJsonCodec.decodeSummary(
@@ -81,6 +89,26 @@ class PodcastSessionJsonCodecTest {
         )
 
         assertEquals(summary, decoded)
+    }
+
+    @Test
+    fun legacySummaryJsonDefaultsMissingStructuredSummary() {
+        val encoded = PodcastSessionJsonCodec.encodeSummary(
+            SessionSummary(
+                text = "legacy",
+                status = SummaryStatus.SUMMARIZED,
+                modelName = "deepseek-chat",
+                generatedAt = 1_000L,
+                updatedAt = 2_000L,
+                errorMessage = null
+            )
+        )
+        encoded.remove("structured")
+
+        val decoded = PodcastSessionJsonCodec.decodeSummary(encoded)
+
+        assertNull(decoded.structured)
+        assertEquals("legacy", decoded.text)
     }
 
     @Test

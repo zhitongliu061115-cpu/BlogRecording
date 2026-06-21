@@ -169,9 +169,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectAiPodcast(sessionId: String) {
-        val now = System.currentTimeMillis()
         mutableState.value = mutableState.value.copy(
-            aiChat = AiChatUiStateMapper.selectPodcast(mutableState.value.aiChat, sessionId, now),
+            aiChat = AiChatUiStateMapper.selectPodcast(mutableState.value.aiChat, sessionId),
             error = null
         )
     }
@@ -190,9 +189,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendAiDraft() {
-        val now = System.currentTimeMillis()
         mutableState.value = mutableState.value.copy(
-            aiChat = AiChatUiStateMapper.sendDraft(mutableState.value.aiChat, now),
+            aiChat = AiChatUiStateMapper.sendDraft(mutableState.value.aiChat),
             error = null
         )
     }

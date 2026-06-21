@@ -1,5 +1,7 @@
 package com.example.blogrecording.ui
 
+import com.example.blogrecording.data.QaMessageStatus
+import com.example.blogrecording.data.SessionQaMessage
 import com.example.blogrecording.ui.state.AiChatMessageUiState
 import com.example.blogrecording.ui.state.AiChatSender
 import com.example.blogrecording.ui.state.AiChatUiState
@@ -39,22 +41,15 @@ object AiChatUiStateMapper {
 
     fun selectPodcast(
         current: AiChatUiState,
-        sessionId: String,
-        nowMillis: Long
+        sessionId: String
     ): AiChatUiState {
-        val card = current.cards.firstOrNull { it.sessionId == sessionId } ?: return current
+        current.cards.firstOrNull { it.sessionId == sessionId } ?: return current
         return current.copy(
             selectedSessionId = sessionId,
             isChoosingPodcast = false,
             draftQuestion = "",
-            messages = listOf(
-                AiChatMessageUiState(
-                    id = "assistant-$nowMillis",
-                    text = "我会围绕《${card.title}》回答问题。你可以问我这期的重点、时间线或可执行事项。",
-                    sender = AiChatSender.ASSISTANT,
-                    timestampLabel = formatTime(nowMillis)
-                )
-            )
+            messages = emptyList(),
+            isAsking = false
         )
     }
 
@@ -63,7 +58,8 @@ object AiChatUiStateMapper {
             selectedSessionId = null,
             isChoosingPodcast = true,
             draftQuestion = "",
-            messages = emptyList()
+            messages = emptyList(),
+            isAsking = false
         )
     }
 
@@ -74,33 +70,71 @@ object AiChatUiStateMapper {
         return current.copy(draftQuestion = draft)
     }
 
-    fun sendDraft(
-        current: AiChatUiState,
-        nowMillis: Long
-    ): AiChatUiState {
+    fun sendDraft(current: AiChatUiState): AiChatUiState {
         val question = current.draftQuestion.trim()
-        val selectedTitle = current.cards.firstOrNull {
-            it.sessionId == current.selectedSessionId
-        }?.title ?: return current
+        current.selectedSessionId ?: return current
         if (question.isBlank()) return current
 
+        return current.copy(draftQuestion = "")
+    }
+
+    fun syncQaHistory(
+        current: AiChatUiState,
+        messages: List<SessionQaMessage>,
+        isAsking: Boolean
+    ): AiChatUiState {
         return current.copy(
-            draftQuestion = "",
-            messages = current.messages + listOf(
-                AiChatMessageUiState(
-                    id = "user-$nowMillis",
-                    text = question,
-                    sender = AiChatSender.USER,
-                    timestampLabel = formatTime(nowMillis)
-                ),
-                AiChatMessageUiState(
-                    id = "assistant-${nowMillis + 1}",
-                    text = "已收到。我会基于《${selectedTitle}》的转写和总结来回答：$question",
-                    sender = AiChatSender.ASSISTANT,
-                    timestampLabel = formatTime(nowMillis)
-                )
-            )
+            messages = messages.flatMap { it.toAiMessages() },
+            isAsking = isAsking
         )
+    }
+
+    private fun SessionQaMessage.toAiMessages(): List<AiChatMessageUiState> {
+        val questionBubble = AiChatMessageUiState(
+            id = "question-$id",
+            text = question,
+            sender = AiChatSender.USER,
+            timestampLabel = formatTime(askedAt)
+        )
+        val answerBubble = when (status) {
+            QaMessageStatus.ANSWERING -> AiChatMessageUiState(
+                id = "answer-$id",
+                text = "回答中",
+                sender = AiChatSender.ASSISTANT,
+                timestampLabel = answeredAt?.let(::formatTime) ?: formatTime(askedAt),
+                statusLabel = "DeepSeek 正在回答"
+            )
+            QaMessageStatus.ANSWERED -> AiChatMessageUiState(
+                id = "answer-$id",
+                text = answer.orEmpty(),
+                sender = AiChatSender.ASSISTANT,
+                timestampLabel = answeredAt?.let(::formatTime) ?: formatTime(askedAt)
+            )
+            QaMessageStatus.FAILED -> AiChatMessageUiState(
+                id = "answer-$id",
+                text = errorMessage.orEmpty().ifBlank { "问答失败" },
+                sender = AiChatSender.ASSISTANT,
+                timestampLabel = answeredAt?.let(::formatTime) ?: formatTime(askedAt),
+                statusLabel = "可重试",
+                retryMessageId = id,
+                isError = true
+            )
+            QaMessageStatus.BLOCKED_MISSING_API_KEY -> AiChatMessageUiState(
+                id = "answer-$id",
+                text = "请先在设置里配置 DeepSeek API Key",
+                sender = AiChatSender.ASSISTANT,
+                timestampLabel = formatTime(askedAt),
+                isError = true
+            )
+            QaMessageStatus.BLOCKED_EMPTY_CONTENT -> AiChatMessageUiState(
+                id = "answer-$id",
+                text = "需要先有转写、总结或高光内容",
+                sender = AiChatSender.ASSISTANT,
+                timestampLabel = formatTime(askedAt),
+                isError = true
+            )
+        }
+        return listOf(questionBubble, answerBubble)
     }
 
     private fun formatTime(timeMs: Long): String {

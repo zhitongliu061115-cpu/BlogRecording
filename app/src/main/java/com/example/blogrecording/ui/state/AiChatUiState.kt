@@ -5,7 +5,8 @@ data class AiChatUiState(
     val isChoosingPodcast: Boolean = true,
     val cards: List<AiPodcastCardUiState> = emptyList(),
     val messages: List<AiChatMessageUiState> = emptyList(),
-    val draftQuestion: String = ""
+    val draftQuestion: String = "",
+    val isAsking: Boolean = false
 )
 
 data class AiPodcastCardUiState(
@@ -23,7 +24,10 @@ data class AiChatMessageUiState(
     val id: String,
     val text: String,
     val sender: AiChatSender,
-    val timestampLabel: String
+    val timestampLabel: String,
+    val statusLabel: String? = null,
+    val retryMessageId: String? = null,
+    val isError: Boolean = false
 )
 
 enum class AiChatSender {

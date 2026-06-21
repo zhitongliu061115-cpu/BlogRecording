@@ -4,9 +4,9 @@
 
 ## 2. Export Rendering
 
-- [ ] 2.1 Define export input model and supported formats: Markdown, TXT, and JSON.
-- [ ] 2.2 Render transcript, structured summary, timeline chapters, generated tags, and favorited highlights in deterministic order.
-- [ ] 2.3 Add filename sanitization and export format versioning.
+- [x] 2.1 Define export input model and supported formats: Markdown, TXT, and JSON.
+- [x] 2.2 Render transcript, structured summary, timeline chapters, generated tags, and favorited highlights in deterministic order.
+- [x] 2.3 Add filename sanitization and export format versioning.
 
 ## 3. Android Save And Share
 
@@ -17,7 +17,7 @@
 
 ## 4. Tests And Harness
 
-- [ ] 4.1 Add unit tests for Markdown, TXT, JSON, escaping, empty fields, filename sanitization, and format versioning.
+- [x] 4.1 Add unit tests for Markdown, TXT, JSON, escaping, empty fields, filename sanitization, and format versioning.
 - [ ] 4.2 Run `openspec.cmd validate add-session-export`.
 - [ ] 4.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 4.4 Run `.\gradlew.bat connectedDebugAndroidTest` when a device or emulator is available.

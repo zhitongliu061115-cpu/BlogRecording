@@ -39,6 +39,8 @@ sealed class AppError {
     data object UrlImportTooLarge : AppError()
     data object UrlImportRedirectBlocked : AppError()
     data object UrlImportDownloadFailed : AppError()
+    data object ExportEmptyContent : AppError()
+    data object ExportWriteFailed : AppError()
     data class RecordingPipelineFailed(val reason: String) : AppError()
     data class NetworkFailed(val reason: String) : AppError()
     data class Unknown(val reason: String) : AppError()
@@ -84,6 +86,8 @@ fun AppError.toUserMessage(): String {
         AppError.UrlImportTooLarge -> "远程媒体过大，请先使用较短的音视频"
         AppError.UrlImportRedirectBlocked -> "链接跳转到不支持的位置"
         AppError.UrlImportDownloadFailed -> "下载远程媒体失败，请稍后重试"
+        AppError.ExportEmptyContent -> "当前会话没有可导出的内容"
+        AppError.ExportWriteFailed -> "导出文件写入失败，请重试"
         is AppError.RecordingPipelineFailed -> "录音识别流水线异常：$reason"
         is AppError.NetworkFailed -> "网络请求失败：$reason"
         is AppError.Unknown -> "未知错误：$reason"

@@ -22,8 +22,8 @@
 ## 5. Tests And Harness
 
 - [x] 5.1 Add unit tests for Xiaoyuzhou URL parsing, resolver priority, fixture parsing, network response classification, and privacy-safe logging.
-- [ ] 5.2 Run `openspec.cmd validate add-url-media-import`.
-- [ ] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 5.2 Run `openspec.cmd validate add-url-media-import`.
+- [x] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 5.4 Manually verify a Xiaoyuzhou episode URL, invalid URL, unsupported URL, direct media URL, RSS enclosure,断网, slow network, and non-downloadable resource.
 
 ## Suggested Commits

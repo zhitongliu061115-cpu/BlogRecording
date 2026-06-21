@@ -78,10 +78,13 @@ enum class ModelLoadStatus {
 }
 
 enum class ImportedContentKind {
-    LOCAL_MEDIA
+    LOCAL_MEDIA,
+    URL_MEDIA
 }
 
 enum class ImportedContentStatus {
+    RESOLVING,
+    DOWNLOADING,
     COPYING,
     DECODING,
     TRANSCRIBING,
@@ -98,7 +101,9 @@ data class ImportedContentMetadata(
     val status: ImportedContentStatus,
     val errorMessage: String?,
     val importedAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val sourceUrl: String? = null,
+    val sourceHost: String? = null
 )
 
 data class RecordingSessionEntity(

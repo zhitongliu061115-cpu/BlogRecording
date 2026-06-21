@@ -9,7 +9,7 @@ class RecordingPersistenceContractTest {
     fun contractKeepsDatastoreAndKeyFamilies() {
         assertEquals("podcast_recap_records", RecordingPersistenceContract.DATASTORE_NAME)
         assertEquals("schema_version", RecordingPersistenceContract.SCHEMA_VERSION_KEY)
-        assertEquals(3, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
+        assertEquals(4, RecordingPersistenceContract.CURRENT_SCHEMA_VERSION)
         assertEquals("session_order", RecordingPersistenceContract.SESSION_ORDER_KEY)
         assertEquals("session_abc", RecordingPersistenceContract.sessionKey("abc"))
         assertEquals("segments_abc", RecordingPersistenceContract.segmentsKey("abc"))
@@ -52,10 +52,13 @@ class RecordingPersistenceContractTest {
         assertTrue("summary" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
         assertTrue("importedContent" in RecordingPersistenceContract.PODCAST_SESSION_FIELDS)
 
-        assertEquals(9, RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS.size)
+        assertEquals(11, RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS.size)
         assertTrue("displayName" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
         assertTrue("mimeType" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
         assertTrue("status" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("sourceUrl" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertTrue("sourceHost" in RecordingPersistenceContract.IMPORTED_CONTENT_FIELDS)
+        assertEquals("URL_MEDIA", ImportedContentKind.URL_MEDIA.name)
 
         assertEquals(6, RecordingPersistenceContract.SESSION_SUMMARY_FIELDS.size)
         assertTrue("generatedAt" in RecordingPersistenceContract.SESSION_SUMMARY_FIELDS)

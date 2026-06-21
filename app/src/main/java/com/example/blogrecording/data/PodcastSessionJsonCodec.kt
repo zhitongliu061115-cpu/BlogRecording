@@ -70,6 +70,8 @@ internal object PodcastSessionJsonCodec {
             .put("errorMessage", metadata.errorMessage)
             .put("importedAt", metadata.importedAt)
             .put("updatedAt", metadata.updatedAt)
+            .put("sourceUrl", metadata.sourceUrl)
+            .put("sourceHost", metadata.sourceHost)
     }
 
     fun decodeImportedContent(json: JSONObject): ImportedContentMetadata {
@@ -84,7 +86,9 @@ internal object PodcastSessionJsonCodec {
                 .toEnumOrDefault(ImportedContentStatus.COMPLETED),
             errorMessage = json.nullableString("errorMessage"),
             importedAt = json.optLong("importedAt", json.optLong("updatedAt")),
-            updatedAt = json.optLong("updatedAt", json.optLong("importedAt"))
+            updatedAt = json.optLong("updatedAt", json.optLong("importedAt")),
+            sourceUrl = json.nullableString("sourceUrl"),
+            sourceHost = json.nullableString("sourceHost")
         )
     }
 

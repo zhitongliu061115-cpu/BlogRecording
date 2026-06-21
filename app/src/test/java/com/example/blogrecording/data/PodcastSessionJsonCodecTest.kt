@@ -109,6 +109,32 @@ class PodcastSessionJsonCodecTest {
     }
 
     @Test
+    fun urlImportedContentRoundTripsSanitizedSourceMetadata() {
+        val metadata = ImportedContentMetadata(
+            kind = ImportedContentKind.URL_MEDIA,
+            displayName = "episode.mp3",
+            mimeType = "audio/mpeg",
+            sizeBytes = 123_456L,
+            durationMs = null,
+            status = ImportedContentStatus.DOWNLOADING,
+            errorMessage = null,
+            importedAt = 1_000L,
+            updatedAt = 2_000L,
+            sourceUrl = "https://www.xiaoyuzhoufm.com/episode/6a3392764233e62bc54be185",
+            sourceHost = "www.xiaoyuzhoufm.com"
+        )
+        val session = podcastSession(sourceType = AudioSourceType.LOCAL_MEDIA).copy(
+            importedContent = metadata
+        )
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(metadata, decoded.importedContent)
+    }
+
+    @Test
     fun legacyPodcastSessionJsonDefaultsMissingImportedContent() {
         val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
         json.remove("importedContent")

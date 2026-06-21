@@ -96,5 +96,4 @@ class SummaryRepository(
         appendLine(title)
         items.forEach { appendLine("- $it") }
     }
-    }
 }

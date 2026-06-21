@@ -265,6 +265,52 @@ class PodcastSessionJsonCodecTest {
         assertEquals(SessionHighlights.empty(), decoded.highlights)
     }
 
+    @Test
+    fun qaHistoryRoundTripsThroughPodcastSessionJson() {
+        val history = SessionQaHistory(
+            messages = listOf(
+                SessionQaMessage(
+                    id = "qa-1",
+                    question = "What happened?",
+                    answer = "Only episode content.",
+                    askedAt = 3_000L,
+                    answeredAt = 4_000L,
+                    status = QaMessageStatus.ANSWERED,
+                    modelName = "deepseek-chat",
+                    errorMessage = null
+                ),
+                SessionQaMessage(
+                    id = "qa-2",
+                    question = "Retry?",
+                    answer = null,
+                    askedAt = 5_000L,
+                    answeredAt = null,
+                    status = QaMessageStatus.FAILED,
+                    modelName = "deepseek-chat",
+                    errorMessage = "HTTP 500"
+                )
+            ),
+            updatedAt = 5_000L
+        )
+        val session = podcastSession().copy(qaHistory = history)
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(
+            PodcastSessionJsonCodec.encodeSession(session)
+        )
+
+        assertEquals(history, decoded.qaHistory)
+    }
+
+    @Test
+    fun legacyPodcastSessionJsonDefaultsMissingQaHistory() {
+        val json = PodcastSessionJsonCodec.encodeSession(podcastSession())
+        json.remove("qaHistory")
+
+        val decoded = PodcastSessionJsonCodec.decodeSession(json)
+
+        assertEquals(SessionQaHistory.empty(), decoded.qaHistory)
+    }
+
     private fun podcastSession(
         sourceType: AudioSourceType? = AudioSourceType.MICROPHONE,
         summary: SessionSummary? = SessionSummary(

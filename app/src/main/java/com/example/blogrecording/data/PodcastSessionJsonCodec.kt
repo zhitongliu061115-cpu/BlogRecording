@@ -30,6 +30,7 @@ internal object PodcastSessionJsonCodec {
             .put("importedContent", session.importedContent?.let(::encodeImportedContent))
             .put("tagGeneration", encodeTagGeneration(session.tagGeneration))
             .put("highlights", encodeSessionHighlights(session.highlights))
+            .put("qaHistory", encodeQaHistory(session.qaHistory))
     }
 
     fun decodeSession(json: JSONObject): PodcastSession {
@@ -61,7 +62,9 @@ internal object PodcastSessionJsonCodec {
             tagGeneration = json.optJSONObject("tagGeneration")?.let(::decodeTagGeneration)
                 ?: SessionTagGeneration.empty(),
             highlights = json.optJSONObject("highlights")?.let(::decodeSessionHighlights)
-                ?: SessionHighlights.empty()
+                ?: SessionHighlights.empty(),
+            qaHistory = json.optJSONObject("qaHistory")?.let(::decodeQaHistory)
+                ?: SessionQaHistory.empty()
         )
     }
 
@@ -275,6 +278,51 @@ internal object PodcastSessionJsonCodec {
             generated = json.optBoolean("generated", true),
             createdAt = json.optLong("createdAt"),
             updatedAt = json.optLong("updatedAt")
+        )
+    }
+
+    fun encodeQaHistory(history: SessionQaHistory): JSONObject {
+        return JSONObject()
+            .put("messages", JSONArray(history.messages.map(::encodeQaMessage)))
+            .put("updatedAt", history.updatedAt)
+    }
+
+    fun decodeQaHistory(json: JSONObject): SessionQaHistory {
+        return SessionQaHistory(
+            messages = json.optJSONArray("messages")?.let(::decodeQaMessages).orEmpty(),
+            updatedAt = json.optLong("updatedAt")
+        )
+    }
+
+    fun encodeQaMessage(message: SessionQaMessage): JSONObject {
+        return JSONObject()
+            .put("id", message.id)
+            .put("question", message.question)
+            .put("answer", message.answer)
+            .put("askedAt", message.askedAt)
+            .put("answeredAt", message.answeredAt)
+            .put("status", message.status.name)
+            .put("modelName", message.modelName)
+            .put("errorMessage", message.errorMessage)
+    }
+
+    fun decodeQaMessages(array: JSONArray): List<SessionQaMessage> {
+        return List(array.length()) { index ->
+            decodeQaMessage(array.getJSONObject(index))
+        }.sortedBy { it.askedAt }
+    }
+
+    fun decodeQaMessage(json: JSONObject): SessionQaMessage {
+        return SessionQaMessage(
+            id = json.optString("id"),
+            question = json.optString("question"),
+            answer = json.nullableString("answer"),
+            askedAt = json.optLong("askedAt"),
+            answeredAt = json.nullableLong("answeredAt"),
+            status = json.optString("status", QaMessageStatus.ANSWERED.name)
+                .toEnumOrDefault(QaMessageStatus.ANSWERED),
+            modelName = json.optString("modelName", "deepseek-chat"),
+            errorMessage = json.nullableString("errorMessage")
         )
     }
 

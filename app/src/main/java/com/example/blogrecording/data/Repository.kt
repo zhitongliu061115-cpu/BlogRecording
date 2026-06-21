@@ -510,6 +510,19 @@ class Repository(private val context: Context) : SessionRepository {
         return AppResult.Success(updated)
     }
 
+    override suspend fun updateQaHistory(
+        sessionId: String,
+        qaHistory: SessionQaHistory
+    ): AppResult<PodcastSession> {
+        val detail = getPodcastSessionDetail(sessionId) ?: return missingSession()
+        val updated = detail.session.copy(
+            qaHistory = qaHistory,
+            updatedAt = qaHistory.updatedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
+        )
+        savePodcastSession(updated)
+        return AppResult.Success(updated)
+    }
+
     override fun observeSessions(): Flow<List<PodcastSession>> {
         return context.recordsDataStore.data.map { prefs ->
             val order = prefs[Keys.SessionOrder].orEmpty().lines().filter { it.isNotBlank() }

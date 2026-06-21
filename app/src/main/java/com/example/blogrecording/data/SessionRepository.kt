@@ -78,6 +78,13 @@ interface SessionRepository {
         return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("highlights unsupported"))
     }
 
+    suspend fun updateQaHistory(
+        sessionId: String,
+        qaHistory: SessionQaHistory
+    ): AppResult<PodcastSession> {
+        return AppResult.Failure(com.example.blogrecording.common.AppError.Unknown("qa history unsupported"))
+    }
+
     fun observeSessions(): Flow<List<PodcastSession>>
 
     fun observeSessionDetail(sessionId: String): Flow<PodcastSessionDetail?>

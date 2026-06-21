@@ -246,6 +246,34 @@ data class SessionHighlights(
     }
 }
 
+enum class QaMessageStatus {
+    ANSWERING,
+    ANSWERED,
+    FAILED,
+    BLOCKED_MISSING_API_KEY,
+    BLOCKED_EMPTY_CONTENT
+}
+
+data class SessionQaMessage(
+    val id: String,
+    val question: String,
+    val answer: String?,
+    val askedAt: Long,
+    val answeredAt: Long?,
+    val status: QaMessageStatus,
+    val modelName: String,
+    val errorMessage: String?
+)
+
+data class SessionQaHistory(
+    val messages: List<SessionQaMessage> = emptyList(),
+    val updatedAt: Long = 0L
+) {
+    companion object {
+        fun empty(): SessionQaHistory = SessionQaHistory()
+    }
+}
+
 enum class StructuredSummaryParseStatus {
     STRUCTURED,
     PARTIAL,
@@ -295,7 +323,8 @@ data class PodcastSession(
     val legacyRecordingSessionId: String?,
     val importedContent: ImportedContentMetadata? = null,
     val tagGeneration: SessionTagGeneration = SessionTagGeneration.empty(),
-    val highlights: SessionHighlights = SessionHighlights.empty()
+    val highlights: SessionHighlights = SessionHighlights.empty(),
+    val qaHistory: SessionQaHistory = SessionQaHistory.empty()
 )
 
 data class PodcastSessionDetail(

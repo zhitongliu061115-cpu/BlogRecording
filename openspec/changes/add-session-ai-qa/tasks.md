@@ -24,8 +24,8 @@
 ## 5. Tests And Harness
 
 - [x] 5.1 Add unit tests for context construction, truncation, cross-session exclusion, blocked states, response handling, retry, and privacy-safe logging.
-- [ ] 5.2 Run `openspec.cmd validate add-session-ai-qa`.
-- [ ] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 5.2 Run `openspec.cmd validate add-session-ai-qa`.
+- [x] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 5.4 Manually verify configured API key, missing API key, no transcript, long transcript, network error, retry, and follow-up history.
 
 ## Suggested Commits

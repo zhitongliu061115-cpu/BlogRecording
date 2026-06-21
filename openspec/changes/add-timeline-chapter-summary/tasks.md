@@ -22,8 +22,8 @@
 ## 5. Tests And Harness
 
 - [x] 5.1 Add unit tests for timeline context, parser validation, fallback, and UI state mapping.
-- [ ] 5.2 Run `openspec.cmd validate add-timeline-chapter-summary`.
-- [ ] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
+- [x] 5.2 Run `openspec.cmd validate add-timeline-chapter-summary`.
+- [x] 5.3 Run `git diff --check`, `.\gradlew.bat testDebugUnitTest`, and `.\gradlew.bat assembleDebug`.
 - [ ] 5.4 Manually verify long content, multi-segment recordings, missing timestamps, and malformed timeline response.
 
 ## Suggested Commits

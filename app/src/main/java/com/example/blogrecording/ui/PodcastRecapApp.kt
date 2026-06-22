@@ -6,6 +6,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -15,6 +16,10 @@ import com.example.blogrecording.export.SessionExportFormat
 import com.example.blogrecording.ui.components.PrivacyNoticeDialog
 import com.example.blogrecording.ui.state.AppScreen
 import com.example.blogrecording.ui.state.AppUiState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Person
 
 @Composable
 fun PodcastRecapApp(
@@ -125,11 +130,25 @@ private fun AppBottomNavigation(
             NavigationBarItem(
                 selected = currentScreen == screen,
                 onClick = { onNavigate(screen) },
-                icon = { Text(screen.bottomLabel()) },
+                icon = {
+                    Icon(
+                        imageVector = screen.bottomIcon(),
+                        contentDescription = screen.bottomLabel()
+                    )
+                },
                 label = { Text(screen.bottomLabel()) }
             )
         }
     }
+}
+
+private fun AppScreen.bottomIcon() = when (this) {
+    AppScreen.HOME -> Icons.Rounded.Home
+    AppScreen.AI -> Icons.Rounded.AutoAwesome
+    AppScreen.MINE -> Icons.Rounded.Person
+    AppScreen.SETTINGS,
+    AppScreen.HISTORY,
+    AppScreen.DETAIL -> Icons.Rounded.Home
 }
 
 private fun AppScreen.bottomLabel(): String {

@@ -2,9 +2,11 @@ package com.example.blogrecording
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import com.example.blogrecording.data.AudioSourceType
 import com.example.blogrecording.data.RecordingSessionEntity
 import com.example.blogrecording.data.RecordingStatus
@@ -70,7 +72,7 @@ class ScreenCallbackUiTest {
             )
         }
 
-        composeRule.onNodeWithText("删除").performClick()
+        composeRule.onNodeWithText("删除").performScrollTo().performClick()
 
         assertTrue(deleted)
     }
@@ -134,7 +136,7 @@ class ScreenCallbackUiTest {
             )
         }
 
-        composeRule.onNodeWithText("设置").performClick()
+        composeRule.onNodeWithContentDescription("设置").performClick()
 
         assertEquals(AppScreen.SETTINGS, destination)
     }
@@ -276,7 +278,7 @@ class ScreenCallbackUiTest {
             vadModelName = "Silero VAD sherpa-onnx",
             diarizationModelName = "sherpa-onnx speaker diarization",
             summaryModelName = "deepseek-chat",
-            summaryStyle = SummaryStyle.POINTS_QUOTES_ACTIONS,
+            summaryStyle = SummaryStyle.BULLET_SUMMARY,
             summaryLanguage = SummaryLanguage.CHINESE,
             detectedSpeakerCount = 1,
             segmentCount = 1,

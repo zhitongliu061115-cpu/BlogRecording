@@ -11,16 +11,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.AddComment
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Podcasts
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,6 +40,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.blogrecording.ui.components.AppSpacing
+import com.example.blogrecording.ui.components.EmptyState
+import com.example.blogrecording.ui.components.PodcastTopBar
+import com.example.blogrecording.ui.components.SectionHeader
+import com.example.blogrecording.ui.components.StatusPill
 import com.example.blogrecording.ui.state.AiChatMessageUiState
 import com.example.blogrecording.ui.state.AiChatSender
 import com.example.blogrecording.ui.state.AiChatUiState
@@ -48,20 +62,18 @@ fun AiChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = AppSpacing.page, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        PodcastTopBar(
+            title = "AI 助手",
+            subtitle = if (state.isChoosingPodcast) "选择一期播客开始复盘" else "回答仅基于当前播客内容"
         ) {
-            Text("AI 助手", style = MaterialTheme.typography.headlineSmall)
-            OutlinedButton(
+            IconButton(
                 onClick = onNewConversation,
                 modifier = Modifier.testTag("ai-new-conversation")
             ) {
-                Text("新对话")
+                Icon(Icons.Rounded.AddComment, contentDescription = "新对话")
             }
         }
 
@@ -77,15 +89,14 @@ fun AiChatScreen(
                 onRetryQuestion = onRetryQuestion,
                 modifier = Modifier.weight(1f)
             )
+            ChatInput(
+                value = state.draftQuestion,
+                enabled = state.selectedSessionId != null && !state.isAsking,
+                isAsking = state.isAsking,
+                onChange = onDraftChange,
+                onSend = onSend
+            )
         }
-
-        ChatInput(
-            value = state.draftQuestion,
-            enabled = state.selectedSessionId != null && !state.isChoosingPodcast && !state.isAsking,
-            isAsking = state.isAsking,
-            onChange = onDraftChange,
-            onSend = onSend
-        )
     }
 }
 
@@ -99,13 +110,21 @@ private fun PodcastChooser(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("选择要聊的播客", style = MaterialTheme.typography.titleMedium)
+        SectionHeader(
+            title = "选择播客",
+            supportingText = "转写和总结会成为对话上下文"
+        )
         if (cards.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            EmptyState(
+                icon = Icons.Rounded.Podcasts,
+                title = "暂无可聊的播客",
+                message = "先完成一次录音或导入，并等待本地转写完成。"
             ) {
-                Text("暂无可聊天的播客内容")
+                Text(
+                    "播客准备好后会显示在这里",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         } else {
             LazyRow(
@@ -113,10 +132,7 @@ private fun PodcastChooser(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(cards) { card ->
-                    AiPodcastCard(
-                        state = card,
-                        onClick = { onSelectPodcast(card.sessionId) }
-                    )
+                    AiPodcastCard(card, onClick = { onSelectPodcast(card.sessionId) })
                 }
             }
         }
@@ -124,45 +140,59 @@ private fun PodcastChooser(
 }
 
 @Composable
-private fun AiPodcastCard(
-    state: AiPodcastCardUiState,
-    onClick: () -> Unit
-) {
+private fun AiPodcastCard(state: AiPodcastCardUiState, onClick: () -> Unit) {
     Card(
         modifier = Modifier
-            .width(280.dp)
-            .height(220.dp)
+            .width(286.dp)
+            .height(218.dp)
             .testTag("ai-podcast-card-${state.sessionId}")
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Icon(
+                    Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.padding(8.dp).size(18.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
             Text(
-                text = state.title,
+                state.title,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Text("${state.statusLabel} · ${state.durationLabel}", style = MaterialTheme.typography.bodySmall)
-            Text(state.transcriptionLabel, style = MaterialTheme.typography.bodySmall)
-            Text("总结 ${state.summaryLabel}", style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatusPill(state.statusLabel)
+                StatusPill(
+                    state.durationLabel,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Text(
-                text = state.transcriptPreview,
+                state.transcriptPreview,
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
             if (state.tagLabels.isNotEmpty()) {
                 Text(
-                    text = state.tagLabels.joinToString(prefix = "#", separator = " #"),
+                    state.tagLabels.joinToString(prefix = "#", separator = "  #"),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.secondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -179,13 +209,25 @@ private fun ChatConversation(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (messages.isEmpty()) {
+            item {
+                EmptyState(
+                    icon = Icons.Rounded.AutoAwesome,
+                    title = "开始复盘",
+                    message = "可以询问关键观点、行动项、分歧，或让 AI 解释某段内容。"
+                ) {
+                    Text(
+                        "对话内容保存在当前播客中",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+        }
         items(messages) { message ->
-            ChatBubble(
-                message = message,
-                onRetryQuestion = onRetryQuestion
-            )
+            ChatBubble(message, onRetryQuestion)
         }
     }
 }
@@ -198,47 +240,67 @@ private fun ChatBubble(
     val isUser = message.sender == AiChatSender.USER
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
+        if (!isUser) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Icon(
+                    Icons.Rounded.AutoAwesome,
+                    contentDescription = "AI",
+                    modifier = Modifier.padding(7.dp).size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        }
         Column(
+            modifier = Modifier.fillMaxWidth(0.84f),
             horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(message.timestampLabel, style = MaterialTheme.typography.labelSmall)
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = if (isUser) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
-                },
-                tonalElevation = 1.dp
+                }
             ) {
                 Text(
-                    text = message.text,
-                    modifier = Modifier
-                        .width(260.dp)
-                        .padding(12.dp),
+                    message.text,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            message.statusLabel?.let {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
-                    text = it,
+                    message.timestampLabel,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (message.isError) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    }
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            message.retryMessageId?.let { retryMessageId ->
-                OutlinedButton(
-                    onClick = { onRetryQuestion(retryMessageId) },
-                    modifier = Modifier.testTag("ai-retry-$retryMessageId")
-                ) {
-                    Text("重试")
+                message.statusLabel?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (message.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+                    )
+                }
+                message.retryMessageId?.let { retryMessageId ->
+                    FilledTonalButton(
+                        onClick = { onRetryQuestion(retryMessageId) },
+                        modifier = Modifier.testTag("ai-retry-$retryMessageId")
+                    ) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("重试")
+                    }
                 }
             }
         }
@@ -253,35 +315,36 @@ private fun ChatInput(
     onChange: (String) -> Unit,
     onSend: () -> Unit
 ) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        shadowElevation = 2.dp
     ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onChange,
-            enabled = enabled,
-            label = {
-                Text(
-                    when {
-                        isAsking -> "DeepSeek 回答中"
-                        enabled -> "输入问题"
-                        else -> "请先选择播客"
-                    }
-                )
-            },
-            modifier = Modifier
-                .weight(1f)
-                .testTag("ai-chat-input"),
-            singleLine = true
-        )
-        Button(
-            onClick = onSend,
-            enabled = enabled && value.isNotBlank(),
-            modifier = Modifier.testTag("ai-send")
+        Row(
+            modifier = Modifier.padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(if (isAsking) "回答中" else "发送")
+            OutlinedTextField(
+                value = value,
+                onValueChange = onChange,
+                enabled = enabled,
+                placeholder = { Text(if (isAsking) "DeepSeek 回答中" else "围绕这期播客提问") },
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("ai-chat-input"),
+                minLines = 1,
+                maxLines = 4
+            )
+            IconButton(
+                onClick = onSend,
+                enabled = enabled && value.isNotBlank(),
+                modifier = Modifier.testTag("ai-send")
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = if (isAsking) "回答中" else "发送")
+            }
         }
     }
 }

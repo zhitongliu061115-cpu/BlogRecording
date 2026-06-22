@@ -9,8 +9,8 @@ class HomeRecordingFallbackContractTest {
     fun homeKeepsMicrophoneFallbackControlsBesideInternalAudioActions() {
         val source = File("src/main/java/com/example/blogrecording/ui/HomeScreen.kt").readText()
 
-        assertTrue(source.contains("Text(\"系统内录\")"))
-        assertTrue(source.contains("Text(\"麦克风录音\")"))
+        assertTrue(source.contains("SourceButton(\"系统内录\""))
+        assertTrue(source.contains("SourceButton(\"麦克风录音\""))
         assertTrue(source.contains("Text(\"麦克风开始\")"))
         assertTrue(source.contains("Text(\"麦克风续录\")"))
     }

@@ -3,6 +3,7 @@ package com.example.blogrecording
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertTrue
@@ -20,9 +21,9 @@ class PodcastRecapUiTest {
         composeRule.onNodeWithText("BlogRecording").assertIsDisplayed()
         assertTextExists("系统内录")
         assertTextExists("麦克风录音")
-        assertTextExists("历史")
-        assertTextExists("设置")
-        assertTextExists("隐私边界")
+        composeRule.onNodeWithContentDescription("历史").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("设置").assertIsDisplayed()
+        assertTextExists("音频留在本机")
     }
 
     @Test
@@ -41,18 +42,18 @@ class PodcastRecapUiTest {
     fun settingsScreenShowsApiKeyAndModelFields() {
         acceptPrivacyIfShown()
 
-        composeRule.onNodeWithText("设置").performClick()
+        composeRule.onNodeWithContentDescription("设置").performClick()
         composeRule.onNodeWithText("DeepSeek API Key").assertIsDisplayed()
-        composeRule.onNodeWithText("模型随安装包内置，首次启动会自动复制到 App 私有目录，用户不需要手动填写模型路径。").assertIsDisplayed()
+        composeRule.onNodeWithText("模型随安装包内置，首次启动会自动复制到 App 私有目录，用户不需要手动填写模型路径。").assertExists()
     }
 
     @Test
     fun historyScreenCanOpenWithExistingOrEmptyData() {
         acceptPrivacyIfShown()
 
-        composeRule.onNodeWithText("历史").performClick()
+        composeRule.onNodeWithContentDescription("历史").performClick()
         assertTextExists("历史")
-        assertTextExists("返回")
+        composeRule.onNodeWithContentDescription("返回").assertIsDisplayed()
     }
 
     private fun acceptPrivacyIfShown() {

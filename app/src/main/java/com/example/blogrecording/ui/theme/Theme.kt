@@ -1,58 +1,89 @@
 package com.example.blogrecording.ui.theme
 
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.unit.dp
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = ColorTokens.CoralLight,
+    onPrimary = ColorTokens.CoralOnLight,
+    primaryContainer = CoralSoftDark,
+    onPrimaryContainer = ColorTokens.CoralContainerOnDark,
+    secondary = ColorTokens.TealLight,
+    onSecondary = ColorTokens.TealOnLight,
+    secondaryContainer = TealSoftDark,
+    onSecondaryContainer = ColorTokens.TealContainerOnDark,
+    tertiary = ColorTokens.AmberLight,
+    onTertiary = ColorTokens.AmberOnLight,
+    background = PaperDark,
+    onBackground = InkOnDark,
+    surface = SurfaceDark,
+    onSurface = InkOnDark,
+    surfaceVariant = SurfaceMutedDark,
+    onSurfaceVariant = InkMutedDark,
+    outline = OutlineDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = Coral,
+    onPrimary = SurfaceLight,
+    primaryContainer = CoralSoft,
+    onPrimaryContainer = CoralDark,
+    secondary = Teal,
+    onSecondary = SurfaceLight,
+    secondaryContainer = TealSoft,
+    onSecondaryContainer = TealDark,
+    tertiary = Amber,
+    onTertiary = SurfaceLight,
+    tertiaryContainer = AmberSoft,
+    onTertiaryContainer = ColorTokens.AmberOnContainer,
+    background = Paper,
+    onBackground = Ink,
+    surface = SurfaceLight,
+    onSurface = Ink,
+    surfaceVariant = SurfaceMuted,
+    onSurfaceVariant = InkMuted,
+    outline = OutlineLight
+)
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private object ColorTokens {
+    val CoralLight = androidx.compose.ui.graphics.Color(0xFFFFB4A8)
+    val CoralOnLight = androidx.compose.ui.graphics.Color(0xFF5F160F)
+    val CoralContainerOnDark = androidx.compose.ui.graphics.Color(0xFFFFDAD3)
+    val TealLight = androidx.compose.ui.graphics.Color(0xFF83D5CC)
+    val TealOnLight = androidx.compose.ui.graphics.Color(0xFF003733)
+    val TealContainerOnDark = androidx.compose.ui.graphics.Color(0xFFBCEDE6)
+    val AmberLight = androidx.compose.ui.graphics.Color(0xFFFFC96F)
+    val AmberOnLight = androidx.compose.ui.graphics.Color(0xFF442C00)
+    val AmberOnContainer = androidx.compose.ui.graphics.Color(0xFF372400)
+}
+
+private val AppShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(8.dp),
+    extraLarge = RoundedCornerShape(8.dp).copy(bottomEnd = ZeroCornerSize)
 )
 
 @Composable
 fun BlogRecordingTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = AppShapes,
         content = content
     )
 }

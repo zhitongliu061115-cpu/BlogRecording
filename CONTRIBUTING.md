@@ -24,5 +24,5 @@
 1. **Fork 本仓库** 到你的个人 GitHub 账号下。
 2. **克隆 (Clone)** 你 Fork 的仓库到本地：
 ```bash
-   git clone [https://github.com/你的用户名/](https://github.com/你的用户名/)[项目名称].git
-   cd [项目名称]
+   git clone https://github.com/zhitongliu061115-cpu/BlogRecording.git
+   cd BlogRecording

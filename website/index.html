@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcast Recap Local ASR | Android 本地优先播客复盘工具</title>
+    <meta
+        name="description"
+        content="Podcast Recap Local ASR 是一款 Android 29+ 应用：录音或导入音频，在本地完成转写、VAD 和说话人分离，再把文本交给 DeepSeek 做摘要、标签、高光和问答。"
+    >
+    <meta property="og:title" content="Podcast Recap Local ASR">
+    <meta
+        property="og:description"
+        content="把长音频，压成可执行的复盘。Android 本地优先录音、转写、说话人分离，再把文本交给 DeepSeek 做摘要、标签、高光和问答。"
+    >
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://zhitongliu061115-cpu.github.io/BlogRecording/">
+    <meta property="og:image" content="https://zhitongliu061115-cpu.github.io/BlogRecording/assets/og-cover.svg">
+    <meta name="theme-color" content="#07111f">
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet"
+    >
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="site-header">
+            <a class="brand" href="#top" aria-label="Podcast Recap Local ASR 首页">
+                <img src="./assets/site-mark.svg" alt="" width="40" height="40">
+                <span class="brand-copy">
+                    <strong>Podcast Recap Local ASR</strong>
+                    <span>Android 29+</span>
+                </span>
+            </a>
+            <nav class="site-nav" aria-label="主导航">
+                <a href="#workflow">工作流</a>
+                <a href="#privacy">隐私边界</a>
+                <a href="#download">下载</a>
+                <a href="#faq">FAQ</a>
+            </nav>
+        </header>
+
+        <main id="top">
+            <section class="hero reveal">
+                <div class="hero-copy">
+                    <p class="eyebrow">Android 本地优先录音与复盘</p>
+                    <h1>把长音频，压成可执行的复盘</h1>
+                    <p class="hero-text">
+                        Android 本地优先录音、转写、说话人分离，再把文本交给 DeepSeek
+                        做摘要、标签、高光和问答。
+                    </p>
+                    <div class="hero-actions">
+                        <a
+                            class="button button-primary"
+                            href="https://github.com/zhitongliu061115-cpu/BlogRecording/releases/latest"
+                            data-release-link
+                        >
+                            立即下载 APK
+                        </a>
+                        <a
+                            class="button button-secondary"
+                            href="https://github.com/zhitongliu061115-cpu/BlogRecording"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            查看 GitHub
+                        </a>
+                    </div>
+                    <div class="hero-meta">
+                        <span>Android 29+</span>
+                        <span>Kotlin + Jetpack Compose</span>
+                        <span>AI 总结可选增强</span>
+                    </div>
+                </div>
+
+                <div class="hero-stage" aria-hidden="true">
+                    <div class="device-frame">
+                        <div class="device-glow"></div>
+                        <div class="device-screen">
+                            <div class="screen-top">
+                                <span class="screen-chip">LOCAL ASR</span>
+                                <span class="screen-chip subtle">DEEPSEEK OPTIONAL</span>
+                            </div>
+                            <div class="signal-grid">
+                                <div class="wave-line wave-line-a"></div>
+                                <div class="wave-line wave-line-b"></div>
+                                <div class="wave-line wave-line-c"></div>
+                                <div class="data-card">
+                                    <span>录音 / 导入</span>
+                                    <strong>系统内录 / 麦克风 / 本地媒体 / URL</strong>
+                                </div>
+                                <div class="data-card">
+                                    <span>本地处理</span>
+                                    <strong>VAD · SenseVoice · 说话人分离</strong>
+                                </div>
+                                <div class="data-card">
+                                    <span>输出</span>
+                                    <strong>摘要 · 标签 · 高光 · Markdown / TXT / JSON</strong>
+                                </div>
+                            </div>
+                            <div class="timeline-panel">
+                                <div class="timeline-row">
+                                    <span>SPEAKER A</span>
+                                    <i></i>
+                                </div>
+                                <div class="timeline-row">
+                                    <span>SPEAKER B</span>
+                                    <i></i>
+                                </div>
+                                <div class="timeline-row">
+                                    <span>TEXT ONLY OUTBOUND</span>
+                                    <i></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="proof reveal" aria-label="核心卖点">
+                <article class="feature-card">
+                    <p class="card-kicker">本地优先</p>
+                    <h2>原始音频尽量留在设备内</h2>
+                    <p>
+                        录音、音频处理、VAD、SenseVoice 转写、说话人分离都优先在本地完成。
+                    </p>
+                </article>
+                <article class="feature-card">
+                    <p class="card-kicker">长音频结构化</p>
+                    <h2>从一段长录音，到清晰复盘</h2>
+                    <p>
+                        把转写文本、时间戳和说话人标签整理成可读结果，再导出 Markdown、TXT、JSON。
+                    </p>
+                </article>
+                <article class="feature-card">
+                    <p class="card-kicker">继续追问</p>
+                    <h2>转写之后，还能继续问</h2>
+                    <p>
+                        AI 总结是可选增强。你可以基于当前会话继续问答、补标签、找高光。
+                    </p>
+                </article>
+            </section>
+
+            <section id="workflow" class="workflow reveal">
+                <div class="section-head">
+                    <p class="eyebrow">工作流</p>
+                    <h2>四步完成一次播客复盘</h2>
+                </div>
+                <div class="workflow-grid">
+                    <article class="workflow-step">
+                        <span>01</span>
+                        <h3>录音 / 导入</h3>
+                        <p>支持系统内录、麦克风录音、本地媒体导入、URL 媒体导入。</p>
+                    </article>
+                    <article class="workflow-step">
+                        <span>02</span>
+                        <h3>本地转写</h3>
+                        <p>在本地做音频处理、VAD、SenseVoice 转写与说话人分离。</p>
+                    </article>
+                    <article class="workflow-step">
+                        <span>03</span>
+                        <h3>AI 总结</h3>
+                        <p>只把转写文本、时间戳、说话人标签发给 DeepSeek 做摘要、标签、高光和问答。</p>
+                    </article>
+                    <article class="workflow-step">
+                        <span>04</span>
+                        <h3>导出与追问</h3>
+                        <p>导出 Markdown / TXT / JSON，或围绕当前会话继续追问。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="privacy" class="privacy reveal">
+                <div class="section-head">
+                    <p class="eyebrow">隐私边界</p>
+                    <h2>把敏感部分留在本地，把云端输入缩到最小</h2>
+                </div>
+                <div class="privacy-grid">
+                    <article class="privacy-card">
+                        <h3>只上传文本，不上传原始音频</h3>
+                        <p>发送给 DeepSeek 的只有转写文本、时间戳和说话人标签，原始音频尽量留在本地。</p>
+                    </article>
+                    <article class="privacy-card">
+                        <h3>API Key 本地加密保存</h3>
+                        <p>项目说明中明确写明 API Key 本地加密保存，避免把密钥硬编码进站点或仓库。</p>
+                    </article>
+                    <article class="privacy-card">
+                        <h3>AI 总结不是强制步骤</h3>
+                        <p>没有联网或暂时不想调用模型时，你仍然可以录音、转写、整理和导出。</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="download" class="download reveal">
+                <div class="download-copy">
+                    <p class="eyebrow">下载</p>
+                    <h2>现在就把 APK 拉到设备上</h2>
+                    <p>
+                        官网会优先读取 GitHub Latest Release。当前仓库若没有公开 APK，
+                        按钮会自动跳到 Release 页面。
+                    </p>
+                    <div class="release-status-panel">
+                        <div>
+                            <span class="label">最新版本</span>
+                            <strong data-release-version>等待检测</strong>
+                        </div>
+                        <div>
+                            <span class="label">发布时间</span>
+                            <strong data-release-date>等待检测</strong>
+                        </div>
+                        <div>
+                            <span class="label">状态</span>
+                            <strong data-release-status>将自动读取 GitHub Release</strong>
+                        </div>
+                    </div>
+                    <div class="download-actions">
+                        <a
+                            class="button button-primary"
+                            href="https://github.com/zhitongliu061115-cpu/BlogRecording/releases/latest"
+                            data-release-link
+                        >
+                            立即下载 APK
+                        </a>
+                        <a
+                            class="button button-secondary"
+                            href="https://github.com/zhitongliu061115-cpu/BlogRecording/releases/latest"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            GitHub Release 备用入口
+                        </a>
+                    </div>
+                    <p class="download-note">
+                        最低系统要求：Android 29+。README 中的调试产物路径为
+                        <code>app/build/outputs/apk/debug/app-debug.apk</code>，但公开下载优先以 GitHub Release 为准。
+                    </p>
+                </div>
+                <aside class="download-side" aria-label="发布信息概览">
+                    <div class="status-orbit">
+                        <span class="orbit-core">APK</span>
+                        <span class="orbit-node orbit-node-a">ASR</span>
+                        <span class="orbit-node orbit-node-b">VAD</span>
+                        <span class="orbit-node orbit-node-c">QA</span>
+                    </div>
+                </aside>
+            </section>
+
+            <section id="faq" class="faq reveal">
+                <div class="section-head">
+                    <p class="eyebrow">FAQ</p>
+                    <h2>先把最关键的问题回答掉</h2>
+                </div>
+                <div class="faq-list">
+                    <details>
+                        <summary>这是安卓吗？</summary>
+                        <p>是。它是 Android App，技术栈是 Kotlin + Jetpack Compose，最低 Android 版本为 29+。</p>
+                    </details>
+                    <details>
+                        <summary>需要联网吗？</summary>
+                        <p>录音、导入、本地转写相关流程以本地优先为主；如果要调用 DeepSeek 做总结或问答，则需要联网。</p>
+                    </details>
+                    <details>
+                        <summary>AI 总结是否可选？</summary>
+                        <p>可选。不要把它理解成“完全离线 AI 总结”，而是本地转写基础上的可选增强。</p>
+                    </details>
+                    <details>
+                        <summary>下载后怎么安装？</summary>
+                        <p>点击“立即下载 APK”后获取安装包，在 Android 设备上允许对应来源安装，然后完成安装即可。</p>
+                    </details>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer reveal">
+            <p>Podcast Recap Local ASR</p>
+            <div class="footer-links">
+                <a href="https://github.com/zhitongliu061115-cpu/BlogRecording" target="_blank" rel="noreferrer">GitHub</a>
+                <a href="https://github.com/zhitongliu061115-cpu/BlogRecording/releases/latest" target="_blank" rel="noreferrer">Releases</a>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module" src="./script.js"></script>
+</body>
+</html>
